@@ -53,6 +53,24 @@ ButtonMouseArea {
         return Math.floor(position / root.workspaceButtonWidth);
     }
 
+    // Pinned hover slot: only advances while hovering, so the hover indicator
+    // freezes in place (instead of flying back to the active workspace) once
+    // the mouse leaves, and snaps instantly to the cursor's slot when hovering
+    // starts (instead of sliding in from the active workspace).
+    property int hoverPinnedIndex: workspaceIndexInGroup
+
+    onContainsMouseChanged: {
+        if (containsMouse) {
+            interactionIndicator.animated = false;
+            hoverPinnedIndex = hoverIndex;
+            Qt.callLater(() => interactionIndicator.animated = true);
+        }
+    }
+    onHoverIndexChanged: {
+        if (containsMouse)
+            hoverPinnedIndex = hoverIndex;
+    }
+
     function switchWorkspaceToHovered() {
         Hyprland.dispatch(`hl.dsp.focus({workspace = ${wsModel.getWorkspaceIdAt(hoverIndex)}})`);
     }
@@ -176,7 +194,7 @@ ButtonMouseArea {
         TrailingIndicator {
             id: interactionIndicator
             z: 3
-            index: root.containsMouse ? root.hoverIndex : root.workspaceIndexInGroup
+            index: root.hoverPinnedIndex
             color: "transparent"
             StateOverlay {
                 id: hoverOverlay
@@ -186,6 +204,12 @@ ButtonMouseArea {
                 press: root.containsPress
                 drag: true // There are too many layers so we need to force this to be a lil more opaque
                 contentColor: Appearance.colors.colPrimary
+
+                transformOrigin: Item.Center
+                scale: root.containsMouse ? 1 : 0
+                Behavior on scale {
+                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                }
             }
         }
 
@@ -422,6 +446,7 @@ ButtonMouseArea {
             id: idxPair
             index: trailingIndicator.index
         }
+        property alias animated: idxPair.animated
 
         StyledRectangle {
             id: indicatorRect
