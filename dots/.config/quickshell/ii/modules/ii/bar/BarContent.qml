@@ -54,7 +54,7 @@ Item { // Bar content region
             top: parent.top
             bottom: parent.bottom
             left: parent.left
-            right: middleSection.left
+            right: leftCenterGroup.left
         }
         implicitWidth: leftSectionRowLayout.implicitWidth
         implicitHeight: Appearance.sizes.baseBarHeight
@@ -99,81 +99,105 @@ Item { // Bar content region
         }
     }
 
-    Row { // Middle section
-        id: middleSection
+    // Middle section — NOT a single centered block: Workspaces itself is pinned to
+    // the true screen center, and the left/right pill clusters hang off its edges
+    // independently. Since Media (left) and the pills cluster (right) are rarely
+    // the same width, this intentionally looks asymmetric — that's the point, it's
+    // Workspaces that has to be centered, not the whole left+workspaces+right span.
+    readonly property int middleSectionSpacing: 4
+
+    BarGroup {
+        id: middleCenterGroup
         anchors {
-            top: parent.top
-            bottom: parent.bottom
+            verticalCenter: parent.verticalCenter
             horizontalCenter: parent.horizontalCenter
         }
-        spacing: 4
+        padding: workspacesWidget.widgetPadding
 
-        BarGroup {
-            id: leftCenterGroup
-            anchors.verticalCenter: parent.verticalCenter
-            implicitWidth: root.centerSideModuleWidth
+        Workspaces {
+            id: workspacesWidget
+            Layout.fillHeight: true
+            MouseArea {
+                // Right-click to toggle overview
+                anchors.fill: parent
+                acceptedButtons: Qt.RightButton
 
-            Resources {
-                alwaysShowAllResources: root.useShortenedForm === 2
-                Layout.fillWidth: root.useShortenedForm === 2
-            }
-
-            Media {
-                visible: root.useShortenedForm < 2
-                Layout.fillWidth: true
-            }
-        }
-
-        VerticalBarSeparator {
-            visible: Config.options?.bar.borderless
-        }
-
-        BarGroup {
-            id: middleCenterGroup
-            anchors.verticalCenter: parent.verticalCenter
-            padding: workspacesWidget.widgetPadding
-
-            Workspaces {
-                id: workspacesWidget
-                Layout.fillHeight: true
-                MouseArea {
-                    // Right-click to toggle overview
-                    anchors.fill: parent
-                    acceptedButtons: Qt.RightButton
-
-                    onPressed: event => {
-                        if (event.button === Qt.RightButton) {
-                            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
-                        }
+                onPressed: event => {
+                    if (event.button === Qt.RightButton) {
+                        GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
                     }
                 }
             }
         }
+    }
 
-        VerticalBarSeparator {
-            visible: Config.options?.bar.borderless
+    VerticalBarSeparator {
+        id: leftSeparator
+        visible: Config.options?.bar.borderless
+        height: Appearance.sizes.baseBarHeight / 3
+        anchors {
+            verticalCenter: middleCenterGroup.verticalCenter
+            right: middleCenterGroup.left
+            rightMargin: root.middleSectionSpacing
+        }
+    }
+
+    BarGroup {
+        id: leftCenterGroup
+        anchors {
+            verticalCenter: middleCenterGroup.verticalCenter
+            right: leftSeparator.visible ? leftSeparator.left : middleCenterGroup.left
+            rightMargin: root.middleSectionSpacing
+        }
+        implicitWidth: root.centerSideModuleWidth
+
+        Media {
+            visible: root.useShortenedForm < 2
+            Layout.fillWidth: true
+        }
+    }
+
+    VerticalBarSeparator {
+        id: rightSeparator
+        visible: Config.options?.bar.borderless
+        height: Appearance.sizes.baseBarHeight / 3
+        anchors {
+            verticalCenter: middleCenterGroup.verticalCenter
+            left: middleCenterGroup.right
+            leftMargin: root.middleSectionSpacing
+        }
+    }
+
+    MouseArea {
+        id: rightCenterGroup
+        anchors {
+            verticalCenter: middleCenterGroup.verticalCenter
+            left: rightSeparator.visible ? rightSeparator.right : middleCenterGroup.right
+            leftMargin: root.middleSectionSpacing
+        }
+        // Content-driven on purpose — see note above, this cluster just takes
+        // whatever width its pills naturally need.
+        implicitWidth: rightCenterGroupRow.implicitWidth
+        implicitHeight: rightCenterGroupRow.implicitHeight
+
+        onPressed: {
+            GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen;
         }
 
-        MouseArea {
-            id: rightCenterGroup
-            anchors.verticalCenter: parent.verticalCenter
-            implicitWidth: root.centerSideModuleWidth
-            implicitHeight: rightCenterGroupContent.implicitHeight
-
-            onPressed: {
-                GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen;
-            }
+        RowLayout {
+            id: rightCenterGroupRow
+            anchors.fill: parent
+            spacing: 4
 
             BarGroup {
-                id: rightCenterGroupContent
-                anchors.fill: parent
-
+                padding: 10
                 ClockWidget {
                     showDate: (Config.options.bar.verbose && root.useShortenedForm < 2)
                     Layout.alignment: Qt.AlignVCenter
-                    Layout.fillWidth: true
                 }
+            }
 
+            BarGroup {
                 UtilButtons {
                     visible: (Config.options.bar.verbose && root.useShortenedForm === 0)
                     Layout.alignment: Qt.AlignVCenter
@@ -182,6 +206,25 @@ Item { // Bar content region
                 BatteryIndicator {
                     visible: (root.useShortenedForm < 2 && Battery.available)
                     Layout.alignment: Qt.AlignVCenter
+                }
+            }
+
+            Loader {
+                active: root.useShortenedForm < 2
+
+                sourceComponent: BarGroup {
+                    Resources {
+                        alwaysShowAllResources: true
+                        showPercentages: false
+                    }
+                }
+            }
+
+            Loader {
+                active: Config.options.bar.weather.enable
+
+                sourceComponent: BarGroup {
+                    WeatherBar {}
                 }
             }
         }
@@ -193,7 +236,7 @@ Item { // Bar content region
         anchors {
             top: parent.top
             bottom: parent.bottom
-            left: middleSection.right
+            left: rightCenterGroup.right
             right: parent.right
         }
         implicitWidth: rightSectionRowLayout.implicitWidth
@@ -324,19 +367,11 @@ Item { // Bar content region
                 invertSide: Config?.options.bar.bottom
             }
 
+            // Absorbs all leftover space between the centered middle cluster and
+            // the tray/menu button, pushing the latter to the outer screen edge.
             Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-            }
-
-            // Weather
-            Loader {
-                Layout.leftMargin: 4
-                active: Config.options.bar.weather.enable
-
-                sourceComponent: BarGroup {
-                    WeatherBar {}
-                }
             }
         }
     }

@@ -9,6 +9,7 @@ Item {
     required property double percentage
     property int warningThreshold: 100
     property bool shown: true
+    property bool showPercentage: true
     clip: true
     visible: width > 0 && height > 0
     implicitWidth: resourceRowLayout.x < 0 ? 0 : resourceRowLayout.implicitWidth
@@ -50,8 +51,9 @@ Item {
         }
 
         Item {
+            visible: root.showPercentage
             Layout.alignment: Qt.AlignVCenter
-            implicitWidth: fullPercentageTextMetrics.width
+            implicitWidth: root.showPercentage ? fullPercentageTextMetrics.width : 0
             implicitHeight: percentageText.implicitHeight
 
             TextMetrics {
