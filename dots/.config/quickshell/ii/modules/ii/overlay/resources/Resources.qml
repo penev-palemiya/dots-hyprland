@@ -17,7 +17,7 @@ StyledOverlayWidget {
     minimumHeight: 200
     property list<var> resources: [
         {
-            "icon": "planner_review",
+            "icon": "developer_board",
             "name": Translation.tr("CPU"),
             "history": ResourceUsage.cpuUsageHistory,
             "maxAvailableString": ResourceUsage.maxAvailableCpuString
@@ -29,7 +29,7 @@ StyledOverlayWidget {
             "maxAvailableString": ResourceUsage.maxAvailableMemoryString
         },
         {
-            "icon": "swap_horiz",
+            "icon": "storage",
             "name": Translation.tr("Swap"),
             "history": ResourceUsage.swapUsageHistory,
             "maxAvailableString": ResourceUsage.maxAvailableSwapString

@@ -26,7 +26,7 @@ MouseArea {
         }
 
         Resource {
-            iconName: "swap_horiz"
+            iconName: "storage"
             percentage: ResourceUsage.swapUsedPercentage
             shown: (Config.options.bar.resources.alwaysShowSwap && percentage > 0) || 
                 (MprisController.activePlayer?.trackTitle == null) ||
@@ -36,7 +36,7 @@ MouseArea {
         }
 
         Resource {
-            iconName: "planner_review"
+            iconName: "developer_board"
             percentage: ResourceUsage.cpuUsage
             shown: Config.options.bar.resources.alwaysShowCpu || 
                 !(MprisController.activePlayer?.trackTitle?.length > 0) ||
