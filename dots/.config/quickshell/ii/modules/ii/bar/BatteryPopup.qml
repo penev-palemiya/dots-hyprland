@@ -1,72 +1,113 @@
+import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
-import qs.services
 import QtQuick
 import QtQuick.Layouts
+import qs.modules.ii.bar.weather
 
 StyledPopup {
     id: root
-    
-    ColumnLayout {
-        id: columnLayout
+
+    readonly property bool warning: Battery.isLow && !Battery.isCharging
+
+    function formatTime(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        return h > 0 ? `${h}h, ${m}m` : `${m}m`;
+    }
+
+    Item {
         anchors.centerIn: parent
-        spacing: 4
+        implicitWidth: gridLayout.implicitWidth + 8
+        implicitHeight: columnLayout.implicitHeight + 8
 
-        // Header
-        StyledPopupHeaderRow {
-            icon: "battery_android_full"
-            label: Translation.tr("Battery")
-        }
+        ColumnLayout {
+            id: columnLayout
+            anchors.centerIn: parent
+            spacing: 8
 
-        StyledPopupValueRow {
-            visible: {
-                let timeValue = Battery.isCharging ? Battery.timeToFull : Battery.timeToEmpty;
-                let power = Battery.energyRate;
-                return !(Battery.chargeState == 4 || timeValue <= 0 || power <= 0.01);
-            }
-            icon: "schedule"
-            label: Battery.isCharging ? Translation.tr("Time to full:") : Translation.tr("Time to empty:")
-            value: {
-                function formatTime(seconds) {
-                    var h = Math.floor(seconds / 3600);
-                    var m = Math.floor((seconds % 3600) / 60);
-                    if (h > 0)
-                        return `${h}h, ${m}m`;
-                    else
-                        return `${m}m`;
+            // Header
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignVCenter
+
+                ColumnLayout {
+                    Layout.alignment: Qt.AlignLeft
+                    spacing: 0
+
+                    StyledText {
+                        text: Translation.tr("Battery")
+                        font {
+                            weight: Font.Bold
+                            pixelSize: Appearance.font.pixelSize.small
+                        }
+                        color: Appearance.colors.colOnSurface
+                    }
+
+                    StyledText {
+                        text: Battery.chargeState == 4 ? Translation.tr("Fully charged") : Battery.isCharging ? Translation.tr("Charging") : Translation.tr("Discharging")
+                        font {
+                            weight: Font.Normal
+                            pixelSize: Appearance.font.pixelSize.smaller
+                        }
+                        color: Appearance.colors.colOutline
+                    }
                 }
-                if (Battery.isCharging)
-                    return formatTime(Battery.timeToFull);
-                else
-                    return formatTime(Battery.timeToEmpty);
-            }
-        }
 
-        StyledPopupValueRow {
-            visible:  !(Battery.chargeState != 4 && Battery.energyRate == 0)
-            icon: "bolt"
-            label: {
-                if (Battery.chargeState == 4) {
-                    return Translation.tr("Fully charged");
-                } else if (Battery.chargeState == 1) {
-                    return Translation.tr("Charging:");
-                } else {
-                    return Translation.tr("Discharging:");
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                RowLayout {
+                    Layout.alignment: Qt.AlignRight
+                    spacing: 8
+
+                    StyledText {
+                        text: `${Math.round(Battery.percentage * 100)}%`
+                        font {
+                            weight: Font.SemiBold
+                            pixelSize: Appearance.font.pixelSize.small * 2
+                        }
+                        color: root.warning ? Appearance.colors.colError : Appearance.colors.colOnSurface
+                    }
+
+                    MaterialSymbol {
+                        text: Battery.isCharging ? "battery_charging_full" : root.warning ? "battery_alert" : "battery_android_full"
+                        fill: 0
+                        font.weight: Font.Normal
+                        iconSize: Appearance.font.pixelSize.small * 2
+                        color: root.warning ? Appearance.colors.colError : Appearance.colors.colOnSurface
+                    }
                 }
             }
-            value: {
-                if (Battery.chargeState == 4) {
-                    return "";
-                } else {
-                    return `${Battery.energyRate.toFixed(2)}W`;
+
+            // Stat tiles: vertical list, full width
+            ColumnLayout {
+                id: gridLayout
+                Layout.fillWidth: true
+                spacing: 8
+
+                WeatherCard {
+                    visible: {
+                        const timeValue = Battery.isCharging ? Battery.timeToFull : Battery.timeToEmpty;
+                        return !(Battery.chargeState == 4 || timeValue <= 0 || Battery.energyRate <= 0.01);
+                    }
+                    title: Battery.isCharging ? Translation.tr("Time to full") : Translation.tr("Time to empty")
+                    symbol: "schedule"
+                    value: root.formatTime(Battery.isCharging ? Battery.timeToFull : Battery.timeToEmpty)
+                }
+                WeatherCard {
+                    visible: !(Battery.chargeState != 4 && Battery.energyRate == 0)
+                    title: Battery.isCharging ? Translation.tr("Charging") : Translation.tr("Discharging")
+                    symbol: "bolt"
+                    value: Battery.chargeState == 4 ? "--" : `${Battery.energyRate.toFixed(2)}W`
+                }
+                WeatherCard {
+                    title: Translation.tr("Health")
+                    symbol: "heart_check"
+                    value: `${Battery.health.toFixed(1)}%`
                 }
             }
-        }
-
-        StyledPopupValueRow {
-            icon: "heart_check"
-            label: Translation.tr("Health:")
-            value: `${(Battery.health).toFixed(1)}%`
         }
     }
 }
