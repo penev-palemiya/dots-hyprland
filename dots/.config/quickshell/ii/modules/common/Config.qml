@@ -558,6 +558,7 @@ Singleton {
             property JsonObject sounds: JsonObject {
                 property bool battery: false
                 property bool pomodoro: false
+                property bool countdownTimer: false
                 property string theme: "freedesktop"
             }
 
@@ -572,6 +573,9 @@ Singleton {
                     property int cyclesBeforeLongBreak: 4
                     property int focus: 1500
                     property int longBreak: 900
+                }
+                property JsonObject countdown: JsonObject {
+                    property int defaultDuration: 300
                 }
                 property bool secondPrecision: false
             }

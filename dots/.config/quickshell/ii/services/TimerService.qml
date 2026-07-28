@@ -31,6 +31,11 @@ Singleton {
     property int stopwatchStart: Persistent.states.timer.stopwatch.start
     property var stopwatchLaps: Persistent.states.timer.stopwatch.laps
 
+    property bool countdownRunning: Persistent.states.timer.countdown.running
+    property int countdownStart: Persistent.states.timer.countdown.start
+    property int countdownDuration: Persistent.states.timer.countdown.duration
+    property int countdownSecondsLeft: countdownDuration
+
     // General
     Component.onCompleted: {
         if (!stopwatchRunning)
@@ -138,5 +143,50 @@ Singleton {
 
     function stopwatchRecordLap() {
         Persistent.states.timer.stopwatch.laps.push(stopwatchTime);
+    }
+
+    // Countdown timer
+    function refreshCountdown() {
+        const secondsLeft = Persistent.states.timer.countdown.duration - (getCurrentTimeInSeconds() - Persistent.states.timer.countdown.start);
+        countdownSecondsLeft = Math.max(0, secondsLeft);
+
+        if (secondsLeft <= 0) {
+            Persistent.states.timer.countdown.running = false;
+
+            Quickshell.execDetached(["notify-send", "Timer", Translation.tr("Time's up!"), "-a", "Shell"]);
+            if (Config.options.sounds.countdownTimer) {
+                Audio.playSystemSound("alarm-clock-elapsed")
+            }
+        }
+    }
+
+    Timer {
+        id: countdownTimer
+        interval: 200
+        running: root.countdownRunning
+        repeat: true
+        onTriggered: refreshCountdown()
+    }
+
+    function startCountdown(durationSeconds) {
+        Persistent.states.timer.countdown.duration = durationSeconds;
+        Persistent.states.timer.countdown.start = getCurrentTimeInSeconds();
+        Persistent.states.timer.countdown.running = true;
+        countdownSecondsLeft = durationSeconds;
+    }
+
+    function toggleCountdown() {
+        Persistent.states.timer.countdown.running = !countdownRunning;
+        if (Persistent.states.timer.countdown.running) {
+            // Resume: recompute start from remaining time
+            Persistent.states.timer.countdown.start = getCurrentTimeInSeconds() + countdownSecondsLeft - countdownDuration;
+        }
+    }
+
+    function resetCountdown() {
+        Persistent.states.timer.countdown.running = false;
+        Persistent.states.timer.countdown.start = 0;
+        Persistent.states.timer.countdown.duration = 0;
+        countdownSecondsLeft = 0;
     }
 }

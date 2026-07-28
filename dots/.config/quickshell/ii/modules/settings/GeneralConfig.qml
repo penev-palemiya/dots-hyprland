@@ -283,6 +283,14 @@ ContentPage {
                     Config.options.sounds.pomodoro = checked;
                 }
             }
+            ConfigSwitch {
+                buttonIcon: "hourglass_bottom"
+                text: Translation.tr("Countdown timer")
+                checked: Config.options.sounds.countdownTimer
+                onCheckedChanged: {
+                    Config.options.sounds.countdownTimer = checked;
+                }
+            }
         }
     }
 
