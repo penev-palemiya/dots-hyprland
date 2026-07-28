@@ -61,6 +61,13 @@ ButtonMouseArea {
         Hyprland.dispatch(`hl.dsp.workspace.toggle_special("special")`);
     }
 
+    // Single source of truth: whether a workspace slot should render an app icon
+    // (both the icon layer and the fallback dot layer must agree on this).
+    function slotShowsIcon(index) {
+        const wsId = wsModel.getWorkspaceIdAt(index);
+        return !!(Config.options?.bar.workspaces.showAppIcons && wsModel.biggestWindow[index] && wsId !== wsModel.fakeWorkspace);
+    }
+
     onPressed: mouse => {
         if (mouse.button == Qt.LeftButton)
             switchWorkspaceToHovered();
@@ -261,7 +268,7 @@ ButtonMouseArea {
                             brightness: 0
                             source: appIcon
 
-                            opacity: !Config.options?.bar.workspaces.showAppIcons ? 0 : (wsApp.biggestWindow && !root.superPressAndHeld && Config.options?.bar.workspaces.showAppIcons) ? 1 : wsApp.biggestWindow ? root.workspaceIconOpacityShrinked : 0
+                            opacity: !root.slotShowsIcon(wsApp.index) ? 0 : (!root.superPressAndHeld ? 1 : root.workspaceIconOpacityShrinked)
                             visible: opacity > 0
                             scale: ((!root.superPressAndHeld && Config.options?.bar.workspaces.showAppIcons) ? root.workspaceIconSize : root.workspaceIconSizeShrinked) / root.workspaceIconSize
 
@@ -381,7 +388,7 @@ ButtonMouseArea {
         }
 
         FadeLoader {
-            shown: !wsNum.showingNumbers
+            shown: !wsNum.showingNumbers && !root.slotShowsIcon(wsNum.index)
             anchors.centerIn: parent
             Circle {
                 anchors.centerIn: parent
