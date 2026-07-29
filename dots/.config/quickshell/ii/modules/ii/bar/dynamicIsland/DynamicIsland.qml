@@ -556,5 +556,6 @@ Item {
         surfaceColor: root.expandedSurfaceColor
         shown: root.overlayOpen
         sourceComponent: root.primaryActivity?.expandedContent ?? null
+        onDismissRequested: root.pinned = false
     }
 }

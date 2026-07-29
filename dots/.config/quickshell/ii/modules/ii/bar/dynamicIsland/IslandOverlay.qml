@@ -1,6 +1,7 @@
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
+import qs.services
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
@@ -39,6 +40,7 @@ LazyLoader {
     property bool shown: false
     property Component sourceComponent
     property real visibleHeight: 0
+    signal dismissRequested()
 
     active: true
 
@@ -85,6 +87,30 @@ LazyLoader {
         }
         WlrLayershell.namespace: "quickshell:island-overlay"
         WlrLayershell.layer: WlrLayer.Overlay
+
+        Component.onCompleted: {
+            if (root.shown)
+                GlobalFocusGrab.addDismissable(overlayWindow);
+        }
+        Component.onDestruction: {
+            GlobalFocusGrab.removeDismissable(overlayWindow);
+        }
+        Connections {
+            target: root
+            function onShownChanged() {
+                if (root.shown)
+                    GlobalFocusGrab.addDismissable(overlayWindow);
+                else
+                    GlobalFocusGrab.removeDismissable(overlayWindow);
+            }
+        }
+        Connections {
+            target: GlobalFocusGrab
+            function onDismissed() {
+                if (root.shown)
+                    root.dismissRequested();
+            }
+        }
 
         Rectangle {
             id: overlayBackground
