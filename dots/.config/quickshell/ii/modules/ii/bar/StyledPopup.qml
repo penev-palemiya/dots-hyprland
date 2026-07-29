@@ -12,8 +12,8 @@ LazyLoader {
     default property Item contentItem
     property real popupBackgroundMargin: 0
     property bool shown: false
-    readonly property int popupEnterDuration: 220
-    readonly property int contentEnterDelay: 30
+    readonly property int popupEnterDuration: Appearance.animation.elementMoveSmall.duration
+    readonly property int contentEnterDelay: 90
 
     signal dismissRequested()
 
@@ -33,10 +33,6 @@ LazyLoader {
 
         implicitWidth: popupSurface.implicitWidth + Appearance.sizes.elevationMargin * 2 + root.popupBackgroundMargin
         implicitHeight: popupSurface.implicitHeight + Appearance.sizes.elevationMargin * 2 + root.popupBackgroundMargin
-
-        mask: Region {
-            item: popupBackground
-        }
 
         exclusionMode: ExclusionMode.Ignore
         exclusiveZone: 0
@@ -99,7 +95,6 @@ LazyLoader {
             property bool mounted: false
             readonly property real closedOffset: 8
             property real motionProgress: root.shown && mounted ? 1 : 0
-            property real surfaceOpacity: root.shown && mounted ? 1 : 0
             property real contentOpacity: root.shown && mounted ? 1 : 0
             readonly property real shiftX: {
                 if (!Config.options.bar.vertical)
@@ -133,15 +128,7 @@ LazyLoader {
                 NumberAnimation {
                     duration: root.popupEnterDuration
                     easing.type: Easing.BezierSpline
-                    easing.bezierCurve: Appearance.animationCurves.emphasizedDecel
-                }
-            }
-
-            Behavior on surfaceOpacity {
-                NumberAnimation {
-                    duration: 120
-                    easing.type: Appearance.animation.elementMoveFast.type
-                    easing.bezierCurve: Appearance.animationCurves.expressiveEffects
+                    easing.bezierCurve: Appearance.animation.elementMove.bezierCurve
                 }
             }
 
@@ -160,30 +147,47 @@ LazyLoader {
 
             StyledRectangularShadow {
                 target: popupBackground
-                opacity: popupSurface.surfaceOpacity * Math.min(1, popupSurface.motionProgress * 1.5)
+                opacity: Math.max(0, (popupSurface.motionProgress - 0.7) / 0.3)
                 visible: opacity > 0
             }
 
-            Rectangle {
-                id: popupBackground
-
-                anchors.fill: parent
-                color: Appearance.m3colors.m3surfaceContainer
-                radius: Appearance.rounding.small
-                opacity: popupSurface.surfaceOpacity
-                border.width: 1
-                border.color: Appearance.colors.colLayer0Border
-            }
-
             Item {
-                id: contentHost
+                id: revealClip
 
-                anchors {
-                    fill: parent
-                    margins: popupSurface.margin
+                property real radius: Appearance.rounding.small
+                clip: true
+                width: Config.options.bar.vertical ? popupSurface.implicitWidth * popupSurface.motionProgress : popupSurface.implicitWidth
+                height: Config.options.bar.vertical ? popupSurface.implicitHeight : popupSurface.implicitHeight * popupSurface.motionProgress
+                anchors.left: Config.options.bar.vertical && popupWindow.anchors.left ? parent.left : undefined
+                anchors.right: Config.options.bar.vertical && popupWindow.anchors.right ? parent.right : undefined
+                anchors.top: !Config.options.bar.vertical && popupWindow.anchors.top ? parent.top : undefined
+                anchors.bottom: !Config.options.bar.vertical && popupWindow.anchors.bottom ? parent.bottom : undefined
+
+                Rectangle {
+                    id: popupBackground
+
+                    width: popupSurface.implicitWidth
+                    height: popupSurface.implicitHeight
+                    anchors.left: Config.options.bar.vertical && popupWindow.anchors.left ? parent.left : undefined
+                    anchors.right: Config.options.bar.vertical && popupWindow.anchors.right ? parent.right : undefined
+                    anchors.top: !Config.options.bar.vertical && popupWindow.anchors.top ? parent.top : undefined
+                    anchors.bottom: !Config.options.bar.vertical && popupWindow.anchors.bottom ? parent.bottom : undefined
+                    color: Appearance.m3colors.m3surfaceContainer
+                    radius: Appearance.rounding.small
+                    border.width: 1
+                    border.color: Appearance.colors.colLayer0Border
                 }
-                children: [root.contentItem]
-                opacity: popupSurface.contentOpacity
+
+                Item {
+                    id: contentHost
+
+                    x: popupBackground.x + popupSurface.margin
+                    y: popupBackground.y + popupSurface.margin
+                    width: popupSurface.implicitWidth - popupSurface.margin * 2
+                    height: popupSurface.implicitHeight - popupSurface.margin * 2
+                    children: [root.contentItem]
+                    opacity: popupSurface.contentOpacity
+                }
             }
         }
     }
