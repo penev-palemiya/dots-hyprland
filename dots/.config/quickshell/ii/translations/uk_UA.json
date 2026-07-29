@@ -357,6 +357,8 @@
   "Title font": "Шрифт заголовків",
   "Use symbols for function keys": "Символи для функціональних клавіш",
   "Microphone": "Мікрофон",
+  "Microphone muted": "Мікрофон вимкнено",
+  "Microphone unmuted": "Мікрофон увімкнено",
   "Sign out": "Вийти із системи",
   "Input device": "Пристрій введення",
   "Image source": "Джерело зображення",

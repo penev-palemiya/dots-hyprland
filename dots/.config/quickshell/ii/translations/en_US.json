@@ -538,6 +538,8 @@
   "Windows": "Windows",
   "Regenerate": "Regenerate",
   "Microphone": "Microphone",
+  "Microphone muted": "Microphone muted",
+  "Microphone unmuted": "Microphone unmuted",
   "Unmuted": "Unmuted",
   "System sound": "System sound",
   "Enable now": "Enable now",

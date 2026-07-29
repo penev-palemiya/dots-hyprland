@@ -168,9 +168,23 @@ Item {
         onFlashKeyChanged: capsLockNotification.available = true
     }
 
+    QtObject {
+        id: micActivity
+        readonly property string activityId: "mic"
+        readonly property string kind: "activity"
+        readonly property bool muted: Audio.source && Audio.source.audio ? Audio.source.audio.muted : false
+        readonly property bool available: muted
+        readonly property Component primaryContent: micPrimaryComponent
+        readonly property string queueIcon: "mic_off"
+        readonly property Component expandedContent: null
+        readonly property int primaryDuration: 2000
+        readonly property var flashKey: muted
+        readonly property var queueAction: () => Audio.toggleMicMute()
+    }
+
     // Future entries get added here, e.g.:
     // QtObject { id: timerActivity; readonly property string activityId: "timer"; readonly property string kind: "activity"; readonly property bool available: SomeService.running; readonly property Component primaryContent: ...; readonly property string queueIcon: "timer"; readonly property Component expandedContent: ...; readonly property int primaryDuration: 0; readonly property var flashKey: SomeService.secondsLeft }
-    readonly property list<QtObject> activities: [mediaActivity, capsLockNotification]
+    readonly property list<QtObject> activities: [mediaActivity, capsLockNotification, micActivity]
 
     property string activePrimaryId: "media"
     readonly property QtObject primaryActivity: activities.find(a => a.activityId === root.activePrimaryId) ?? mediaActivity
@@ -496,7 +510,12 @@ Item {
                         text: queueChip.modelData.queueIcon
                         color: Appearance.colors.colOnLayer2
                     }
-                    onClicked: root.promote(queueChip.modelData)
+                    onClicked: {
+                        if (queueChip.modelData.queueAction)
+                            queueChip.modelData.queueAction();
+                        else
+                            root.promote(queueChip.modelData);
+                    }
 
                     // List item enter/exit: local spatial pop, not a fade —
                     // see docs/design/motion.md#recipes.
@@ -521,6 +540,10 @@ Item {
     Component {
         id: capsLockPrimaryComponent
         CapsLockPrimary {}
+    }
+    Component {
+        id: micPrimaryComponent
+        MicPrimary {}
     }
 
     IslandOverlay {
