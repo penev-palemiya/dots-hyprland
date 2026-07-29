@@ -197,13 +197,6 @@ Item { // Bar content region
                 }
             }
 
-            BarGroup {
-                UtilButtons {
-                    visible: (Config.options.bar.verbose && root.useShortenedForm === 0)
-                    Layout.alignment: Qt.AlignVCenter
-                }
-            }
-
             Loader {
                 active: root.useShortenedForm < 2
 

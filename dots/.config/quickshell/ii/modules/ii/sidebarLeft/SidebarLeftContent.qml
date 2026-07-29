@@ -1,44 +1,19 @@
+import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.ii.sidebarRight.quickToggles.classicStyle
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
-import Qt5Compat.GraphicalEffects
-import Qt.labs.synchronizer
+import Quickshell
+import Quickshell.Services.Pipewire
+import Quickshell.Services.UPower
 
 Item {
     id: root
     required property var scopeRoot
     property int sidebarPadding: 10
     anchors.fill: parent
-    property bool aiChatEnabled: Config.options.policies.ai !== 0
-    property bool translatorEnabled: Config.options.sidebar.translator.enable
-    property bool animeEnabled: Config.options.policies.weeb !== 0
-    property bool animeCloset: Config.options.policies.weeb === 2
-    property var tabButtonList: [
-        ...(root.aiChatEnabled ? [{"icon": "neurology", "name": Translation.tr("Intelligence")}] : []),
-        ...(root.translatorEnabled ? [{"icon": "translate", "name": Translation.tr("Translator")}] : []),
-        ...((root.animeEnabled && !root.animeCloset) ? [{"icon": "bookmark_heart", "name": Translation.tr("Anime")}] : [])
-    ]
-    property int tabCount: swipeView.count
-
-    function focusActiveItem() {
-        swipeView.currentItem.forceActiveFocus()
-    }
-
-    Keys.onPressed: (event) => {
-        if (event.modifiers === Qt.ControlModifier) {
-            if (event.key === Qt.Key_PageDown) {
-                swipeView.incrementCurrentIndex()
-                event.accepted = true;
-            }
-            else if (event.key === Qt.Key_PageUp) {
-                swipeView.decrementCurrentIndex()
-                event.accepted = true;
-            }
-        }
-    }
 
     ColumnLayout {
         anchors {
@@ -47,71 +22,112 @@ Item {
         }
         spacing: sidebarPadding
 
-        Toolbar {
-            visible: tabButtonList.length > 0
+        ButtonGroup {
             Layout.alignment: Qt.AlignHCenter
-            enableShadow: false
-            ToolbarTabBar {
-                id: tabBar
-                Layout.alignment: Qt.AlignHCenter
-                tabButtonList: root.tabButtonList
-                currentIndex: swipeView.currentIndex
-            }
-        }
-
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            implicitWidth: swipeView.implicitWidth
-            implicitHeight: swipeView.implicitHeight
-            radius: Appearance.rounding.normal
+            spacing: 5
+            padding: 5
             color: Appearance.colors.colLayer1
 
-            SwipeView { // Content pages
-                id: swipeView
-                anchors.fill: parent
-                spacing: 10
-                currentIndex: tabBar.currentIndex
-
-                clip: true
-                layer.enabled: true
-                layer.effect: OpacityMask {
-                    maskSource: Rectangle {
-                        width: swipeView.width
-                        height: swipeView.height
-                        radius: Appearance.rounding.small
+            QuickToggleButton {
+                visible: Config.options.bar.utilButtons.showScreenSnip
+                buttonIcon: "screenshot_region"
+                onClicked: Quickshell.execDetached(["qs", "-p", Quickshell.shellPath(""), "ipc", "call", "region", "screenshot"])
+                StyledToolTip {
+                    text: Translation.tr("Screen snip")
+                }
+            }
+            QuickToggleButton {
+                visible: Config.options.bar.utilButtons.showScreenRecord
+                buttonIcon: "videocam"
+                onClicked: Quickshell.execDetached([Directories.recordScriptPath])
+                StyledToolTip {
+                    text: Translation.tr("Screen record")
+                }
+            }
+            QuickToggleButton {
+                visible: Config.options.bar.utilButtons.showColorPicker
+                buttonIcon: "colorize"
+                onClicked: Quickshell.execDetached(["hyprpicker", "-a"])
+                StyledToolTip {
+                    text: Translation.tr("Color picker")
+                }
+            }
+            QuickToggleButton {
+                visible: Config.options.bar.utilButtons.showKeyboardToggle
+                toggled: GlobalStates.oskOpen
+                buttonIcon: "keyboard"
+                onClicked: GlobalStates.oskOpen = !GlobalStates.oskOpen
+                StyledToolTip {
+                    text: Translation.tr("Keyboard toggle")
+                }
+            }
+            QuickToggleButton {
+                visible: Config.options.bar.utilButtons.showMicToggle
+                toggled: !(Pipewire.defaultAudioSource?.audio?.muted ?? true)
+                buttonIcon: Pipewire.defaultAudioSource?.audio?.muted ? "mic_off" : "mic"
+                onClicked: Quickshell.execDetached(["wpctl", "set-mute", "@DEFAULT_SOURCE@", "toggle"])
+                StyledToolTip {
+                    text: Translation.tr("Mic toggle")
+                }
+            }
+            QuickToggleButton {
+                visible: Config.options.bar.utilButtons.showDarkModeToggle
+                toggled: Appearance.m3colors.darkmode
+                buttonIcon: Appearance.m3colors.darkmode ? "dark_mode" : "light_mode"
+                onClicked: {
+                    if (Appearance.m3colors.darkmode) {
+                        Quickshell.execDetached(["bash", "-c", `${Directories.wallpaperSwitchScriptPath} --mode light --noswitch`])
+                    } else {
+                        Quickshell.execDetached(["bash", "-c", `${Directories.wallpaperSwitchScriptPath} --mode dark --noswitch`])
                     }
                 }
-
-                contentChildren: [
-                    ...(root.aiChatEnabled ? [aiChat.createObject()] : []),
-                    ...(root.translatorEnabled ? [translator.createObject()] : []),
-                    ...((root.tabButtonList.length === 0 || (!root.aiChatEnabled && !root.translatorEnabled && root.animeCloset)) ? [placeholder.createObject()] : []),
-                    ...(root.animeEnabled ? [anime.createObject()] : []),
-                ]
+                StyledToolTip {
+                    text: Translation.tr("Dark/Light toggle")
+                }
+            }
+            QuickToggleButton {
+                visible: Config.options.bar.utilButtons.showPerformanceProfileToggle
+                toggled: PowerProfiles.profile === PowerProfile.Performance
+                buttonIcon: {
+                    switch (PowerProfiles.profile) {
+                    case PowerProfile.PowerSaver:
+                        return "energy_savings_leaf";
+                    case PowerProfile.Balanced:
+                        return "airwave";
+                    case PowerProfile.Performance:
+                        return "local_fire_department";
+                    }
+                }
+                onClicked: {
+                    if (PowerProfiles.hasPerformanceProfile) {
+                        switch (PowerProfiles.profile) {
+                        case PowerProfile.PowerSaver:
+                            PowerProfiles.profile = PowerProfile.Balanced;
+                            break;
+                        case PowerProfile.Balanced:
+                            PowerProfiles.profile = PowerProfile.Performance;
+                            break;
+                        case PowerProfile.Performance:
+                            PowerProfiles.profile = PowerProfile.PowerSaver;
+                            break;
+                        }
+                    } else {
+                        PowerProfiles.profile = PowerProfiles.profile == PowerProfile.Balanced ? PowerProfile.PowerSaver : PowerProfile.Balanced;
+                    }
+                }
+                StyledToolTip {
+                    text: Translation.tr("Performance Profile toggle")
+                }
             }
         }
 
-        Component {
-            id: aiChat
-            AiChat {}
-        }
-        Component {
-            id: translator
-            Translator {}
-        }
-        Component {
-            id: anime
-            Anime {}
-        }
-        Component {
-            id: placeholder
-            Item {
-                StyledText {
-                    anchors.centerIn: parent
-                    text: root.animeCloset ? Translation.tr("Nothing") : Translation.tr("Enjoy your empty sidebar...")
-                    color: Appearance.colors.colSubtext
-                }
+        Item {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            StyledText {
+                anchors.centerIn: parent
+                text: Translation.tr("Enjoy your empty sidebar...")
+                color: Appearance.colors.colSubtext
             }
         }
     }
