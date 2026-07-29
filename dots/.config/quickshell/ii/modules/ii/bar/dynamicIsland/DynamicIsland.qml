@@ -57,6 +57,41 @@ Item {
     // "Explicit click to see more detail" state — independent of promotion.
     property bool pinned: false
 
+    // Where this pill actually sits on screen, for IslandOverlay (a
+    // *different* window) to align itself to. Computed with plain QtQuick
+    // `Item.mapToItem(null, ...)` — "map to the scene," i.e. this window's
+    // own root — which equals real screen coordinates because the Bar's
+    // window spans the full screen edge-to-edge with zero margin. This is
+    // deliberately NOT Quickshell's `QsWindow`/`mapFromItem` cross-window
+    // mechanism: that repeatedly resolved to the wrong window or refused to
+    // work on a window degenerate enough not to be "a member of a window"
+    // yet (confirmed via live logging). Passing plain numbers as ordinary
+    // properties into IslandOverlay sidesteps all of that.
+    property real screenX: 0
+    property real screenY: 0
+
+    function refreshScreenPosition() {
+        const mapped = root.mapToItem(null, 0, 0);
+        root.screenX = mapped.x;
+        root.screenY = mapped.y;
+    }
+
+    Component.onCompleted: root.refreshScreenPosition()
+    onXChanged: root.refreshScreenPosition()
+    onYChanged: root.refreshScreenPosition()
+    onWidthChanged: root.refreshScreenPosition()
+
+    // The Bar's own layout (siblings resizing, workspace count changing,
+    // etc.) can move this pill without touching root.x directly through a
+    // single step — a cheap repeating refresh is what makes this reliably
+    // self-correct regardless of exactly which binding chain moved it.
+    Timer {
+        interval: 200
+        running: true
+        repeat: true
+        onTriggered: root.refreshScreenPosition()
+    }
+
     QtObject {
         id: mediaActivity
         readonly property string activityId: "media"
@@ -258,7 +293,9 @@ Item {
     }
 
     IslandOverlay {
-        anchorTarget: pillBackground
+        anchorScreenX: root.screenX
+        anchorScreenY: root.screenY
+        anchorWidth: pillBackground.width
         shown: root.mergedWithOverlay
         sourceComponent: root.primaryActivity?.expandedContent ?? null
     }

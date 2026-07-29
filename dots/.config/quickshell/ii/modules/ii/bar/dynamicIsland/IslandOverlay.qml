@@ -6,11 +6,18 @@ import Quickshell
 import Quickshell.Wayland
 
 /**
- * The dynamic island's click-to-reveal detail panel. Sized to match
- * `anchorTarget`'s (the bar-drawn pill's) width exactly and mounted as soon
- * as there's something to anchor to (not lazily on `shown`), so the window
- * itself never "appears" — only the visible panel's height animates between
- * 0 (nothing shown) and its content's natural size.
+ * The dynamic island's click-to-reveal detail panel — a separate floating
+ * window (Wayland/layer-shell has no way to let one surface draw outside
+ * its own bounds, so growing past the bar's fixed height genuinely needs a
+ * second surface), positioned using plain numbers (`anchorScreenX`/
+ * `anchorScreenY`/`anchorWidth`) computed by `DynamicIsland.qml` itself and
+ * passed in as ordinary properties — deliberately NOT Quickshell's
+ * `QsWindow`/`mapFromItem` cross-window attached-property mechanism, which
+ * repeatedly proved unreliable here (resolves via an unrelated QObject
+ * parent chain, and refuses to run at all on a window too small to count
+ * as "a member of a window" — see DynamicIsland.qml's comment for the full
+ * story). Mounted immediately (not lazily on `shown`), so the window itself
+ * never "appears" — only the visible panel's height animates.
  *
  * Its top corners are always flat, fusing against the pill's bottom corners
  * (which flatten to match while `shown`, see DynamicIsland.qml's
@@ -22,41 +29,13 @@ import Quickshell.Wayland
 LazyLoader {
     id: root
 
-    property Item anchorTarget
+    property real anchorScreenX: 0
+    property real anchorScreenY: 0
+    property real anchorWidth: 0
     property bool shown: false
     property Component sourceComponent
 
-    active: !!root.anchorTarget
-
-    // This window mounts immediately (active is true as soon as anchorTarget
-    // exists, well before `shown` ever flips), so its `margins` bindings
-    // below evaluate `mapFromItem` at that early moment too — and since
-    // `mapFromItem` is a function call, not a property, the binding doesn't
-    // re-run just because the anchor's actual on-screen position settles a
-    // moment later. Cache the mapped position explicitly and refresh it on
-    // a cheap repeating timer instead of relying on that one early read
-    // staying correct forever (it doesn't — this is what made the overlay
-    // open from the screen's left edge instead of under the pill).
-    property real anchorX: 0
-    property real anchorY: 0
-
-    function refreshAnchorPosition() {
-        if (!root.anchorTarget || !root.QsWindow)
-            return;
-        const mapped = root.QsWindow.mapFromItem(root.anchorTarget, 0, 0);
-        root.anchorX = mapped.x;
-        root.anchorY = mapped.y;
-    }
-
-    Component.onCompleted: root.refreshAnchorPosition()
-    onAnchorTargetChanged: root.refreshAnchorPosition()
-
-    Timer {
-        interval: 200
-        running: root.active
-        repeat: true
-        onTriggered: root.refreshAnchorPosition()
-    }
+    active: true
 
     component: PanelWindow {
         id: overlayWindow
@@ -67,8 +46,23 @@ LazyLoader {
         anchors.top: Config.options.bar.vertical || (!Config.options.bar.vertical && !Config.options.bar.bottom)
         anchors.bottom: !Config.options.bar.vertical && Config.options.bar.bottom
 
-        implicitWidth: overlayBackground.implicitWidth + Appearance.sizes.elevationMargin * 2
-        implicitHeight: overlayBackground.implicitHeight + Appearance.sizes.elevationMargin * 2
+        // No elevation margin, no shadow: this panel isn't a floating card
+        // in its own right, it's the pill's own shape continuing downward —
+        // any gap or shadow around it would read as a seam between two
+        // separate things instead of one. Window bounds match the visible
+        // rectangle exactly, flush against the pill above with zero gap.
+        //
+        // Deliberately NOT bound to overlayBackground's own (Behavior-
+        // animated) height: that made every single animation frame trigger
+        // a real Wayland layer-shell surface reconfigure (an expensive
+        // compositor round-trip), which is what made the reveal run at
+        // ~10fps. The window jumps directly to its final target size (a
+        // one-time resize, whichever direction `shown` just changed to);
+        // the Rectangle inside still animates smoothly *within* that
+        // already-correctly-sized window — pure client-side rendering, no
+        // further surface reconfiguration involved.
+        implicitWidth: root.anchorWidth
+        implicitHeight: root.shown ? contentLoader.implicitHeight + overlayBackground.contentPadding * 2 : 0
 
         mask: Region {
             item: overlayBackground
@@ -77,31 +71,34 @@ LazyLoader {
         exclusionMode: ExclusionMode.Ignore
         exclusiveZone: 0
         margins {
-            left: !Config.options.bar.vertical ? root.anchorX : Appearance.sizes.verticalBarWidth
-            top: !Config.options.bar.vertical ? Appearance.sizes.barHeight : root.anchorY
+            left: !Config.options.bar.vertical ? root.anchorScreenX : Appearance.sizes.verticalBarWidth
+            top: !Config.options.bar.vertical ? Appearance.sizes.barHeight : root.anchorScreenY
             right: Appearance.sizes.verticalBarWidth
             bottom: Appearance.sizes.barHeight
         }
         WlrLayershell.namespace: "quickshell:island-overlay"
         WlrLayershell.layer: WlrLayer.Overlay
 
-        StyledRectangularShadow {
-            target: overlayBackground
-        }
-
         Rectangle {
             id: overlayBackground
             readonly property real contentPadding: 12
+            // Top-anchored with an explicit `height` (not `anchors.fill`) so
+            // this can animate independently of the window's own (now
+            // fixed-per-toggle) size — see the window's implicitHeight
+            // comment above for why that decoupling matters for performance.
             anchors {
-                fill: parent
-                leftMargin: Appearance.sizes.elevationMargin
-                rightMargin: Appearance.sizes.elevationMargin
-                topMargin: Appearance.sizes.elevationMargin * (!overlayWindow.anchors.top)
-                bottomMargin: Appearance.sizes.elevationMargin * (!overlayWindow.anchors.bottom)
+                top: parent.top
+                left: parent.left
+                right: parent.right
             }
-            implicitWidth: root.anchorTarget ? root.anchorTarget.width : 0
-            implicitHeight: root.shown ? contentLoader.implicitHeight + contentPadding * 2 : 0
-            color: Config.options?.bar.borderless ? "transparent" : Appearance.colors.colLayer1
+            height: root.shown ? contentLoader.implicitHeight + contentPadding * 2 : 0
+            // A real standalone surface color, not `colLayer1` (which is a
+            // "solved overlay" blend pre-baked assuming it's painted over
+            // the bar's own background — correct in the bar, but looks
+            // washed out/semi-transparent floating over the wallpaper with
+            // nothing behind it). `m3surfaceContainer` is the token
+            // StyledPopup.qml already uses for exactly this situation.
+            color: Config.options?.bar.borderless ? "transparent" : Appearance.m3colors.m3surfaceContainer
             // Flat against the pill above (see class comment) — only the
             // bottom corners round, matching the pill's own shape while merged.
             topLeftRadius: 0
@@ -116,8 +113,18 @@ LazyLoader {
             // bouncier "default spatial" (500ms, this is the hero moment),
             // collapsing is the snappier "fast spatial" (350ms, exits need
             // less attention than the next thing the user's about to do).
-            Behavior on implicitHeight {
-                animation: root.shown ? Appearance.animation.elementMove.numberAnimation.createObject(overlayBackground) : Appearance.animation.elementMoveSmall.numberAnimation.createObject(overlayBackground)
+            // A Behavior's `animation` can only be assigned once — swapping
+            // in a whole new Animation object per direction (as this used to
+            // do via `.createObject(...)` in a ternary) triggers "Cannot
+            // change the animation assigned to a Behavior" and silently
+            // keeps whichever one was assigned first. Keep one static
+            // NumberAnimation and vary its own duration/curve instead.
+            Behavior on height {
+                NumberAnimation {
+                    duration: root.shown ? Appearance.animation.elementMove.duration : Appearance.animation.elementMoveSmall.duration
+                    easing.type: Appearance.animation.elementMove.type
+                    easing.bezierCurve: root.shown ? Appearance.animation.elementMove.bezierCurve : Appearance.animation.elementMoveSmall.bezierCurve
+                }
             }
 
             Loader {
@@ -132,22 +139,19 @@ LazyLoader {
                 // fades in slightly after (small delay) so it doesn't just
                 // pop while the pill is still small; on the way out, content
                 // fades away immediately (no delay) so the shrink isn't
-                // waiting on it.
+                // waiting on it. Same "assign once" constraint as above —
+                // one static SequentialAnimation, only the PauseAnimation's
+                // duration varies.
                 Behavior on opacity {
-                    animation: root.shown ? fadeInComponent.createObject(contentLoader) : Appearance.animation.elementMoveFast.numberAnimation.createObject(contentLoader)
-                }
-            }
-
-            Component {
-                id: fadeInComponent
-                SequentialAnimation {
-                    PauseAnimation {
-                        duration: 120
-                    }
-                    NumberAnimation {
-                        duration: Appearance.animation.elementMoveFast.duration
-                        easing.type: Appearance.animation.elementMoveFast.type
-                        easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
+                    SequentialAnimation {
+                        PauseAnimation {
+                            duration: root.shown ? 120 : 0
+                        }
+                        NumberAnimation {
+                            duration: Appearance.animation.elementMoveFast.duration
+                            easing.type: Appearance.animation.elementMoveFast.type
+                            easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
+                        }
                     }
                 }
             }
