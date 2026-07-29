@@ -274,25 +274,153 @@ Item {
             }
             spacing: 6
 
-            Loader {
-                id: primaryLoader
+            Item {
+                id: primaryTransitionSlot
                 Layout.fillWidth: true
-                sourceComponent: root.primaryActivity?.primaryContent ?? null
+                Layout.fillHeight: true
+                implicitHeight: Math.max(incomingLoader.implicitHeight, outgoingLoader.implicitHeight)
+                clip: true
 
-                // Content swap in a fixed slot: crossfade only, no position
-                // change — see docs/design/motion.md#recipes.
-                opacity: 1
-                Behavior on opacity {
-                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(primaryLoader)
+                property Component sourceComponent: root.primaryActivity?.primaryContent ?? null
+                property Component displayedSourceComponent
+                property Component outgoingSourceComponent
+                property bool initialized: false
+                property bool transitionRunning: false
+                property real incomingOpacity: 1
+                property real outgoingOpacity: 0
+                property real incomingOffset: 0
+                property real outgoingOffset: 0
+                property real incomingScale: 1
+                property real outgoingScale: 1
+                readonly property real transitionDistance: 8
+
+                function setCurrentSource(nextSource) {
+                    if (displayedSourceComponent === nextSource)
+                        return;
+
+                    if (!initialized || !displayedSourceComponent || !nextSource) {
+                        transitionAnimation.stop();
+                        outgoingSourceComponent = null;
+                        displayedSourceComponent = nextSource;
+                        transitionRunning = false;
+                        incomingOpacity = 1;
+                        outgoingOpacity = 0;
+                        incomingOffset = 0;
+                        outgoingOffset = 0;
+                        incomingScale = 1;
+                        outgoingScale = 1;
+                        return;
+                    }
+
+                    transitionAnimation.stop();
+                    outgoingSourceComponent = displayedSourceComponent;
+                    displayedSourceComponent = nextSource;
+                    transitionRunning = true;
+                    incomingOpacity = 0;
+                    outgoingOpacity = 1;
+                    incomingOffset = transitionDistance;
+                    outgoingOffset = 0;
+                    incomingScale = 0.96;
+                    outgoingScale = 1;
+                    transitionAnimation.restart();
                 }
-                onSourceComponentChanged: {
-                    opacity = 0;
-                    fadeBackTimer.restart();
+
+                Component.onCompleted: {
+                    initialized = true;
+                    setCurrentSource(sourceComponent);
                 }
-                Timer {
-                    id: fadeBackTimer
-                    interval: 1
-                    onTriggered: primaryLoader.opacity = 1
+
+                onSourceComponentChanged: setCurrentSource(sourceComponent)
+
+                Loader {
+                    id: outgoingLoader
+                    width: parent.width
+                    height: implicitHeight
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: primaryTransitionSlot.transitionRunning
+                    opacity: primaryTransitionSlot.outgoingOpacity
+                    scale: primaryTransitionSlot.outgoingScale
+                    sourceComponent: primaryTransitionSlot.outgoingSourceComponent
+                    transform: Translate {
+                        y: primaryTransitionSlot.outgoingOffset
+                    }
+                }
+
+                Loader {
+                    id: incomingLoader
+                    width: parent.width
+                    height: implicitHeight
+                    anchors.verticalCenter: parent.verticalCenter
+                    opacity: primaryTransitionSlot.incomingOpacity
+                    scale: primaryTransitionSlot.incomingScale
+                    sourceComponent: primaryTransitionSlot.displayedSourceComponent
+                    transform: Translate {
+                        y: primaryTransitionSlot.incomingOffset
+                    }
+                }
+
+                ParallelAnimation {
+                    id: transitionAnimation
+
+                    NumberAnimation {
+                        target: primaryTransitionSlot
+                        property: "incomingOpacity"
+                        to: 1
+                        duration: Appearance.animation.elementMoveFast.duration
+                        easing.type: Appearance.animation.elementMoveFast.type
+                        easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
+                    }
+                    NumberAnimation {
+                        target: primaryTransitionSlot
+                        property: "outgoingOpacity"
+                        to: 0
+                        duration: Appearance.animation.elementMoveFast.duration
+                        easing.type: Appearance.animation.elementMoveFast.type
+                        easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
+                    }
+                    NumberAnimation {
+                        target: primaryTransitionSlot
+                        property: "incomingOffset"
+                        to: 0
+                        duration: Appearance.animation.elementMoveSmall.duration
+                        easing.type: Appearance.animation.elementMoveSmall.type
+                        easing.bezierCurve: Appearance.animation.elementMoveSmall.bezierCurve
+                    }
+                    NumberAnimation {
+                        target: primaryTransitionSlot
+                        property: "outgoingOffset"
+                        to: -primaryTransitionSlot.transitionDistance
+                        duration: Appearance.animation.elementMoveSmall.duration
+                        easing.type: Appearance.animation.elementMoveSmall.type
+                        easing.bezierCurve: Appearance.animation.elementMoveSmall.bezierCurve
+                    }
+                    NumberAnimation {
+                        target: primaryTransitionSlot
+                        property: "incomingScale"
+                        to: 1
+                        duration: Appearance.animation.elementMoveSmall.duration
+                        easing.type: Appearance.animation.elementMoveSmall.type
+                        easing.bezierCurve: Appearance.animation.elementMoveSmall.bezierCurve
+                    }
+                    NumberAnimation {
+                        target: primaryTransitionSlot
+                        property: "outgoingScale"
+                        to: 0.98
+                        duration: Appearance.animation.elementMoveSmall.duration
+                        easing.type: Appearance.animation.elementMoveSmall.type
+                        easing.bezierCurve: Appearance.animation.elementMoveSmall.bezierCurve
+                    }
+
+                    onStopped: {
+                        primaryTransitionSlot.transitionRunning = false;
+                        primaryTransitionSlot.outgoingSourceComponent = null;
+                        primaryTransitionSlot.incomingOpacity = 1;
+                        primaryTransitionSlot.outgoingOpacity = 0;
+                        primaryTransitionSlot.incomingOffset = 0;
+                        primaryTransitionSlot.outgoingOffset = 0;
+                        primaryTransitionSlot.incomingScale = 1;
+                        primaryTransitionSlot.outgoingScale = 1;
+                    }
                 }
             }
 
