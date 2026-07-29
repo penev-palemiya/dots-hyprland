@@ -34,6 +34,22 @@ RowLayout {
             fill: 1
             iconSize: Appearance.font.pixelSize.normal
             color: Appearance.m3colors.m3onSecondaryContainer
+
+            // Icon swap within the same row (e.g. media play/pause): crossfade
+            // only, no position change — see docs/design/motion.md#recipes.
+            opacity: 1
+            Behavior on opacity {
+                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(iconSymbol)
+            }
+            onTextChanged: {
+                opacity = 0;
+                iconFadeBackTimer.restart();
+            }
+            Timer {
+                id: iconFadeBackTimer
+                interval: 1
+                onTriggered: iconSymbol.opacity = 1
+            }
         }
     }
 

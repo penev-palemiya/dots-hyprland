@@ -12,6 +12,16 @@ import QtQuick.Layouts
  * always available, no attention-timeout — the island falls back to it
  * whenever nothing else is claiming the spotlight.
  *
+ * This pill is drawn inline, as part of the bar's own surface — not a
+ * floating window — so its position is always exactly whatever the bar's
+ * own layout says, with zero cross-window position math involved. Only the
+ * *expanded* detail view (IslandOverlay, click-to-reveal) lives in a
+ * separate floating window, since that's the one piece of content that
+ * needs to visually grow past the bar's own fixed height. To keep that from
+ * reading as a second popup, IslandOverlay fuses its top corners flat
+ * against this pill's bottom corners (also flattened while expanded) so the
+ * two draw as one continuous shape — see docs/design/motion.md#container-transform.
+ *
  * Two kinds of entries, both can become primary the same way, but differ
  * in what happens once they step down:
  * - "activity" (e.g. media): an ongoing thing you can return to — when
@@ -131,17 +141,31 @@ Item {
         }
     }
 
+    // Whether the pill's bottom edge should flatten flat against the
+    // overlay below it (see IslandOverlay.qml for the matching top-flatten).
+    readonly property bool mergedWithOverlay: root.pinned && !!root.primaryActivity?.expandedContent
+
     // The actual visible pill — inset from root's top/bottom like every
     // other BarGroup pill's background (topMargin/bottomMargin: 4), instead
     // of filling the full bar-row height edge-to-edge.
     Rectangle {
         id: pillBackground
-        radius: Appearance.rounding.small
+        topLeftRadius: Appearance.rounding.small
+        topRightRadius: Appearance.rounding.small
+        bottomLeftRadius: root.mergedWithOverlay ? 0 : Appearance.rounding.small
+        bottomRightRadius: root.mergedWithOverlay ? 0 : Appearance.rounding.small
         color: Config.options?.bar.borderless ? "transparent" : Appearance.colors.colLayer1
         anchors {
             fill: parent
             topMargin: 4
             bottomMargin: 4
+        }
+
+        Behavior on bottomLeftRadius {
+            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(pillBackground)
+        }
+        Behavior on bottomRightRadius {
+            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(pillBackground)
         }
 
         MouseArea {
@@ -163,8 +187,25 @@ Item {
             spacing: 6
 
             Loader {
+                id: primaryLoader
                 Layout.fillWidth: true
                 sourceComponent: root.primaryActivity?.primaryContent ?? null
+
+                // Content swap in a fixed slot: crossfade only, no position
+                // change — see docs/design/motion.md#recipes.
+                opacity: 1
+                Behavior on opacity {
+                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(primaryLoader)
+                }
+                onSourceComponentChanged: {
+                    opacity = 0;
+                    fadeBackTimer.restart();
+                }
+                Timer {
+                    id: fadeBackTimer
+                    interval: 1
+                    onTriggered: primaryLoader.opacity = 1
+                }
             }
 
             Repeater {
@@ -179,13 +220,25 @@ Item {
                     colBackground: Appearance.colors.colLayer2
                     colBackgroundHover: Appearance.colors.colLayer2Hover
                     contentItem: MaterialSymbol {
-                        anchors.centerIn: parent
+                        // `anchors.centerIn: parent` fights Control's own
+                        // imperative content-box resizing here — center via
+                        // text alignment instead (matches PlayerControl.qml's
+                        // TrackChangeButton, the established icon-only pattern).
+                        horizontalAlignment: Text.AlignHCenter
                         fill: 1
                         iconSize: Appearance.font.pixelSize.normal
                         text: queueChip.modelData.queueIcon
                         color: Appearance.colors.colOnLayer2
                     }
                     onClicked: root.promote(queueChip.modelData)
+
+                    // List item enter/exit: local spatial pop, not a fade —
+                    // see docs/design/motion.md#recipes.
+                    scale: 0
+                    Behavior on scale {
+                        animation: Appearance.animation.elementMoveSmall.numberAnimation.createObject(queueChip)
+                    }
+                    Component.onCompleted: scale = 1
                 }
             }
         }
@@ -206,7 +259,7 @@ Item {
 
     IslandOverlay {
         anchorTarget: pillBackground
-        shown: root.pinned && !!root.primaryActivity?.expandedContent
+        shown: root.mergedWithOverlay
         sourceComponent: root.primaryActivity?.expandedContent ?? null
     }
 }
