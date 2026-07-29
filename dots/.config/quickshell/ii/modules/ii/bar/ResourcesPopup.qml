@@ -23,6 +23,28 @@ StyledPopup {
 
             ResourceCard {
                 Layout.fillWidth: true
+                title: "CPU"
+                symbol: "developer_board"
+                percentage: ResourceUsage.cpuUsage
+                valueText: `${Math.round(ResourceUsage.cpuUsage * 100)}%`
+                subtitleText: ResourceUsage.maxAvailableCpuString
+                subtitleText2: ResourceUsage.cpuTempAvailable ? `${Math.round(ResourceUsage.cpuTemp)}°C` : ""
+                warning: (ResourceUsage.cpuUsage * 100 >= Config.options.bar.resources.cpuWarningThreshold) || (ResourceUsage.cpuTempAvailable && ResourceUsage.cpuTemp >= Config.options.bar.resources.cpuTempWarningThreshold)
+            }
+
+            ResourceCard {
+                Layout.fillWidth: true
+                visible: GpuUsage.available
+                title: Translation.tr("GPU")
+                symbol: "monitor"
+                percentage: GpuUsage.statsAvailable ? GpuUsage.usage : 0
+                valueText: GpuUsage.statsAvailable ? `${Math.round(GpuUsage.usage * 100)}%` : "—"
+                subtitleText: GpuUsage.statsAvailable ? `${Math.round(GpuUsage.temp)}°C` : Translation.tr("Stats unavailable")
+                warning: GpuUsage.statsAvailable && GpuUsage.usage * 100 >= Config.options.bar.resources.gpuWarningThreshold
+            }
+
+            ResourceCard {
+                Layout.fillWidth: true
                 title: "RAM"
                 symbol: "memory"
                 percentage: ResourceUsage.memoryUsedPercentage
@@ -40,16 +62,6 @@ StyledPopup {
                 valueText: `${Math.round(ResourceUsage.swapUsedPercentage * 100)}%`
                 subtitleText: `${root.formatKB(ResourceUsage.swapUsed)} / ${root.formatKB(ResourceUsage.swapTotal)}`
                 warning: ResourceUsage.swapUsedPercentage * 100 >= Config.options.bar.resources.swapWarningThreshold
-            }
-
-            ResourceCard {
-                Layout.fillWidth: true
-                title: "CPU"
-                symbol: "developer_board"
-                percentage: ResourceUsage.cpuUsage
-                valueText: `${Math.round(ResourceUsage.cpuUsage * 100)}%`
-                subtitleText: ResourceUsage.maxAvailableCpuString
-                warning: ResourceUsage.cpuUsage * 100 >= Config.options.bar.resources.cpuWarningThreshold
             }
 
             ResourceCard {

@@ -381,6 +381,8 @@
   "Total:": "Total:",
   "or": "or",
   "Battery": "Battery",
+  "GPU": "GPU",
+  "Stats unavailable": "Stats unavailable",
   "Charging": "Charging",
   "Discharging": "Discharging",
   "Time to full": "Time to full",

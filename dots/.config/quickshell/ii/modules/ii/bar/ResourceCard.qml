@@ -17,6 +17,7 @@ Rectangle {
     property alias symbol: symbol.text
     property alias valueText: value.text
     property alias subtitleText: subtitle.text
+    property alias subtitleText2: subtitle2.text
     property real percentage: 0
     property bool warning: false
 
@@ -80,15 +81,32 @@ Rectangle {
 
             Item { Layout.fillWidth: true }
 
-            StyledText {
-                id: subtitle
+            ColumnLayout {
                 Layout.alignment: Qt.AlignVCenter
-                font {
-                    pixelSize: Appearance.font.pixelSize.smaller
-                    weight: Font.Normal
+                spacing: 1
+
+                StyledText {
+                    id: subtitle
+                    Layout.alignment: Qt.AlignRight
+                    font {
+                        pixelSize: Appearance.font.pixelSize.smaller
+                        weight: Font.Normal
+                    }
+                    color: Appearance.colors.colOutline
+                    elide: Text.ElideRight
                 }
-                color: Appearance.colors.colOutline
-                elide: Text.ElideRight
+
+                StyledText {
+                    id: subtitle2
+                    visible: text.length > 0
+                    Layout.alignment: Qt.AlignRight
+                    font {
+                        pixelSize: Appearance.font.pixelSize.smaller
+                        weight: Font.Normal
+                    }
+                    color: Appearance.colors.colOutline
+                    elide: Text.ElideRight
+                }
             }
         }
 

@@ -21,8 +21,28 @@ MouseArea {
         anchors.rightMargin: 4
 
         Resource {
+            iconName: "developer_board"
+            percentage: ResourceUsage.cpuUsage
+            shown: Config.options.bar.resources.alwaysShowCpu ||
+                !(MprisController.activePlayer?.trackTitle?.length > 0) ||
+                root.alwaysShowAllResources
+            warningThreshold: Config.options.bar.resources.cpuWarningThreshold
+            showPercentage: root.showPercentages
+        }
+
+        Resource {
+            visible: GpuUsage.available && GpuUsage.statsAvailable
+            iconName: "monitor"
+            percentage: GpuUsage.usage
+            Layout.leftMargin: 6
+            warningThreshold: Config.options.bar.resources.gpuWarningThreshold
+            showPercentage: root.showPercentages
+        }
+
+        Resource {
             iconName: "memory"
             percentage: ResourceUsage.memoryUsedPercentage
+            Layout.leftMargin: 6
             warningThreshold: Config.options.bar.resources.memoryWarningThreshold
             showPercentage: root.showPercentages
         }
@@ -30,22 +50,11 @@ MouseArea {
         Resource {
             iconName: "swap_horiz"
             percentage: ResourceUsage.swapUsedPercentage
-            shown: (Config.options.bar.resources.alwaysShowSwap && percentage > 0) || 
+            shown: (Config.options.bar.resources.alwaysShowSwap && percentage > 0) ||
                 (MprisController.activePlayer?.trackTitle == null) ||
                 root.alwaysShowAllResources
             Layout.leftMargin: shown ? 6 : 0
             warningThreshold: Config.options.bar.resources.swapWarningThreshold
-            showPercentage: root.showPercentages
-        }
-
-        Resource {
-            iconName: "developer_board"
-            percentage: ResourceUsage.cpuUsage
-            shown: Config.options.bar.resources.alwaysShowCpu ||
-                !(MprisController.activePlayer?.trackTitle?.length > 0) ||
-                root.alwaysShowAllResources
-            Layout.leftMargin: shown ? 6 : 0
-            warningThreshold: Config.options.bar.resources.cpuWarningThreshold
             showPercentage: root.showPercentages
         }
 

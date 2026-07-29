@@ -162,6 +162,8 @@
   "Format": "Формат",
   "Time": "Час",
   "Battery": "Батарея",
+  "GPU": "Відеокарта",
+  "Stats unavailable": "Дані недоступні",
   "Charging": "Заряджання",
   "Discharging": "Розряджання",
   "Time to full": "Час до повного заряду",

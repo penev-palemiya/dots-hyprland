@@ -21,6 +21,8 @@ Singleton {
     property real swapUsedPercentage: swapTotal > 0 ? (swapUsed / swapTotal) : 0
     property real cpuUsage: 0
     property var previousCpuStats
+    property bool cpuTempAvailable: false
+    property real cpuTemp: 0 // Celsius
 
     property string maxAvailableMemoryString: kbToGbString(ResourceUsage.memoryTotal)
     property string maxAvailableSwapString: kbToGbString(ResourceUsage.swapTotal)
@@ -92,6 +94,14 @@ Singleton {
                 previousCpuStats = { total, idle }
             }
 
+            // CPU temperature, once the hwmon path has been resolved
+            if (cpuTempAvailable) {
+                fileCpuTemp.reload()
+                const milliDegrees = Number(fileCpuTemp.text())
+                if (milliDegrees > 0)
+                    cpuTemp = milliDegrees / 1000
+            }
+
             root.updateHistories()
             interval = Config.options?.resources?.updateInterval ?? 3000
         }
@@ -99,6 +109,51 @@ Singleton {
 
 	FileView { id: fileMeminfo; path: "/proc/meminfo" }
     FileView { id: fileStat; path: "/proc/stat" }
+    FileView { id: fileCpuTemp }
+
+    // Resolve which hwmon temp*_input file corresponds to the CPU package/die
+    // sensor. hwmon numbering isn't stable across machines, so this has to be
+    // discovered at runtime rather than hardcoded.
+    Process {
+        id: findCpuTempProc
+        environment: ({
+            LANG: "C",
+            LC_ALL: "C"
+        })
+        command: ["bash", "-c", `
+            for hwmon in /sys/class/hwmon/hwmon*; do
+                name=$(cat "$hwmon/name" 2>/dev/null)
+                case "$name" in
+                    coretemp|k10temp|zenpower|zenpower3|cpu_thermal)
+                        for label in "$hwmon"/temp*_label; do
+                            [ -f "$label" ] || continue
+                            case "$(cat "$label")" in
+                                "Package id "*|Tctl|Tdie)
+                                    echo "\${label%_label}_input"
+                                    exit 0
+                                    ;;
+                            esac
+                        done
+                        if [ -f "$hwmon/temp1_input" ]; then
+                            echo "$hwmon/temp1_input"
+                            exit 0
+                        fi
+                        ;;
+                esac
+            done
+        `]
+        running: true
+        stdout: StdioCollector {
+            id: cpuTempPathCollector
+            onStreamFinished: {
+                const path = cpuTempPathCollector.text.trim();
+                if (path) {
+                    fileCpuTemp.path = path;
+                    root.cpuTempAvailable = true;
+                }
+            }
+        }
+    }
 
     Process {
         id: findCpuMaxFreqProc
