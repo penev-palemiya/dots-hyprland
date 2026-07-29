@@ -12,6 +12,11 @@ Singleton {
     id: root
 
     property string activePopupId: ""
+    readonly property bool weatherOpen: activePopupId === "weather"
+    readonly property bool resourcesOpen: activePopupId === "resources"
+    readonly property bool batteryOpen: activePopupId === "battery"
+    readonly property bool clockOpen: activePopupId === "clock"
+    readonly property bool anyOpen: activePopupId.length > 0
 
     function close() {
         root.activePopupId = "";

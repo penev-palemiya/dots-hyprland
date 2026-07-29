@@ -2,6 +2,7 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 
 import qs.modules.common
+import qs
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -28,16 +29,19 @@ Singleton {
 
     property string amdCardHwmonPath: ""
     property string amdCardDrmPath: ""
+    readonly property bool resourcesOverlayOpen: Persistent.states.overlay.open.includes("resources") && (GlobalStates.overlayOpen || Persistent.states.overlay.resources.pinned)
+    readonly property bool detailedPollingActive: BarPopups.resourcesOpen || resourcesOverlayOpen
+    readonly property int pollingInterval: detailedPollingActive ? (Config.options?.resources?.updateInterval ?? 3000) : Math.max(Config.options?.resources?.updateInterval ?? 3000, 10000)
 
     Timer {
-        interval: Config.options?.resources?.updateInterval ?? 3000
+        interval: root.pollingInterval
         running: root.statsAvailable && root.vendor === "nvidia"
         repeat: true
         onTriggered: nvidiaSmiProc.running = true
     }
 
     Timer {
-        interval: Config.options?.resources?.updateInterval ?? 3000
+        interval: root.pollingInterval
         running: root.statsAvailable && root.vendor === "amd"
         repeat: true
         onTriggered: {

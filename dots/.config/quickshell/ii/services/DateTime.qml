@@ -10,6 +10,8 @@ import Quickshell.Io
  * A nice wrapper for date and time strings.
  */
 Singleton {
+    id: root
+
     property var clock: SystemClock {
         id: clock
         precision: {
@@ -24,32 +26,49 @@ Singleton {
     property string longDate: Qt.locale().toString(clock.date, Config.options?.time.dateFormat ?? "dddd, dd/MM")
     property string collapsedCalendarFormat: Qt.locale().toString(clock.date, "dddd, MMMM dd")
     property string uptime: "0h, 0m"
+    readonly property bool uptimePollingActive: BarPopups.clockOpen || GlobalStates.sidebarRightOpen
+
+    function updateUptime() {
+        fileUptime.reload();
+        const textUptime = fileUptime.text();
+        const uptimeSeconds = Number(textUptime.split(" ")[0] ?? 0);
+
+        // Convert seconds to days, hours, and minutes
+        const days = Math.floor(uptimeSeconds / 86400);
+        const hours = Math.floor((uptimeSeconds % 86400) / 3600);
+        const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+
+        // Build the formatted uptime string
+        let formatted = "";
+        if (days > 0)
+            formatted += `${days}d`;
+        if (hours > 0)
+            formatted += `${formatted ? ", " : ""}${hours}h`;
+        if (minutes > 0 || !formatted)
+            formatted += `${formatted ? ", " : ""}${minutes}m`;
+        uptime = formatted;
+    }
 
     Timer {
+        id: uptimeTimer
         interval: 10
-        running: true
+        running: root.uptimePollingActive
         repeat: true
         onTriggered: {
-            fileUptime.reload();
-            const textUptime = fileUptime.text();
-            const uptimeSeconds = Number(textUptime.split(" ")[0] ?? 0);
-
-            // Convert seconds to days, hours, and minutes
-            const days = Math.floor(uptimeSeconds / 86400);
-            const hours = Math.floor((uptimeSeconds % 86400) / 3600);
-            const minutes = Math.floor((uptimeSeconds % 3600) / 60);
-
-            // Build the formatted uptime string
-            let formatted = "";
-            if (days > 0)
-                formatted += `${days}d`;
-            if (hours > 0)
-                formatted += `${formatted ? ", " : ""}${hours}h`;
-            if (minutes > 0 || !formatted)
-                formatted += `${formatted ? ", " : ""}${minutes}m`;
-            uptime = formatted;
+            root.updateUptime();
             interval = Config.options?.resources?.updateInterval ?? 3000;
         }
+    }
+
+    onUptimePollingActiveChanged: {
+        if (uptimePollingActive) {
+            uptimeTimer.interval = 10;
+            uptimeTimer.restart();
+        }
+    }
+    Component.onCompleted: {
+        if (uptimePollingActive)
+            uptimeTimer.restart();
     }
 
     FileView {

@@ -2,6 +2,7 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 
 import qs.modules.common
+import qs
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -27,8 +28,12 @@ Singleton {
     property string maxAvailableMemoryString: kbToGbString(ResourceUsage.memoryTotal)
     property string maxAvailableSwapString: kbToGbString(ResourceUsage.swapTotal)
     property string maxAvailableCpuString: "--"
+    property bool cpuTempProbeStarted: false
+    property bool cpuMaxFreqProbeStarted: false
 
     readonly property int historyLength: Config?.options.resources.historyLength ?? 60
+    readonly property bool resourcesOverlayOpen: Persistent.states.overlay.open.includes("resources") && (GlobalStates.overlayOpen || Persistent.states.overlay.resources.pinned)
+    readonly property bool detailedPollingActive: BarPopups.resourcesOpen || resourcesOverlayOpen
     property list<real> cpuUsageHistory: []
     property list<real> memoryUsageHistory: []
     property list<real> swapUsageHistory: []
@@ -60,8 +65,19 @@ Singleton {
         updateSwapUsageHistory()
         updateCpuUsageHistory()
     }
+    function startDetailedProbes() {
+        if (!cpuTempProbeStarted) {
+            cpuTempProbeStarted = true;
+            findCpuTempProc.running = true;
+        }
+        if (!cpuMaxFreqProbeStarted) {
+            cpuMaxFreqProbeStarted = true;
+            findCpuMaxFreqProc.running = true;
+        }
+    }
 
 	Timer {
+        id: resourceTimer
 		interval: 1
         running: true 
         repeat: true
@@ -95,17 +111,30 @@ Singleton {
             }
 
             // CPU temperature, once the hwmon path has been resolved
-            if (cpuTempAvailable) {
+            if (detailedPollingActive && cpuTempAvailable) {
                 fileCpuTemp.reload()
                 const milliDegrees = Number(fileCpuTemp.text())
                 if (milliDegrees > 0)
                     cpuTemp = milliDegrees / 1000
             }
 
-            root.updateHistories()
+            if (detailedPollingActive)
+                root.updateHistories()
             interval = Config.options?.resources?.updateInterval ?? 3000
         }
 	}
+
+    onDetailedPollingActiveChanged: {
+        if (detailedPollingActive) {
+            startDetailedProbes();
+            resourceTimer.interval = 1;
+            resourceTimer.restart();
+        }
+    }
+    Component.onCompleted: {
+        if (detailedPollingActive)
+            startDetailedProbes();
+    }
 
 	FileView { id: fileMeminfo; path: "/proc/meminfo" }
     FileView { id: fileStat; path: "/proc/stat" }
@@ -142,7 +171,7 @@ Singleton {
                 esac
             done
         `]
-        running: true
+        running: false
         stdout: StdioCollector {
             id: cpuTempPathCollector
             onStreamFinished: {
@@ -162,7 +191,7 @@ Singleton {
             LC_ALL: "C"
         })
         command: ["bash", "-c", "lscpu | grep 'CPU max MHz' | awk '{print $4}'"]
-        running: true
+        running: false
         stdout: StdioCollector {
             id: outputCollector
             onStreamFinished: {
