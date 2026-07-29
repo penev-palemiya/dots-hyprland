@@ -7,9 +7,13 @@ import Quickshell
 import Quickshell.Wayland
 
 /**
- * Like StyledPopup, but activated by an explicit boolean instead of a hover
- * check, and sized to match `anchorTarget`'s width exactly so it reads as
- * the same shape growing taller out of `anchorTarget`, not a separate popup.
+ * Like StyledPopup, but sized to match `anchorTarget`'s width exactly so it
+ * reads as the same shape growing taller out of `anchorTarget`, not a
+ * separate popup — and, critically, mounted as soon as there's something to
+ * anchor to (not lazily on `shown`), so the window itself never "appears":
+ * only the visible pill's height animates between 0 (nothing shown) and its
+ * content's natural size. `sourceComponent` is still only loaded while
+ * `shown` is true, so idle content doesn't run in the background.
  */
 LazyLoader {
     id: root
@@ -18,7 +22,7 @@ LazyLoader {
     property bool shown: false
     property Component sourceComponent
 
-    active: root.shown && !!root.anchorTarget
+    active: !!root.anchorTarget
 
     component: PanelWindow {
         id: overlayWindow
@@ -70,15 +74,20 @@ LazyLoader {
                 bottomMargin: Appearance.sizes.elevationMargin * (!overlayWindow.anchors.bottom)
             }
             implicitWidth: root.anchorTarget ? root.anchorTarget.width : 0
-            implicitHeight: contentLoader.implicitHeight + contentPadding * 2
+            implicitHeight: root.shown ? contentLoader.implicitHeight + contentPadding * 2 : 0
             color: Config.options?.bar.borderless ? "transparent" : Appearance.colors.colLayer1
             radius: Appearance.rounding.small
+            clip: true
+
+            Behavior on implicitHeight {
+                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+            }
 
             Loader {
                 id: contentLoader
                 anchors.fill: parent
                 anchors.margins: overlayBackground.contentPadding
-                sourceComponent: root.sourceComponent
+                sourceComponent: root.shown ? root.sourceComponent : null
             }
         }
     }

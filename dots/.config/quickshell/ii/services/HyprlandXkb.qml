@@ -1,6 +1,7 @@
 pragma Singleton
 
 import QtQuick
+import QtQml.Models
 import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
@@ -19,6 +20,127 @@ Singleton {
     // For the service
     property var baseLayoutFilePath: "/usr/share/X11/xkb/rules/base.lst"
     property bool needsLayoutRefresh: false
+
+    // Caps/Num Lock: Hyprland has no IPC event for these, but the kernel
+    // exposes the keyboard LED state under sysfs, which FileView can watch
+    // via inotify (watchChanges: true) — genuinely event-driven, no polling.
+    // Some machines (no physical LED, some Bluetooth keyboards) don't expose
+    // this node at all, so a `hyprctl -j devices` polling Timer is kept as a
+    // fallback, only ever started if the sysfs discovery comes up empty.
+    property bool capsLockOn: false
+    property bool numLockOn: false
+
+    property var capsLockLedPaths: []
+    property var numLockLedPaths: []
+    property var capsLockLedStates: ({}) // path -> bool, OR'd together
+    property var numLockLedStates: ({})
+
+    function recomputeCapsLock() {
+        root.capsLockOn = Object.values(root.capsLockLedStates).some(v => v);
+    }
+    function recomputeNumLock() {
+        root.numLockOn = Object.values(root.numLockLedStates).some(v => v);
+    }
+
+    Process {
+        id: findLedNodesProc
+        running: true
+        // Plain bash globbing instead of `find -iname` — simpler, nothing to escape.
+        // Unmatched patterns just print a suppressed "no such file" to stderr.
+        command: ["bash", "-c", "ls -d /sys/class/leds/*capslock*/brightness /sys/class/leds/*numlock*/brightness 2>/dev/null"]
+
+        stdout: StdioCollector {
+            id: ledNodesCollector
+            onStreamFinished: {
+                const paths = ledNodesCollector.text.trim().split("\n").filter(l => l.length > 0);
+                root.capsLockLedPaths = paths.filter(p => /capslock/i.test(p));
+                root.numLockLedPaths = paths.filter(p => /numlock/i.test(p));
+
+                // No sysfs LED exposed on this machine at all — fall back to polling hyprctl.
+                if (root.capsLockLedPaths.length === 0 && root.numLockLedPaths.length === 0) {
+                    lockStatePollTimer.running = true;
+                }
+            }
+        }
+    }
+
+    Instantiator {
+        id: capsLockInstantiator
+        model: root.capsLockLedPaths
+        delegate: FileView {
+            id: capsLedFile
+            required property string modelData
+            path: modelData
+            watchChanges: true // may not fire for kernel-driven LED changes on every driver — see sysfsPollTimer below
+            onFileChanged: capsLedFile.refresh()
+            Component.onCompleted: capsLedFile.refresh()
+            function refresh() {
+                reload();
+                root.capsLockLedStates[modelData] = text().trim() === "1";
+                root.recomputeCapsLock();
+            }
+        }
+    }
+    Instantiator {
+        id: numLockInstantiator
+        model: root.numLockLedPaths
+        delegate: FileView {
+            id: numLedFile
+            required property string modelData
+            path: modelData
+            watchChanges: true
+            onFileChanged: numLedFile.refresh()
+            Component.onCompleted: numLedFile.refresh()
+            function refresh() {
+                reload();
+                root.numLockLedStates[modelData] = text().trim() === "1";
+                root.recomputeNumLock();
+            }
+        }
+    }
+
+    // Belt-and-suspenders: some LED drivers update the sysfs value without
+    // calling sysfs_notify(), so inotify (watchChanges above) never fires
+    // even though the file's content is correct if you just read it. This
+    // re-reads the already-open sysfs files directly — no subprocess spawn,
+    // much cheaper than the hyprctl poll below, so a short interval is fine.
+    Timer {
+        interval: 200
+        running: root.capsLockLedPaths.length > 0 || root.numLockLedPaths.length > 0
+        repeat: true
+        onTriggered: {
+            for (let i = 0; i < capsLockInstantiator.count; i++)
+                capsLockInstantiator.objectAt(i).refresh();
+            for (let i = 0; i < numLockInstantiator.count; i++)
+                numLockInstantiator.objectAt(i).refresh();
+        }
+    }
+
+    // Fallback only — started when sysfs discovery above finds nothing to watch.
+    Timer {
+        id: lockStatePollTimer
+        interval: 500
+        running: false
+        repeat: true
+        onTriggered: pollLockStateProc.running = true
+    }
+
+    Process {
+        id: pollLockStateProc
+        command: ["hyprctl", "-j", "devices"]
+
+        stdout: StdioCollector {
+            id: lockStateCollector
+            onStreamFinished: {
+                const parsedOutput = JSON.parse(lockStateCollector.text);
+                const hyprlandKeyboard = parsedOutput["keyboards"]?.find(kb => kb.main === true);
+                if (hyprlandKeyboard) {
+                    root.capsLockOn = !!hyprlandKeyboard.capsLock;
+                    root.numLockOn = !!hyprlandKeyboard.numLock;
+                }
+            }
+        }
+    }
 
     // Update the layout code according to the layout name (Hyprland gives the name not the code)
     onCurrentLayoutNameChanged: root.updateLayoutCode()
