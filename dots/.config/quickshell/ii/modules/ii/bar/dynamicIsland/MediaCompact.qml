@@ -23,9 +23,11 @@ Item {
         onTriggered: activePlayer.positionChanged()
     }
 
+    // Left-click is intentionally not handled here — it falls through to
+    // DynamicIsland's own click-to-pin MouseArea underneath.
     MouseArea {
         anchors.fill: parent
-        acceptedButtons: Qt.MiddleButton | Qt.BackButton | Qt.ForwardButton | Qt.RightButton | Qt.LeftButton
+        acceptedButtons: Qt.MiddleButton | Qt.BackButton | Qt.ForwardButton | Qt.RightButton
         onPressed: (event) => {
             if (event.button === Qt.MiddleButton) {
                 activePlayer.togglePlaying();
@@ -33,8 +35,6 @@ Item {
                 activePlayer.previous();
             } else if (event.button === Qt.ForwardButton || event.button === Qt.RightButton) {
                 activePlayer.next();
-            } else if (event.button === Qt.LeftButton) {
-                GlobalStates.mediaControlsOpen = !GlobalStates.mediaControlsOpen
             }
         }
     }
