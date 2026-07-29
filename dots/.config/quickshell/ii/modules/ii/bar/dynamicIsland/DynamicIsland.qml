@@ -293,6 +293,12 @@ Item {
                 property real incomingScale: 1
                 property real outgoingScale: 1
                 readonly property real transitionDistance: 8
+                readonly property var flashKey: root.primaryActivity?.flashKey
+
+                onFlashKeyChanged: {
+                    if (initialized && displayedSourceComponent === sourceComponent && !transitionRunning)
+                        pulseAnimation.restart();
+                }
 
                 function setCurrentSource(nextSource) {
                     if (displayedSourceComponent === nextSource)
@@ -420,6 +426,50 @@ Item {
                         primaryTransitionSlot.outgoingOffset = 0;
                         primaryTransitionSlot.incomingScale = 1;
                         primaryTransitionSlot.outgoingScale = 1;
+                    }
+                }
+
+                ParallelAnimation {
+                    id: pulseAnimation
+
+                    PropertyAction {
+                        target: primaryTransitionSlot
+                        property: "incomingOpacity"
+                        value: 0.35
+                    }
+                    PropertyAction {
+                        target: primaryTransitionSlot
+                        property: "incomingOffset"
+                        value: primaryTransitionSlot.transitionDistance
+                    }
+                    PropertyAction {
+                        target: primaryTransitionSlot
+                        property: "incomingScale"
+                        value: 0.97
+                    }
+                    NumberAnimation {
+                        target: primaryTransitionSlot
+                        property: "incomingOpacity"
+                        to: 1
+                        duration: Appearance.animation.elementMoveFast.duration
+                        easing.type: Appearance.animation.elementMoveFast.type
+                        easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
+                    }
+                    NumberAnimation {
+                        target: primaryTransitionSlot
+                        property: "incomingOffset"
+                        to: 0
+                        duration: Appearance.animation.elementMoveSmall.duration
+                        easing.type: Appearance.animation.elementMoveSmall.type
+                        easing.bezierCurve: Appearance.animation.elementMoveSmall.bezierCurve
+                    }
+                    NumberAnimation {
+                        target: primaryTransitionSlot
+                        property: "incomingScale"
+                        to: 1
+                        duration: Appearance.animation.elementMoveSmall.duration
+                        easing.type: Appearance.animation.elementMoveSmall.type
+                        easing.bezierCurve: Appearance.animation.elementMoveSmall.bezierCurve
                     }
                 }
             }

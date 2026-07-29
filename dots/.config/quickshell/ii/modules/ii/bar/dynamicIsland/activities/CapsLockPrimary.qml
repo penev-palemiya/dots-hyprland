@@ -12,6 +12,8 @@ IslandActivityRow {
     icon: capsLockOn ? "keyboard_capslock" : "keyboard"
     iconColor: capsLockOn ? Appearance.m3colors.m3onSecondaryContainer : Appearance.colors.colSubtext
 
+    onStatusTextChanged: statusSlot.setStatus(statusText)
+
     Item {
         id: statusSlot
         anchors {
@@ -55,13 +57,6 @@ IslandActivityRow {
         Component.onCompleted: {
             initialized = true;
             setStatus(root.statusText);
-        }
-
-        Connections {
-            target: root
-            function onStatusTextChanged() {
-                statusSlot.setStatus(root.statusText);
-            }
         }
 
         StyledText {
