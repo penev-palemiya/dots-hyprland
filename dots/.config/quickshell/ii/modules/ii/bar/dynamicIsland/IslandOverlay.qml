@@ -16,10 +16,9 @@ import Quickshell.Wayland
  * repeatedly proved unreliable here (resolves via an unrelated QObject
  * parent chain, and refuses to run at all on a window too small to count
  * as "a member of a window" — see DynamicIsland.qml's comment for the full
- * story). The PanelWindow is mounted immediately (not lazily on `shown`), and
- * its content stays mounted until the collapse animation has finished, so a
- * quick re-open reverses the existing animation instead of tearing down and
- * recreating the expanded view.
+ * story). The PanelWindow and expanded content stay mounted even while hidden,
+ * so a quick re-open reverses the existing animation instead of tearing down
+ * and recreating the expanded view or resizing the layer-shell surface.
  *
  * Its top corners are always flat, fusing against the pill's bottom corners
  * (which flatten to match while `shown`, see DynamicIsland.qml's
@@ -38,37 +37,10 @@ LazyLoader {
     property real anchorWidth: 0
     property color surfaceColor: "transparent"
     property bool shown: false
-    property bool mounted: shown
     property Component sourceComponent
-    property Component mountedSourceComponent: shown ? sourceComponent : null
+    property real visibleHeight: 0
 
     active: true
-
-    onShownChanged: {
-        if (shown) {
-            closeCleanupTimer.stop();
-            mountedSourceComponent = sourceComponent;
-            mounted = true;
-        } else {
-            closeCleanupTimer.restart();
-        }
-    }
-
-    onSourceComponentChanged: {
-        if (shown || !mounted)
-            mountedSourceComponent = sourceComponent;
-    }
-
-    Timer {
-        id: closeCleanupTimer
-        interval: Appearance.animation.elementMoveSmall.duration + 40
-        onTriggered: {
-            if (!root.shown) {
-                root.mounted = false;
-                root.mountedSourceComponent = null;
-            }
-        }
-    }
 
     component: PanelWindow {
         id: overlayWindow
@@ -93,11 +65,11 @@ LazyLoader {
         // one-time resize, whichever direction `shown` just changed to);
         // the Rectangle inside still animates smoothly *within* that
         // already-correctly-sized window — pure client-side rendering, no
-        // further surface reconfiguration involved. On close, the window stays
-        // at that size until the internal height animation finishes, then drops
-        // to zero once hidden.
+        // further surface reconfiguration involved. Keep this at the expanded
+        // size even while hidden so rapid close/open never tears down the
+        // layer-shell surface or expanded content mid-animation.
         implicitWidth: root.anchorWidth
-        implicitHeight: root.mounted ? contentLoader.implicitHeight + overlayBackground.contentPadding * 2 : 0
+        implicitHeight: contentLoader.implicitHeight + overlayBackground.contentPadding * 2
 
         mask: Region {
             item: overlayBackground
@@ -127,6 +99,7 @@ LazyLoader {
                 right: parent.right
             }
             height: root.shown ? contentLoader.implicitHeight + contentPadding * 2 : 0
+            onHeightChanged: root.visibleHeight = height
             // Flattened in DynamicIsland from "pill over bar background" into
             // the single color this separate surface must paint to match the
             // inline pill visually.
@@ -164,7 +137,7 @@ LazyLoader {
                 anchors.fill: parent
                 anchors.margins: overlayBackground.contentPadding
                 opacity: root.shown ? 1 : 0
-                sourceComponent: root.mounted ? root.mountedSourceComponent : null
+                sourceComponent: root.sourceComponent
 
                 // Opacity is an effects property — no overshoot. Container-
                 // transform choreography: the shape grows first, content

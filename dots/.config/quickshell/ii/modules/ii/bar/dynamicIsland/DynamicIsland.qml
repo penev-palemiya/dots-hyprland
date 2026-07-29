@@ -224,9 +224,9 @@ Item {
     readonly property bool hasExpandedContent: !!root.primaryActivity?.expandedContent
     readonly property bool overlayOpen: root.pinned && root.hasExpandedContent
     // Whether the pill's bottom edge should flatten flat against the overlay
-    // below it. This deliberately stays true while IslandOverlay is collapsing,
-    // so the pill only rounds back after the panel is fully gone.
-    readonly property bool mergedWithOverlay: root.hasExpandedContent && (root.overlayOpen || islandOverlay.mounted)
+    // below it. Use IslandOverlay's actual animated height so the pill rounds
+    // back only after the panel is visually gone, including interrupted closes.
+    readonly property bool mergedWithOverlay: root.hasExpandedContent && (root.overlayOpen || islandOverlay.visibleHeight > 0.5)
 
     // The actual visible pill — inset from root's top/bottom like every
     // other BarGroup pill's background (topMargin/bottomMargin: 4), instead
