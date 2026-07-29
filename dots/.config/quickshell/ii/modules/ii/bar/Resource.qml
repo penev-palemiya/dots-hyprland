@@ -8,13 +8,14 @@ Item {
     required property string iconName
     required property double percentage
     property int warningThreshold: 100
+    property bool invertWarning: false // true: warn when percentage is LOW (e.g. battery), not high
     property bool shown: true
     property bool showPercentage: true
     clip: true
     visible: width > 0 && height > 0
     implicitWidth: resourceRowLayout.x < 0 ? 0 : resourceRowLayout.implicitWidth
     implicitHeight: Appearance.sizes.barHeight
-    property bool warning: percentage * 100 >= warningThreshold
+    property bool warning: root.invertWarning ? (percentage * 100 <= warningThreshold) : (percentage * 100 >= warningThreshold)
 
     RowLayout {
         id: resourceRowLayout
@@ -30,7 +31,7 @@ Item {
             lineWidth: Appearance.rounding.unsharpen
             value: percentage
             implicitSize: 20
-            colPrimary: root.warning ? Appearance.colors.colError : Appearance.colors.colOnSecondaryContainer
+            colPrimary: root.warning ? Appearance.colors.colError : Appearance.colors.colOnLayer1
             accountForLightBleeding: !root.warning
             enableAnimation: false
 

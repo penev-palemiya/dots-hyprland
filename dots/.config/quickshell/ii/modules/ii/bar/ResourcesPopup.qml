@@ -51,6 +51,17 @@ StyledPopup {
                 subtitleText: ResourceUsage.maxAvailableCpuString
                 warning: ResourceUsage.cpuUsage * 100 >= Config.options.bar.resources.cpuWarningThreshold
             }
+
+            ResourceCard {
+                Layout.fillWidth: true
+                visible: Battery.available
+                title: Translation.tr("Battery")
+                symbol: Battery.isCharging ? "battery_charging_full" : "battery_android_full"
+                percentage: Battery.percentage
+                valueText: `${Math.round(Battery.percentage * 100)}%`
+                subtitleText: Battery.isCharging ? Translation.tr("Charging") : Translation.tr("Discharging")
+                warning: Battery.isLow && !Battery.isCharging
+            }
         }
     }
 }

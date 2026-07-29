@@ -41,11 +41,21 @@ MouseArea {
         Resource {
             iconName: "developer_board"
             percentage: ResourceUsage.cpuUsage
-            shown: Config.options.bar.resources.alwaysShowCpu || 
+            shown: Config.options.bar.resources.alwaysShowCpu ||
                 !(MprisController.activePlayer?.trackTitle?.length > 0) ||
                 root.alwaysShowAllResources
             Layout.leftMargin: shown ? 6 : 0
             warningThreshold: Config.options.bar.resources.cpuWarningThreshold
+            showPercentage: root.showPercentages
+        }
+
+        Resource {
+            visible: Battery.available
+            iconName: Battery.isCharging ? "battery_charging_full" : Battery.isLow ? "battery_alert" : "battery_android_full"
+            percentage: Battery.percentage
+            Layout.leftMargin: 6
+            warningThreshold: Config.options.battery.low
+            invertWarning: true
             showPercentage: root.showPercentages
         }
 
