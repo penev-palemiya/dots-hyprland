@@ -1,5 +1,6 @@
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.common.functions
 import qs.services
 import qs.modules.ii.bar.dynamicIsland.activities
 import QtQuick
@@ -67,27 +68,71 @@ Item {
     // work on a window degenerate enough not to be "a member of a window"
     // yet (confirmed via live logging). Passing plain numbers as ordinary
     // properties into IslandOverlay sidesteps all of that.
-    property real screenX: 0
-    property real screenY: 0
+    property real screenWidth: root.QsWindow.window?.screen?.width ?? 0
+    property real screenHeight: root.QsWindow.window?.screen?.height ?? 0
+    property real pillScreenX: 0
+    property real pillScreenY: 0
+    property real pillScreenWidth: 0
+    property real pillScreenHeight: 0
+
+    readonly property color pillSurfaceColor: Config.options?.bar.borderless ? "transparent" : Appearance.colors.colLayer1
+    readonly property color expandedSurfaceColor: root.computeExpandedSurfaceColor()
+    readonly property real overlayLeftMargin: root.computeOverlayLeftMargin()
+    readonly property real overlayRightMargin: root.computeOverlayRightMargin()
+    readonly property real overlayTopMargin: root.computeOverlayTopMargin()
+    readonly property real overlayBottomMargin: root.computeOverlayBottomMargin()
+
+    function computeExpandedSurfaceColor() {
+        if (Config.options?.bar.borderless)
+            return "transparent";
+        if (!Config.options.bar.showBackground)
+            return root.pillSurfaceColor;
+        return ColorUtils.compositeOver(root.pillSurfaceColor, Appearance.colors.colLayer0);
+    }
+
+    function computeOverlayLeftMargin() {
+        if (!Config.options.bar.vertical)
+            return root.pillScreenX;
+        return Config.options.bar.bottom ? 0 : root.pillScreenX + root.pillScreenWidth;
+    }
+
+    function computeOverlayRightMargin() {
+        if (!Config.options.bar.vertical || !Config.options.bar.bottom)
+            return 0;
+        return Math.max(0, root.screenWidth - root.pillScreenX);
+    }
+
+    function computeOverlayTopMargin() {
+        if (!Config.options.bar.vertical)
+            return Config.options.bar.bottom ? 0 : root.pillScreenY + root.pillScreenHeight;
+        return root.pillScreenY;
+    }
+
+    function computeOverlayBottomMargin() {
+        if (Config.options.bar.vertical || !Config.options.bar.bottom)
+            return 0;
+        return Math.max(0, root.screenHeight - root.pillScreenY);
+    }
 
     function refreshScreenPosition() {
-        const mapped = root.mapToItem(null, 0, 0);
-        root.screenX = mapped.x;
-        root.screenY = mapped.y;
+        const pillMapped = pillBackground.mapToItem(null, 0, 0);
+        root.pillScreenX = pillMapped.x;
+        root.pillScreenY = pillMapped.y;
+        root.pillScreenWidth = pillBackground.width;
+        root.pillScreenHeight = pillBackground.height;
     }
 
     Component.onCompleted: root.refreshScreenPosition()
     onXChanged: root.refreshScreenPosition()
     onYChanged: root.refreshScreenPosition()
     onWidthChanged: root.refreshScreenPosition()
+    onHeightChanged: root.refreshScreenPosition()
 
-    // The Bar's own layout (siblings resizing, workspace count changing,
-    // etc.) can move this pill without touching root.x directly through a
-    // single step — a cheap repeating refresh is what makes this reliably
-    // self-correct regardless of exactly which binding chain moved it.
+    // While expanded, keep correcting for parent layout movement that does
+    // not necessarily show up as a direct x/y change on this item.
     Timer {
         interval: 200
-        running: true
+        running: root.mergedWithOverlay
         repeat: true
         onTriggered: root.refreshScreenPosition()
     }
@@ -176,9 +221,12 @@ Item {
         }
     }
 
-    // Whether the pill's bottom edge should flatten flat against the
-    // overlay below it (see IslandOverlay.qml for the matching top-flatten).
-    readonly property bool mergedWithOverlay: root.pinned && !!root.primaryActivity?.expandedContent
+    readonly property bool hasExpandedContent: !!root.primaryActivity?.expandedContent
+    readonly property bool overlayOpen: root.pinned && root.hasExpandedContent
+    // Whether the pill's bottom edge should flatten flat against the overlay
+    // below it. This deliberately stays true while IslandOverlay is collapsing,
+    // so the pill only rounds back after the panel is fully gone.
+    readonly property bool mergedWithOverlay: root.hasExpandedContent && (root.overlayOpen || islandOverlay.mounted)
 
     // The actual visible pill — inset from root's top/bottom like every
     // other BarGroup pill's background (topMargin/bottomMargin: 4), instead
@@ -189,7 +237,7 @@ Item {
         topRightRadius: Appearance.rounding.small
         bottomLeftRadius: root.mergedWithOverlay ? 0 : Appearance.rounding.small
         bottomRightRadius: root.mergedWithOverlay ? 0 : Appearance.rounding.small
-        color: Config.options?.bar.borderless ? "transparent" : Appearance.colors.colLayer1
+        color: root.pillSurfaceColor
         anchors {
             fill: parent
             topMargin: 4
@@ -197,15 +245,20 @@ Item {
         }
 
         Behavior on bottomLeftRadius {
+            enabled: !root.overlayOpen
             animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(pillBackground)
         }
         Behavior on bottomRightRadius {
+            enabled: !root.overlayOpen
             animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(pillBackground)
         }
 
         MouseArea {
             anchors.fill: parent
-            onClicked: root.pinned = !root.pinned
+            onClicked: {
+                root.refreshScreenPosition();
+                root.pinned = !root.pinned;
+            }
         }
 
         RowLayout {
@@ -293,10 +346,14 @@ Item {
     }
 
     IslandOverlay {
-        anchorScreenX: root.screenX
-        anchorScreenY: root.screenY
-        anchorWidth: pillBackground.width
-        shown: root.mergedWithOverlay
+        id: islandOverlay
+        anchorLeftMargin: root.overlayLeftMargin
+        anchorTopMargin: root.overlayTopMargin
+        anchorRightMargin: root.overlayRightMargin
+        anchorBottomMargin: root.overlayBottomMargin
+        anchorWidth: root.pillScreenWidth
+        surfaceColor: root.expandedSurfaceColor
+        shown: root.overlayOpen
         sourceComponent: root.primaryActivity?.expandedContent ?? null
     }
 }

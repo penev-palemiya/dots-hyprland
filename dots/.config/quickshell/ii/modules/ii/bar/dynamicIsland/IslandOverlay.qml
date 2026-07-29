@@ -9,15 +9,17 @@ import Quickshell.Wayland
  * The dynamic island's click-to-reveal detail panel — a separate floating
  * window (Wayland/layer-shell has no way to let one surface draw outside
  * its own bounds, so growing past the bar's fixed height genuinely needs a
- * second surface), positioned using plain numbers (`anchorScreenX`/
- * `anchorScreenY`/`anchorWidth`) computed by `DynamicIsland.qml` itself and
+ * second surface), positioned using plain margins computed from
+ * `pillBackground`'s real screen rect by `DynamicIsland.qml` itself and
  * passed in as ordinary properties — deliberately NOT Quickshell's
  * `QsWindow`/`mapFromItem` cross-window attached-property mechanism, which
  * repeatedly proved unreliable here (resolves via an unrelated QObject
  * parent chain, and refuses to run at all on a window too small to count
  * as "a member of a window" — see DynamicIsland.qml's comment for the full
- * story). Mounted immediately (not lazily on `shown`), so the window itself
- * never "appears" — only the visible panel's height animates.
+ * story). The PanelWindow is mounted immediately (not lazily on `shown`), and
+ * its content stays mounted until the collapse animation has finished, so a
+ * quick re-open reverses the existing animation instead of tearing down and
+ * recreating the expanded view.
  *
  * Its top corners are always flat, fusing against the pill's bottom corners
  * (which flatten to match while `shown`, see DynamicIsland.qml's
@@ -29,13 +31,44 @@ import Quickshell.Wayland
 LazyLoader {
     id: root
 
-    property real anchorScreenX: 0
-    property real anchorScreenY: 0
+    property real anchorLeftMargin: 0
+    property real anchorTopMargin: 0
+    property real anchorRightMargin: 0
+    property real anchorBottomMargin: 0
     property real anchorWidth: 0
+    property color surfaceColor: "transparent"
     property bool shown: false
+    property bool mounted: shown
     property Component sourceComponent
+    property Component mountedSourceComponent: shown ? sourceComponent : null
 
     active: true
+
+    onShownChanged: {
+        if (shown) {
+            closeCleanupTimer.stop();
+            mountedSourceComponent = sourceComponent;
+            mounted = true;
+        } else {
+            closeCleanupTimer.restart();
+        }
+    }
+
+    onSourceComponentChanged: {
+        if (shown || !mounted)
+            mountedSourceComponent = sourceComponent;
+    }
+
+    Timer {
+        id: closeCleanupTimer
+        interval: Appearance.animation.elementMoveSmall.duration + 40
+        onTriggered: {
+            if (!root.shown) {
+                root.mounted = false;
+                root.mountedSourceComponent = null;
+            }
+        }
+    }
 
     component: PanelWindow {
         id: overlayWindow
@@ -60,9 +93,11 @@ LazyLoader {
         // one-time resize, whichever direction `shown` just changed to);
         // the Rectangle inside still animates smoothly *within* that
         // already-correctly-sized window — pure client-side rendering, no
-        // further surface reconfiguration involved.
+        // further surface reconfiguration involved. On close, the window stays
+        // at that size until the internal height animation finishes, then drops
+        // to zero once hidden.
         implicitWidth: root.anchorWidth
-        implicitHeight: root.shown ? contentLoader.implicitHeight + overlayBackground.contentPadding * 2 : 0
+        implicitHeight: root.mounted ? contentLoader.implicitHeight + overlayBackground.contentPadding * 2 : 0
 
         mask: Region {
             item: overlayBackground
@@ -71,10 +106,10 @@ LazyLoader {
         exclusionMode: ExclusionMode.Ignore
         exclusiveZone: 0
         margins {
-            left: !Config.options.bar.vertical ? root.anchorScreenX : Appearance.sizes.verticalBarWidth
-            top: !Config.options.bar.vertical ? Appearance.sizes.barHeight : root.anchorScreenY
-            right: Appearance.sizes.verticalBarWidth
-            bottom: Appearance.sizes.barHeight
+            left: root.anchorLeftMargin
+            top: root.anchorTopMargin
+            right: root.anchorRightMargin
+            bottom: root.anchorBottomMargin
         }
         WlrLayershell.namespace: "quickshell:island-overlay"
         WlrLayershell.layer: WlrLayer.Overlay
@@ -92,13 +127,10 @@ LazyLoader {
                 right: parent.right
             }
             height: root.shown ? contentLoader.implicitHeight + contentPadding * 2 : 0
-            // A real standalone surface color, not `colLayer1` (which is a
-            // "solved overlay" blend pre-baked assuming it's painted over
-            // the bar's own background — correct in the bar, but looks
-            // washed out/semi-transparent floating over the wallpaper with
-            // nothing behind it). `m3surfaceContainer` is the token
-            // StyledPopup.qml already uses for exactly this situation.
-            color: Config.options?.bar.borderless ? "transparent" : Appearance.m3colors.m3surfaceContainer
+            // Flattened in DynamicIsland from "pill over bar background" into
+            // the single color this separate surface must paint to match the
+            // inline pill visually.
+            color: root.surfaceColor
             // Flat against the pill above (see class comment) — only the
             // bottom corners round, matching the pill's own shape while merged.
             topLeftRadius: 0
@@ -132,7 +164,7 @@ LazyLoader {
                 anchors.fill: parent
                 anchors.margins: overlayBackground.contentPadding
                 opacity: root.shown ? 1 : 0
-                sourceComponent: root.shown ? root.sourceComponent : null
+                sourceComponent: root.mounted ? root.mountedSourceComponent : null
 
                 // Opacity is an effects property — no overshoot. Container-
                 // transform choreography: the shape grows first, content

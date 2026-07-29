@@ -126,6 +126,31 @@ Singleton {
     }
 
     /**
+     * Returns the single flattened color produced by compositing foregroundColor
+     * over backgroundColor. Useful when a visual surface has to continue outside
+     * the parent layer that normally sits behind it.
+     *
+     * @param {string} foregroundColor - The top color/layer.
+     * @param {string} backgroundColor - The color/layer behind it.
+     * @returns {Qt.rgba} The composited color.
+     */
+    function compositeOver(foregroundColor, backgroundColor) {
+        const fg = Qt.color(foregroundColor);
+        const bg = Qt.color(backgroundColor);
+        const outA = fg.a + bg.a * (1 - fg.a);
+
+        if (outA <= 0)
+            return Qt.rgba(0, 0, 0, 0);
+
+        return Qt.rgba(
+            (fg.r * fg.a + bg.r * bg.a * (1 - fg.a)) / outA,
+            (fg.g * fg.a + bg.g * bg.a * (1 - fg.a)) / outA,
+            (fg.b * fg.a + bg.b * bg.a * (1 - fg.a)) / outA,
+            outA
+        );
+    }
+
+    /**
      * Returns true if the color is considered "dark" (hslLightness < 0.5).
      *
      * @param {string} color - The color to check (any Qt.color-compatible string).
