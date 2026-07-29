@@ -11,15 +11,14 @@ ColumnLayout {
     id: root
 
     readonly property MprisPlayer activePlayer: MprisController.activePlayer
-    readonly property string cleanedTitle: StringUtils.cleanMusicTitle(activePlayer?.trackTitle) || Translation.tr("No media")
     readonly property string artUrl: MprisController.activeTrack?.artUrl ?? ""
+    readonly property bool hasArt: artUrl.length > 0
+    readonly property bool playing: activePlayer?.isPlaying ?? false
     readonly property real progress: (activePlayer?.length > 0) ? (activePlayer.position / activePlayer.length) : 0
 
     anchors.fill: parent
-    spacing: 10
+    spacing: 12
 
-    // `position` doesn't update on its own — nudge it while playing so the
-    // progress bar and time text stay live (same pattern as MediaPrimary.qml).
     Timer {
         running: root.activePlayer?.playbackState == MprisPlaybackState.Playing
         interval: Config.options.resources.updateInterval
@@ -29,34 +28,34 @@ ColumnLayout {
 
     RowLayout {
         Layout.fillWidth: true
-        spacing: 10
+        spacing: 12
 
-        // Real album art instead of a generic play/pause icon — the pill
-        // above already shows that same icon, so repeating it here was
-        // pure duplication. Falls back to the icon only when there's no
-        // art to show (no player, or a player that doesn't report any).
         Item {
-            implicitWidth: Appearance.font.pixelSize.title * 2
-            implicitHeight: Appearance.font.pixelSize.title * 2
+            id: preview
+            Layout.alignment: Qt.AlignVCenter
+            implicitWidth: 76
+            implicitHeight: 76
 
             Rectangle {
                 anchors.fill: parent
-                radius: Appearance.rounding.small
+                radius: Appearance.rounding.normal
                 color: Appearance.colors.colSecondaryContainer
-                visible: root.artUrl.length === 0
+                visible: !root.hasArt
             }
+
             MaterialSymbol {
                 anchors.centerIn: parent
+                visible: !root.hasArt
                 fill: 1
-                visible: root.artUrl.length === 0
-                text: root.activePlayer?.isPlaying ? "pause" : "music_note"
-                iconSize: Appearance.font.pixelSize.title
-                color: Appearance.m3colors.m3onSecondaryContainer
+                text: root.playing ? "pause" : "music_note"
+                iconSize: Appearance.font.pixelSize.huge
+                color: Appearance.colors.colOnSecondaryContainer
             }
+
             StyledImage {
                 id: artImage
                 anchors.fill: parent
-                visible: root.artUrl.length > 0
+                visible: root.hasArt
                 source: root.artUrl
                 fillMode: Image.PreserveAspectCrop
                 layer.enabled: true
@@ -66,86 +65,112 @@ ColumnLayout {
                         height: artImage.height
                         Rectangle {
                             anchors.fill: parent
-                            radius: Appearance.rounding.small
+                            radius: Appearance.rounding.normal
                         }
                     }
                 }
             }
         }
 
-        // Artist as a small grey "eyebrow" above the (bolder, bigger)
-        // title — swapped from the previous title-then-artist order.
         ColumnLayout {
             Layout.fillWidth: true
-            spacing: 0
+            Layout.alignment: Qt.AlignVCenter
+            spacing: 10
 
-            StyledText {
+            RowLayout {
                 Layout.fillWidth: true
-                visible: text.length > 0
-                elide: Text.ElideRight
-                font.pixelSize: Appearance.font.pixelSize.smaller
-                color: Appearance.colors.colSubtext
-                text: root.activePlayer?.trackArtist ?? ""
+                spacing: 8
+
+                Rectangle {
+                    Layout.alignment: Qt.AlignVCenter
+                    implicitWidth: playStateRow.implicitWidth + 14
+                    implicitHeight: 28
+                    radius: Appearance.rounding.full
+                    color: root.playing ? Appearance.colors.colPrimary : Appearance.colors.colLayer2
+
+                    RowLayout {
+                        id: playStateRow
+                        anchors.centerIn: parent
+                        spacing: 5
+
+                        MaterialSymbol {
+                            text: root.playing ? "graphic_eq" : "pause"
+                            fill: 1
+                            iconSize: Appearance.font.pixelSize.small
+                            color: root.playing ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer2
+                        }
+
+                        StyledText {
+                            font.pixelSize: Appearance.font.pixelSize.smaller
+                            font.weight: Font.Medium
+                            color: root.playing ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer2
+                            text: root.playing ? Translation.tr("Playing") : Translation.tr("Paused")
+                        }
+                    }
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                }
             }
-            StyledText {
+
+            Rectangle {
+                id: progressTrack
                 Layout.fillWidth: true
-                elide: Text.ElideRight
-                font.weight: Font.Bold
-                color: Appearance.colors.colOnLayer1
-                text: root.cleanedTitle
+                implicitHeight: 8
+                radius: height / 2
+                color: Appearance.colors.colLayer2
+
+                Rectangle {
+                    width: parent.width * Math.max(0, Math.min(1, root.progress))
+                    height: parent.height
+                    radius: height / 2
+                    color: Appearance.colors.colPrimary
+
+                    Behavior on width {
+                        animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                    }
+                }
             }
-        }
-    }
 
-    Rectangle {
-        id: progressTrack
-        Layout.fillWidth: true
-        implicitHeight: 6
-        radius: height / 2
-        color: Appearance.colors.colSecondaryContainer
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
 
-        Rectangle {
-            width: parent.width * Math.max(0, Math.min(1, root.progress))
-            height: parent.height
-            radius: height / 2
-            color: Appearance.colors.colPrimary
+                StyledText {
+                    font.pixelSize: Appearance.font.pixelSize.smallest
+                    color: Appearance.colors.colSubtext
+                    text: StringUtils.friendlyTimeForSeconds(root.activePlayer?.position ?? 0)
+                }
 
-            Behavior on width {
-                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                StyledText {
+                    font.pixelSize: Appearance.font.pixelSize.smallest
+                    color: Appearance.colors.colSubtext
+                    text: StringUtils.friendlyTimeForSeconds(root.activePlayer?.length ?? 0)
+                }
             }
-        }
-    }
-
-    RowLayout {
-        Layout.fillWidth: true
-
-        StyledText {
-            font.pixelSize: Appearance.font.pixelSize.smaller
-            color: Appearance.colors.colSubtext
-            text: StringUtils.friendlyTimeForSeconds(root.activePlayer?.position ?? 0)
-        }
-        Item {
-            Layout.fillWidth: true
-        }
-        StyledText {
-            font.pixelSize: Appearance.font.pixelSize.smaller
-            color: Appearance.colors.colSubtext
-            text: StringUtils.friendlyTimeForSeconds(root.activePlayer?.length ?? 0)
         }
     }
 
     RowLayout {
         Layout.alignment: Qt.AlignHCenter
-        spacing: 16
+        spacing: 18
 
         RippleButton {
             Layout.alignment: Qt.AlignVCenter
             enabled: !!root.activePlayer
             buttonRadius: Appearance.rounding.full
-            implicitWidth: 32
-            implicitHeight: 32
+            implicitWidth: 36
+            implicitHeight: 36
+            colBackgroundHover: Appearance.colors.colLayer2Hover
+            colRipple: Appearance.colors.colLayer2Active
             contentItem: MaterialSymbol {
-                anchors.centerIn: parent
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
                 text: "skip_previous"
                 fill: 1
                 iconSize: Appearance.font.pixelSize.larger
@@ -158,15 +183,17 @@ ColumnLayout {
             Layout.alignment: Qt.AlignVCenter
             enabled: !!root.activePlayer
             buttonRadius: Appearance.rounding.full
-            implicitWidth: 40
-            implicitHeight: 40
+            implicitWidth: 52
+            implicitHeight: 52
             colBackground: Appearance.colors.colPrimary
             colBackgroundHover: Appearance.colors.colPrimaryHover
+            colRipple: Appearance.colors.colPrimaryActive
             contentItem: MaterialSymbol {
-                anchors.centerIn: parent
-                text: root.activePlayer?.isPlaying ? "pause" : "play_arrow"
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                text: root.playing ? "pause" : "play_arrow"
                 fill: 1
-                iconSize: Appearance.font.pixelSize.larger
+                iconSize: Appearance.font.pixelSize.huge
                 color: Appearance.colors.colOnPrimary
             }
             onClicked: root.activePlayer.togglePlaying()
@@ -176,10 +203,13 @@ ColumnLayout {
             Layout.alignment: Qt.AlignVCenter
             enabled: !!root.activePlayer
             buttonRadius: Appearance.rounding.full
-            implicitWidth: 32
-            implicitHeight: 32
+            implicitWidth: 36
+            implicitHeight: 36
+            colBackgroundHover: Appearance.colors.colLayer2Hover
+            colRipple: Appearance.colors.colLayer2Active
             contentItem: MaterialSymbol {
-                anchors.centerIn: parent
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
                 text: "skip_next"
                 fill: 1
                 iconSize: Appearance.font.pixelSize.larger

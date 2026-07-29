@@ -3,6 +3,7 @@ import qs.modules.common.widgets
 import qs.modules.common.functions
 import qs.services
 import QtQuick
+import QtQuick.Layouts
 import Quickshell.Services.Mpris
 
 IslandActivityRow {
@@ -10,6 +11,7 @@ IslandActivityRow {
 
     readonly property MprisPlayer activePlayer: MprisController.activePlayer
     readonly property string cleanedTitle: StringUtils.cleanMusicTitle(activePlayer?.trackTitle) || Translation.tr("No media")
+    readonly property string artist: activePlayer?.trackArtist ?? ""
 
     icon: activePlayer?.isPlaying ? "pause" : "music_note"
 
@@ -37,11 +39,27 @@ IslandActivityRow {
         }
     }
 
-    StyledText {
+    ColumnLayout {
         anchors.verticalCenter: parent.verticalCenter
-        width: parent.width
-        elide: Text.ElideRight
-        color: Appearance.colors.colOnLayer1
-        text: `${root.cleanedTitle}${root.activePlayer?.trackArtist ? ' • ' + root.activePlayer.trackArtist : ''}`
+        anchors.left: parent.left
+        anchors.right: parent.right
+        spacing: -4
+
+        StyledText {
+            Layout.fillWidth: true
+            visible: root.artist.length > 0
+            elide: Text.ElideRight
+            font.pixelSize: Appearance.font.pixelSize.smallest
+            color: Appearance.colors.colSubtext
+            text: root.artist
+        }
+
+        StyledText {
+            Layout.fillWidth: true
+            elide: Text.ElideRight
+            color: Appearance.colors.colOnLayer0
+            font.pixelSize: Appearance.font.pixelSize.smaller
+            text: root.cleanedTitle
+        }
     }
 }
