@@ -16,7 +16,7 @@ MouseArea {
     implicitWidth: batteryProgress.implicitWidth
     implicitHeight: Appearance.sizes.barHeight
 
-    hoverEnabled: !Config.options.bar.tooltips.clickToShow
+    onClicked: BarPopups.toggle("battery")
 
     ClippedProgressBar {
         id: batteryProgress
@@ -59,5 +59,7 @@ MouseArea {
     BatteryPopup {
         id: batteryPopup
         hoverTarget: root
+        shown: BarPopups.activePopupId === "battery"
+        onDismissRequested: BarPopups.close()
     }
 }

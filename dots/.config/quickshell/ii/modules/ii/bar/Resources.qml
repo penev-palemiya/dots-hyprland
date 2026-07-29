@@ -10,7 +10,8 @@ MouseArea {
     property bool showPercentages: true
     implicitWidth: rowLayout.implicitWidth + rowLayout.anchors.leftMargin + rowLayout.anchors.rightMargin
     implicitHeight: Appearance.sizes.barHeight
-    hoverEnabled: !Config.options.bar.tooltips.clickToShow
+
+    onClicked: BarPopups.toggle("resources")
 
     RowLayout {
         id: rowLayout
@@ -72,5 +73,7 @@ MouseArea {
 
     ResourcesPopup {
         hoverTarget: root
+        shown: BarPopups.activePopupId === "resources"
+        onDismissRequested: BarPopups.close()
     }
 }

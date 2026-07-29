@@ -14,18 +14,21 @@ MouseArea {
     implicitHeight: Appearance.sizes.barHeight
 
     acceptedButtons: Qt.LeftButton | Qt.RightButton
-    hoverEnabled: !Config.options.bar.tooltips.clickToShow
 
     onPressed: {
         if (mouse.button === Qt.RightButton) {
             Weather.getData();
-            Quickshell.execDetached(["notify-send", 
-                Translation.tr("Weather"), 
+            Quickshell.execDetached(["notify-send",
+                Translation.tr("Weather"),
                 Translation.tr("Refreshing (manually triggered)")
                 , "-a", "Shell"
             ])
             mouse.accepted = false
         }
+    }
+    onClicked: mouse => {
+        if (mouse.button === Qt.LeftButton)
+            BarPopups.toggle("weather");
     }
 
     RowLayout {
@@ -52,5 +55,7 @@ MouseArea {
     WeatherPopup {
         id: weatherPopup
         hoverTarget: root
+        shown: BarPopups.activePopupId === "weather"
+        onDismissRequested: BarPopups.close()
     }
 }

@@ -43,10 +43,13 @@ Item {
     MouseArea {
         id: mouseArea
         anchors.fill: parent
-        hoverEnabled: !Config.options.bar.tooltips.clickToShow
+
+        onClicked: BarPopups.toggle("clock")
 
         ClockWidgetPopup {
             hoverTarget: mouseArea
+            shown: BarPopups.activePopupId === "clock"
+            onDismissRequested: BarPopups.close()
         }
     }
 }

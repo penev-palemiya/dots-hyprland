@@ -28,43 +28,91 @@ Singleton {
 
     function addPersistent(window) {
         if (root.persistent.indexOf(window) === -1) {
-            root.persistent.push(window);
+            var next = root.persistent.slice();
+            next.push(window);
+            root.persistent = next;
         }
     }
 
     function removePersistent(window) {
         var index = root.persistent.indexOf(window);
         if (index !== -1) {
-            root.persistent.splice(index, 1);
+            var next = root.persistent.slice();
+            next.splice(index, 1);
+            root.persistent = next;
         }
     }
 
     function addDismissable(window) {
         if (root.dismissable.indexOf(window) === -1) {
-            root.dismissable.push(window);
+            var next = root.dismissable.slice();
+            next.push(window);
+            root.dismissable = next;
         }
     }
 
     function removeDismissable(window) {
         var index = root.dismissable.indexOf(window);
         if (index !== -1) {
-            root.dismissable.splice(index, 1);
+            var next = root.dismissable.slice();
+            next.splice(index, 1);
+            root.dismissable = next;
         }
     }
 
     function hasActive(element) {
-        return element?.activeFocus || Array.from(
-            element?.children
-        ).some(
-            (child) => hasActive(child)
-        );
+        if (!element)
+            return false;
+        if (element.activeFocus)
+            return true;
+        var children = Array.from(element.children);
+        for (var i = 0; i < children.length; i++) {
+            if (hasActive(children[i]))
+                return true;
+        }
+        return false;
+    }
+
+    function isFocusable(window) {
+        return window ? window.focusable : false;
+    }
+
+    function windowHasActive(window) {
+        return hasActive(window ? window.contentItem : null);
+    }
+
+    function focusGrabWindows() {
+        var includePersistent = true;
+        for (var i = 0; i < root.dismissable.length; i++) {
+            if (isFocusable(root.dismissable[i])) {
+                includePersistent = false;
+                break;
+            }
+        }
+        if (!includePersistent) {
+            for (var j = 0; j < root.dismissable.length; j++) {
+                if (windowHasActive(root.dismissable[j])) {
+                    includePersistent = true;
+                    break;
+                }
+            }
+        }
+
+        if (!includePersistent)
+            return root.dismissable.slice();
+
+        var result = root.dismissable.slice();
+        for (var k = 0; k < root.persistent.length; k++) {
+            result.push(root.persistent[k]);
+        }
+        return result;
     }
 
     HyprlandFocusGrab {
         id: grab
-        windows: root.dismissable.every(w => !w?.focusable) || root.dismissable.some(w => hasActive(w?.contentItem)) ? [...root.dismissable, ...root.persistent] : [...root.dismissable]
+        windows: root.focusGrabWindows()
         active: root.dismissable.length > 0
-        onCleared: () => {
+        onCleared: {
             root.dismiss();
         }
     }
