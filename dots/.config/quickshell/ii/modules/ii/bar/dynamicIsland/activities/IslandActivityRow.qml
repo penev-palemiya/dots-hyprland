@@ -35,6 +35,10 @@ RowLayout {
             iconSize: Appearance.font.pixelSize.normal
             color: Appearance.m3colors.m3onSecondaryContainer
 
+            Behavior on color {
+                animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(iconSymbol)
+            }
+
             // Icon swap within the same row (e.g. media play/pause): crossfade
             // only, no position change — see docs/design/motion.md#recipes.
             opacity: 1
