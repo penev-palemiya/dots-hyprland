@@ -1,4 +1,5 @@
 import qs.modules.ii.bar.weather
+import qs.modules.ii.bar.dynamicIsland
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -142,19 +143,15 @@ Item { // Bar content region
         }
     }
 
-    BarGroup {
+    DynamicIsland {
         id: leftCenterGroup
+        visible: root.useShortenedForm < 2
         anchors {
             verticalCenter: middleCenterGroup.verticalCenter
             right: leftSeparator.visible ? leftSeparator.left : middleCenterGroup.left
             rightMargin: root.middleSectionSpacing
         }
         implicitWidth: root.centerSideModuleWidth
-
-        Media {
-            visible: root.useShortenedForm < 2
-            Layout.fillWidth: true
-        }
     }
 
     VerticalBarSeparator {

@@ -1,9 +1,8 @@
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.common.functions
 import qs.services
 import qs
-import qs.modules.common.functions
-
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.Mpris
@@ -15,9 +14,7 @@ Item {
     readonly property MprisPlayer activePlayer: MprisController.activePlayer
     readonly property string cleanedTitle: StringUtils.cleanMusicTitle(activePlayer?.trackTitle) || Translation.tr("No media")
 
-    Layout.fillHeight: true
-    implicitWidth: rowLayout.implicitWidth + rowLayout.spacing * 2
-    implicitHeight: Appearance.sizes.barHeight
+    anchors.fill: parent
 
     Timer {
         running: activePlayer?.playbackState == MprisPlaybackState.Playing
@@ -61,7 +58,7 @@ Item {
                 anchors.centerIn: parent
                 width: mediaCircProg.implicitSize
                 height: mediaCircProg.implicitSize
-                
+
                 MaterialSymbol {
                     anchors.centerIn: parent
                     fill: 1
@@ -85,5 +82,4 @@ Item {
         }
 
     }
-
 }
