@@ -17,22 +17,25 @@ Item {
         spacing: 4
 
         StyledText {
+            Layout.alignment: Qt.AlignVCenter
             font.pixelSize: Appearance.font.pixelSize.large
             color: Appearance.colors.colOnLayer1
             text: DateTime.time
         }
 
         StyledText {
+            Layout.alignment: Qt.AlignVCenter
             visible: root.showDate
             font.pixelSize: Appearance.font.pixelSize.small
-            color: Appearance.colors.colOnLayer1
+            color: Appearance.colors.colOutline
             text: "•"
         }
 
         StyledText {
+            Layout.alignment: Qt.AlignVCenter
             visible: root.showDate
             font.pixelSize: Appearance.font.pixelSize.small
-            color: Appearance.colors.colOnLayer1
+            color: Appearance.colors.colOutline
             text: DateTime.longDate
         }
     }
