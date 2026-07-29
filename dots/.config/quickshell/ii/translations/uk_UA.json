@@ -710,7 +710,7 @@
   "Generate translation with Gemini": "Створити переклад за допомогою Gemini",
   "Used for displaying numbers": "Використовується для відображення чисел",
   "Usage: <tt>%1superpaste NUM_OF_ENTRIES[i]</tt>\nSupply <tt>i</tt> when you want images\nExamples:\n<tt>%1superpaste 4i</tt> for the last 4 images\n<tt>%1superpaste 7</tt> for the last 7 entries": "Використання: <tt>%1superpaste NUM_OF_ENTRIES[i]</tt>\nВкажіть <tt>i</tt>, коли потрібні зображення\nПриклади:\n<tt>%1superpaste 4i</tt> для останніх 4 зображень\n<tt>%1superpaste 7</tt> для останніх 7 записів",
-  "Swap": "Поміняти місцями",
+  "Swap": "Своп",
   "Refreshing (manually triggered)": "Оновлення (ініційовано вручну)",
   "Language not listed or incomplete translations?\nYou can choose to generate translations for it with Gemini.\n1. Open the left sidebar with Super+A, set model to Gemini (if it isn't already)\n2. Type /key, hit Enter and follow the instructions\n3. Type /key YOUR_API_KEY\n4. Type the locale of your language below and press Generate": "Мова не в списку або переклади неповні?\nВи можете обрати створення перекладів за допомогою Gemini.\n1. Відкрийте ліву бічну панель за допомогою Super+A, встановіть модель на Gemini (якщо ще не встановлено)\n2. Введіть /key, натисніть Enter і дотримуйтесь інструкцій\n3. Введіть /key YOUR_API_KEY\n4. Введіть локаль вашої мови нижче та натисніть Створити",
   "Pin to Start": "Закріпити в меню «Пуск»",

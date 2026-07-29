@@ -23,7 +23,7 @@ StyledPopup {
 
             ResourceCard {
                 Layout.fillWidth: true
-                title: "CPU"
+                title: Translation.tr("CPU")
                 symbol: "developer_board"
                 percentage: ResourceUsage.cpuUsage
                 valueText: `${Math.round(ResourceUsage.cpuUsage * 100)}%`
@@ -45,7 +45,7 @@ StyledPopup {
 
             ResourceCard {
                 Layout.fillWidth: true
-                title: "RAM"
+                title: Translation.tr("RAM")
                 symbol: "memory"
                 percentage: ResourceUsage.memoryUsedPercentage
                 valueText: `${Math.round(ResourceUsage.memoryUsedPercentage * 100)}%`
@@ -56,7 +56,7 @@ StyledPopup {
             ResourceCard {
                 Layout.fillWidth: true
                 visible: ResourceUsage.swapTotal > 0
-                title: "Swap"
+                title: Translation.tr("Swap")
                 symbol: "swap_horiz"
                 percentage: ResourceUsage.swapUsedPercentage
                 valueText: `${Math.round(ResourceUsage.swapUsedPercentage * 100)}%`
