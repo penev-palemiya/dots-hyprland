@@ -35,7 +35,7 @@ StyledPopup {
                 Layout.fillWidth: true
                 visible: ResourceUsage.swapTotal > 0
                 title: "Swap"
-                symbol: "storage"
+                symbol: "swap_horiz"
                 percentage: ResourceUsage.swapUsedPercentage
                 valueText: `${Math.round(ResourceUsage.swapUsedPercentage * 100)}%`
                 subtitleText: `${root.formatKB(ResourceUsage.swapUsed)} / ${root.formatKB(ResourceUsage.swapTotal)}`

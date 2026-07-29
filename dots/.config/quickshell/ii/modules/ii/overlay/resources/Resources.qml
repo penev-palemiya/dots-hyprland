@@ -29,7 +29,7 @@ StyledOverlayWidget {
             "maxAvailableString": ResourceUsage.maxAvailableMemoryString
         },
         {
-            "icon": "storage",
+            "icon": "swap_horiz",
             "name": Translation.tr("Swap"),
             "history": ResourceUsage.swapUsageHistory,
             "maxAvailableString": ResourceUsage.maxAvailableSwapString

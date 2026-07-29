@@ -28,7 +28,7 @@ MouseArea {
         }
 
         Resource {
-            iconName: "storage"
+            iconName: "swap_horiz"
             percentage: ResourceUsage.swapUsedPercentage
             shown: (Config.options.bar.resources.alwaysShowSwap && percentage > 0) || 
                 (MprisController.activePlayer?.trackTitle == null) ||
