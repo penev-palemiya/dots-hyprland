@@ -187,7 +187,6 @@ Item { // Bar content region
             spacing: 4
 
             BarGroup {
-                padding: 10
                 ClockWidget {
                     showDate: (Config.options.bar.verbose && root.useShortenedForm < 2)
                     Layout.alignment: Qt.AlignVCenter

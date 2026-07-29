@@ -14,7 +14,12 @@ Item {
     readonly property MprisPlayer activePlayer: MprisController.activePlayer
     readonly property string cleanedTitle: StringUtils.cleanMusicTitle(activePlayer?.trackTitle) || Translation.tr("No media")
 
-    anchors.fill: parent
+    anchors {
+        verticalCenter: parent.verticalCenter
+        left: parent.left
+        right: parent.right
+    }
+    implicitHeight: rowLayout.implicitHeight
 
     Timer {
         running: activePlayer?.playbackState == MprisPlaybackState.Playing

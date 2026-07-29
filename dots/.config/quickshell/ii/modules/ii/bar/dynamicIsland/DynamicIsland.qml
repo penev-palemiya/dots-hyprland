@@ -18,14 +18,17 @@ import QtQuick
  * the active activity's `expandedContent` (if it declares one) in an
  * IslandOverlay attached directly below/above the pill.
  */
-Rectangle {
+Item {
     id: root
 
-    radius: Appearance.rounding.small
-    color: Config.options?.bar.borderless ? "transparent" : Appearance.colors.colLayer1
     implicitHeight: Appearance.sizes.baseBarHeight
     // implicitWidth is left for the caller to set (BarContent sets it to
     // root.centerSideModuleWidth, same fixed budget the old leftCenterGroup used)
+
+    // How far the content sits from pillBackground's edges — matches
+    // BarGroup's own default padding, and leaves room for anything that
+    // needs to animate right up to the pill's border without clipping.
+    readonly property real contentPadding: 8
 
     property bool pinned: false
     property bool flashing: false
@@ -68,14 +71,37 @@ Rectangle {
         }
     }
 
-    MouseArea {
-        anchors.fill: parent
-        onClicked: root.pinned = !root.pinned
-    }
+    // The actual visible pill — inset from root's top/bottom like every
+    // other BarGroup pill's background (topMargin/bottomMargin: 4), instead
+    // of filling the full bar-row height edge-to-edge.
+    Rectangle {
+        id: pillBackground
+        radius: Appearance.rounding.small
+        color: Config.options?.bar.borderless ? "transparent" : Appearance.colors.colLayer1
+        anchors {
+            fill: parent
+            topMargin: 4
+            bottomMargin: 4
+        }
 
-    Loader {
-        anchors.fill: parent
-        sourceComponent: root.activeActivity?.compactContent ?? null
+        MouseArea {
+            anchors.fill: parent
+            onClicked: root.pinned = !root.pinned
+        }
+
+        Loader {
+            // Horizontal padding only — vertical space is never forced, the
+            // loaded item centers at its own natural height (same recipe
+            // BarGroup uses), so content is never squeezed shorter than it needs.
+            anchors {
+                verticalCenter: parent.verticalCenter
+                left: parent.left
+                right: parent.right
+                leftMargin: root.contentPadding
+                rightMargin: root.contentPadding
+            }
+            sourceComponent: root.activeActivity?.compactContent ?? null
+        }
     }
 
     Component {
@@ -88,7 +114,7 @@ Rectangle {
     }
 
     IslandOverlay {
-        anchorTarget: root
+        anchorTarget: pillBackground
         shown: root.expanded && !!root.activeActivity?.expandedContent
         sourceComponent: root.activeActivity?.expandedContent ?? null
     }
