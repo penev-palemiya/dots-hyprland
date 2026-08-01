@@ -2,16 +2,15 @@ import qs.modules.common
 import qs.modules.common.widgets
 import qs.services
 import QtQuick
-import QtQuick.Layouts
 import Quickshell
 import Quickshell.Widgets
 
 /**
- * Primary row for the notification feed activity: shows the newest pending
- * notification (icon, app name, summary/body) plus one quick-action button
- * if it has any actions. The full backlog (all pending notifications, all
- * their actions, dismiss) lives in NotificationExpanded.qml instead — this
- * row is deliberately compact, matching Media/CapsLock's row shape.
+ * Primary row for the notification feed activity: shows the newest persistent
+ * notification (sender/avatar, message, app badge) plus one quick-action
+ * button if it has any actions. The full backlog (all pending notifications,
+ * all their actions, dismiss) lives in NotificationExpanded.qml instead —
+ * this row is deliberately compact, matching Media/CapsLock's row shape.
  */
 IslandActivityRow {
     id: root
@@ -20,88 +19,101 @@ IslandActivityRow {
     // the activity descriptor object — same convention as MediaPrimary.qml
     // (reads MprisController directly) and CapsLockPrimary.qml (reads
     // HyprlandXkb directly).
-    readonly property var pending: Notifications.popupList
+    readonly property var pending: Notifications.list
     readonly property var newest: root.pending.length > 0 ? root.pending[root.pending.length - 1] : null
+    readonly property string senderText: (root.newest?.body ?? "").length > 0 ? (root.newest?.summary || root.newest?.appName || Translation.tr("Notification")) : (root.newest?.appName || Translation.tr("Notification"))
+    readonly property string messageText: root.newest?.body || root.newest?.summary || ""
 
-    // Same priority as NotificationAppIcon.qml: raw image first, then the
-    // app's icon (via Quickshell.iconPath, same as Workspaces.qml's app
-    // icons), then a generic fallback glyph.
+    // Main image is the sender/avatar. The tiny badge at bottom-right carries
+    // the app identity, so "Telegram Desktop" doesn't waste text space.
     iconOverride: iconComponent
 
     Component {
         id: iconComponent
         Item {
-            Image {
+            Rectangle {
                 anchors.fill: parent
-                visible: (root.newest?.image ?? "").length > 0
-                source: root.newest?.image ?? ""
-                fillMode: Image.PreserveAspectCrop
-                asynchronous: true
-                cache: false
+                radius: width / 2
+                color: Appearance.colors.colSecondaryContainer
+                clip: true
+
+                Image {
+                    anchors.fill: parent
+                    visible: (root.newest?.image ?? "").length > 0
+                    source: root.newest?.image ?? ""
+                    fillMode: Image.PreserveAspectCrop
+                    asynchronous: true
+                    cache: false
+                }
+                MaterialSymbol {
+                    anchors.centerIn: parent
+                    visible: (root.newest?.image ?? "").length === 0
+                    fill: 1
+                    text: "person"
+                    iconSize: Appearance.font.pixelSize.normal
+                    color: Appearance.m3colors.m3onSecondaryContainer
+                }
             }
-            IconImage {
-                anchors.fill: parent
-                visible: (root.newest?.image ?? "").length === 0 && (root.newest?.appIcon ?? "").length > 0
-                source: Quickshell.iconPath(root.newest?.appIcon ?? "", "image-missing")
-            }
-            MaterialSymbol {
-                anchors.centerIn: parent
-                visible: (root.newest?.image ?? "").length === 0 && (root.newest?.appIcon ?? "").length === 0
-                fill: 1
-                text: "notifications"
-                iconSize: Appearance.font.pixelSize.normal
-                color: Appearance.m3colors.m3onSecondaryContainer
+
+            Rectangle {
+                anchors {
+                    right: parent.right
+                    bottom: parent.bottom
+                }
+                width: 12
+                height: 12
+                radius: width / 2
+                color: Appearance.colors.colLayer1
+                border.width: 1
+                border.color: Appearance.colors.colLayer1
+                clip: true
+                visible: (root.newest?.appIcon ?? "").length > 0
+
+                IconImage {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    source: Quickshell.iconPath(root.newest?.appIcon ?? "", "image-missing")
+                }
             }
         }
     }
 
-    RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
+    Row {
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: Math.max(notificationText.implicitHeight, quickActionButton.implicitHeight)
+        spacing: 6
+        clip: true
 
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 0
-
-            StyledText {
-                Layout.fillWidth: true
-                visible: text.length > 0
-                elide: Text.ElideRight
-                font.pixelSize: Appearance.font.pixelSize.smaller
-                color: Appearance.colors.colSubtext
-                text: root.newest?.appName ?? ""
-            }
-            StyledText {
-                Layout.fillWidth: true
-                elide: Text.ElideRight
-                color: Appearance.colors.colOnLayer1
-                text: {
-                    const summary = root.newest?.summary ?? "";
-                    const body = root.newest?.body ?? "";
-                    if (summary.length > 0 && body.length > 0)
-                        return `${summary} — ${body}`;
-                    return summary.length > 0 ? summary : body;
-                }
-            }
+        IslandCompactText {
+            id: notificationText
+            anchors.verticalCenter: parent.verticalCenter
+            width: Math.max(0, parent.width - (quickActionButton.visible ? quickActionButton.width + parent.spacing : 0))
+            metadataText: root.senderText
+            primaryText: root.messageText
+            primaryMarquee: true
         }
 
         // One quick action — the rest live in the expanded panel. A real
         // button, so clicking it doesn't fall through to the pill's own
-        // click-to-expand (same non-conflict as MediaPrimary.qml's controls).
+        // click-to-expand.
         RippleButton {
+            id: quickActionButton
             visible: (root.newest?.actions.length ?? 0) > 0
-            Layout.alignment: Qt.AlignVCenter
+            anchors.verticalCenter: parent.verticalCenter
             buttonRadius: Appearance.rounding.full
-            implicitHeight: 26
-            implicitWidth: quickActionText.implicitWidth + 16
+            implicitHeight: 22
+            implicitWidth: implicitHeight
             colBackground: Appearance.colors.colSecondaryContainer
             colBackgroundHover: Appearance.colors.colSecondaryContainerHover
-            contentItem: StyledText {
-                id: quickActionText
+            contentItem: MaterialSymbol {
                 anchors.centerIn: parent
-                font.pixelSize: Appearance.font.pixelSize.smaller
+                horizontalAlignment: Text.AlignHCenter
+                fill: 0
+                iconSize: Appearance.font.pixelSize.small
                 color: Appearance.colors.colOnSecondaryContainer
-                text: root.newest?.actions[0]?.text ?? ""
+                text: "open_in_new"
             }
             onClicked: {
                 if ((root.newest?.actions.length ?? 0) > 0)

@@ -20,7 +20,7 @@ import Quickshell.Widgets
 ColumnLayout {
     id: root
 
-    readonly property var pending: Notifications.popupList
+    readonly property var pending: Notifications.list
 
     anchors.fill: parent
     spacing: 10

@@ -1,0 +1,89 @@
+import qs.modules.common
+import qs.modules.common.widgets
+import QtQuick
+import QtQuick.Layouts
+
+Item {
+    id: root
+
+    property string metadataText: ""
+    property string primaryText: ""
+    property bool primaryMarquee: false
+    readonly property bool primaryOverflowing: primaryLabel.implicitWidth > primaryClip.width + 1
+    readonly property real marqueeDistance: Math.max(0, primaryLabel.implicitWidth - primaryClip.width + 24)
+
+    implicitHeight: textColumn.implicitHeight
+    clip: true
+
+    onPrimaryOverflowingChanged: root.resetMarquee()
+    onPrimaryTextChanged: root.resetMarquee()
+    onWidthChanged: root.resetMarquee()
+
+    function resetMarquee() {
+        marqueeAnimation.stop();
+        primaryLabel.x = 0;
+        if (primaryMarquee && primaryOverflowing)
+            marqueeAnimation.restart();
+    }
+
+    ColumnLayout {
+        id: textColumn
+        anchors {
+            left: parent.left
+            right: parent.right
+            verticalCenter: parent.verticalCenter
+        }
+        spacing: -4
+
+        StyledText {
+            Layout.fillWidth: true
+            visible: root.metadataText.length > 0
+            elide: Text.ElideRight
+            font.pixelSize: Appearance.font.pixelSize.smallest
+            color: Appearance.colors.colSubtext
+            text: root.metadataText
+        }
+
+        Item {
+            id: primaryClip
+            Layout.fillWidth: true
+            implicitHeight: primaryLabel.implicitHeight
+            clip: true
+
+            StyledText {
+                id: primaryLabel
+                anchors.verticalCenter: parent.verticalCenter
+                width: root.primaryMarquee ? implicitWidth : parent.width
+                elide: root.primaryMarquee ? Text.ElideNone : Text.ElideRight
+                color: Appearance.colors.colOnLayer0
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                text: root.primaryText
+            }
+        }
+    }
+
+    SequentialAnimation {
+        id: marqueeAnimation
+        running: root.primaryMarquee && root.primaryOverflowing
+        loops: Animation.Infinite
+
+        PauseAnimation {
+            duration: 900
+        }
+        NumberAnimation {
+            target: primaryLabel
+            property: "x"
+            to: -root.marqueeDistance
+            duration: Math.max(2200, root.marqueeDistance * 38)
+            easing.type: Easing.InOutQuad
+        }
+        PauseAnimation {
+            duration: 700
+        }
+        PropertyAction {
+            target: primaryLabel
+            property: "x"
+            value: 0
+        }
+    }
+}

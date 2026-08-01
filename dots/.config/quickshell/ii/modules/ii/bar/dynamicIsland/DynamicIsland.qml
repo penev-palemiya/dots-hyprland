@@ -182,24 +182,21 @@ Item {
         readonly property var queueAction: () => Audio.toggleMicMute()
     }
 
-    // A feed, not a single event: `available` stays true as long as any
-    // notification is pending, `flashKey` changes on every new arrival even
-    // while already available (so a burst of messages just keeps refreshing
-    // what's shown and resetting the auto-demote clock instead of queuing up
-    // N separate promotions). Resting state in the queue is a single badge
-    // with a count (`queueBadgeCount`), not one chip per sender.
+    // A feed, not a single toast: `available` stays true as long as any
+    // notification exists in the persistent notification list. Popup timeout
+    // only hides toast UI; it must not demote the island activity.
     QtObject {
         id: notificationActivity
         readonly property string activityId: "notifications"
         readonly property string kind: "activity"
-        readonly property var pending: Notifications.popupList
+        readonly property var pending: Notifications.list
         readonly property bool available: pending.length > 0
         readonly property var newest: pending.length > 0 ? pending[pending.length - 1] : null
         readonly property Component primaryContent: notificationPrimaryComponent
         readonly property string queueIcon: "notifications"
         readonly property int queueBadgeCount: pending.length
         readonly property Component expandedContent: notificationExpandedComponent
-        readonly property int primaryDuration: 4500 // longer than CapsLock/mic — there's more to read
+        readonly property int primaryDuration: 0 // feed activity persists like media until another activity is promoted
         readonly property var flashKey: newest?.notificationId ?? -1
     }
 
@@ -209,7 +206,8 @@ Item {
 
     property string activePrimaryId: "media"
     readonly property QtObject primaryActivity: activities.find(a => a.activityId === root.activePrimaryId) ?? mediaActivity
-    // Notifications never sit in the queue — once they're not primary, they're just gone.
+    // One chip per available activity that is not primary. One-shot
+    // notifications are excluded by kind; notification feed is an activity.
     readonly property list<QtObject> queuedActivities: activities.filter(a => a.available && a.kind === "activity" && a !== root.primaryActivity)
 
     function promote(activity) {

@@ -3,7 +3,6 @@ import qs.modules.common.widgets
 import qs.modules.common.functions
 import qs.services
 import QtQuick
-import QtQuick.Layouts
 import Quickshell.Services.Mpris
 
 IslandActivityRow {
@@ -39,27 +38,11 @@ IslandActivityRow {
         }
     }
 
-    ColumnLayout {
+    IslandCompactText {
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: parent.left
         anchors.right: parent.right
-        spacing: -4
-
-        StyledText {
-            Layout.fillWidth: true
-            visible: root.artist.length > 0
-            elide: Text.ElideRight
-            font.pixelSize: Appearance.font.pixelSize.smallest
-            color: Appearance.colors.colSubtext
-            text: root.artist
-        }
-
-        StyledText {
-            Layout.fillWidth: true
-            elide: Text.ElideRight
-            color: Appearance.colors.colOnLayer0
-            font.pixelSize: Appearance.font.pixelSize.smaller
-            text: root.cleanedTitle
-        }
+        metadataText: root.artist
+        primaryText: root.cleanedTitle
     }
 }

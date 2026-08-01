@@ -74,5 +74,6 @@ RowLayout {
         Layout.fillWidth: true
         Layout.fillHeight: true
         implicitHeight: childrenRect.height
+        clip: true
     }
 }
