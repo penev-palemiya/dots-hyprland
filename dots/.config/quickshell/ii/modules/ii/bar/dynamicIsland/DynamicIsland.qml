@@ -182,9 +182,30 @@ Item {
         readonly property var queueAction: () => Audio.toggleMicMute()
     }
 
+    // A feed, not a single event: `available` stays true as long as any
+    // notification is pending, `flashKey` changes on every new arrival even
+    // while already available (so a burst of messages just keeps refreshing
+    // what's shown and resetting the auto-demote clock instead of queuing up
+    // N separate promotions). Resting state in the queue is a single badge
+    // with a count (`queueBadgeCount`), not one chip per sender.
+    QtObject {
+        id: notificationActivity
+        readonly property string activityId: "notifications"
+        readonly property string kind: "activity"
+        readonly property var pending: Notifications.popupList
+        readonly property bool available: pending.length > 0
+        readonly property var newest: pending.length > 0 ? pending[pending.length - 1] : null
+        readonly property Component primaryContent: notificationPrimaryComponent
+        readonly property string queueIcon: "notifications"
+        readonly property int queueBadgeCount: pending.length
+        readonly property Component expandedContent: notificationExpandedComponent
+        readonly property int primaryDuration: 4500 // longer than CapsLock/mic — there's more to read
+        readonly property var flashKey: newest?.notificationId ?? -1
+    }
+
     // Future entries get added here, e.g.:
     // QtObject { id: timerActivity; readonly property string activityId: "timer"; readonly property string kind: "activity"; readonly property bool available: SomeService.running; readonly property Component primaryContent: ...; readonly property string queueIcon: "timer"; readonly property Component expandedContent: ...; readonly property int primaryDuration: 0; readonly property var flashKey: SomeService.secondsLeft }
-    readonly property list<QtObject> activities: [mediaActivity, capsLockNotification, micActivity]
+    readonly property list<QtObject> activities: [mediaActivity, capsLockNotification, micActivity, notificationActivity]
 
     property string activePrimaryId: "media"
     readonly property QtObject primaryActivity: activities.find(a => a.activityId === root.activePrimaryId) ?? mediaActivity
@@ -510,6 +531,36 @@ Item {
                         text: queueChip.modelData.queueIcon
                         color: Appearance.colors.colOnLayer2
                     }
+
+                    // Resting state for a *feed* (e.g. notifications) is one
+                    // badge with a count, not one chip per item — entries
+                    // that don't define `queueBadgeCount` (Media/CapsLock/
+                    // mic) simply never show this (reading a missing QML
+                    // property is `undefined`, not an error).
+                    Rectangle {
+                        visible: (queueChip.modelData.queueBadgeCount ?? 0) > 0
+                        anchors {
+                            top: parent.top
+                            right: parent.right
+                            topMargin: -4
+                            rightMargin: -4
+                        }
+                        implicitWidth: Math.max(14, badgeText.implicitWidth + 6)
+                        implicitHeight: 14
+                        radius: Appearance.rounding.full
+                        color: Appearance.colors.colPrimary
+                        border.width: 1
+                        border.color: Appearance.colors.colLayer1
+
+                        StyledText {
+                            id: badgeText
+                            anchors.centerIn: parent
+                            font.pixelSize: Appearance.font.pixelSize.smallest
+                            color: Appearance.colors.colOnPrimary
+                            text: queueChip.modelData.queueBadgeCount ?? 0
+                        }
+                    }
+
                     onClicked: {
                         if (queueChip.modelData.queueAction)
                             queueChip.modelData.queueAction();
@@ -544,6 +595,14 @@ Item {
     Component {
         id: micPrimaryComponent
         MicPrimary {}
+    }
+    Component {
+        id: notificationPrimaryComponent
+        NotificationPrimary {}
+    }
+    Component {
+        id: notificationExpandedComponent
+        NotificationExpanded {}
     }
 
     IslandOverlay {

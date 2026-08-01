@@ -5,19 +5,53 @@ import qs.services
 import QtQuick
 import QtQuick.Layouts
 import Qt5Compat.GraphicalEffects
+import Quickshell.Io
 import Quickshell.Services.Mpris
 
 ColumnLayout {
     id: root
 
     readonly property MprisPlayer activePlayer: MprisController.activePlayer
+
+    // `trackArtUrl` is whatever the player put in the MPRIS metadata map,
+    // completely unvalidated — plenty of real players hand back a bare
+    // scheme-less path instead of a proper `file://`/`http(s)://` URI. QML's
+    // `Image` resolves a scheme-less string as relative to *this component's
+    // own file*, not as an absolute filesystem path, and fails silently. So,
+    // same as PlayerControl.qml: treat `artUrl` only as a `curl` target,
+    // cache the download locally, and only ever point the image at that
+    // local, definitely-resolvable file.
     readonly property string artUrl: MprisController.activeTrack?.artUrl ?? ""
-    readonly property bool hasArt: artUrl.length > 0
+    property string artFilePath: root.artUrl.length > 0 ? `${Directories.coverArt}/${Qt.md5(root.artUrl)}` : ""
+    property bool downloaded: false
+    readonly property string displayedArtUrl: root.downloaded ? Qt.resolvedUrl(root.artFilePath) : ""
+    readonly property bool hasArt: root.displayedArtUrl.length > 0
+
     readonly property bool playing: activePlayer?.isPlaying ?? false
     readonly property real progress: (activePlayer?.length > 0) ? (activePlayer.position / activePlayer.length) : 0
 
     anchors.fill: parent
     spacing: 12
+
+    onArtFilePathChanged: {
+        if (root.artUrl.length === 0) {
+            root.downloaded = false;
+            return;
+        }
+        // Binding does not work in Process (see PlayerControl.qml)
+        artDownloader.targetFile = root.artUrl;
+        artDownloader.artFilePath = root.artFilePath;
+        root.downloaded = false;
+        artDownloader.running = true;
+    }
+
+    Process {
+        id: artDownloader
+        property string targetFile: ""
+        property string artFilePath: ""
+        command: ["bash", "-c", `[ -f '${artFilePath}' ] || curl -4 -sSL '${targetFile}' -o '${artFilePath}'`]
+        onExited: root.downloaded = true
+    }
 
     Timer {
         running: root.activePlayer?.playbackState == MprisPlaybackState.Playing
@@ -56,8 +90,9 @@ ColumnLayout {
                 id: artImage
                 anchors.fill: parent
                 visible: root.hasArt
-                source: root.artUrl
+                source: root.displayedArtUrl
                 fillMode: Image.PreserveAspectCrop
+                cache: false
                 layer.enabled: true
                 layer.effect: OpacityMask {
                     maskSource: Item {

@@ -18,6 +18,10 @@ RowLayout {
     default property alias content: contentSlot.data
     property alias icon: iconSymbol.text
     property alias iconColor: iconSymbol.color
+    // When set, replaces the MaterialSymbol glyph entirely (e.g. a real
+    // notification app icon/avatar instead of an icon-font symbol). Every
+    // existing row (Media/CapsLock/Mic) leaves this unset and is unaffected.
+    property Component iconOverride: null
 
     spacing: 6
 
@@ -27,8 +31,16 @@ RowLayout {
         color: Appearance.colors.colSecondaryContainer
         implicitWidth: 26
         implicitHeight: implicitWidth
+        clip: true
+
+        Loader {
+            anchors.fill: parent
+            active: !!root.iconOverride
+            sourceComponent: root.iconOverride
+        }
 
         MaterialSymbol {
+            visible: !root.iconOverride
             id: iconSymbol
             anchors.centerIn: parent
             fill: 1
