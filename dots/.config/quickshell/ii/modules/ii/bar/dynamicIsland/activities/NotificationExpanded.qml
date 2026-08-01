@@ -1,10 +1,9 @@
 import qs.modules.common
+import qs.modules.common.functions
 import qs.modules.common.widgets
 import qs.services
 import QtQuick
 import QtQuick.Layouts
-import Quickshell
-import Quickshell.Widgets
 
 /**
  * Full backlog for the notification feed activity: every currently pending
@@ -24,13 +23,6 @@ ColumnLayout {
 
     anchors.fill: parent
     spacing: 10
-
-    StyledText {
-        Layout.fillWidth: true
-        font.weight: Font.Bold
-        color: Appearance.colors.colOnLayer1
-        text: `${Translation.tr("Notifications")} (${root.pending.length})`
-    }
 
     ListView {
         id: notifList
@@ -64,35 +56,14 @@ ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 8
 
-                    Rectangle {
-                        Layout.alignment: Qt.AlignVCenter
-                        implicitWidth: 26
-                        implicitHeight: 26
-                        radius: Appearance.rounding.full
-                        color: Appearance.colors.colSecondaryContainer
-                        clip: true
-
-                        Image {
-                            anchors.fill: parent
-                            visible: (notifRow.modelData.image ?? "").length > 0
-                            source: notifRow.modelData.image ?? ""
-                            fillMode: Image.PreserveAspectCrop
-                            asynchronous: true
-                            cache: false
-                        }
-                        IconImage {
-                            anchors.fill: parent
-                            visible: (notifRow.modelData.image ?? "").length === 0 && (notifRow.modelData.appIcon ?? "").length > 0
-                            source: Quickshell.iconPath(notifRow.modelData.appIcon ?? "", "image-missing")
-                        }
-                        MaterialSymbol {
-                            anchors.centerIn: parent
-                            visible: (notifRow.modelData.image ?? "").length === 0 && (notifRow.modelData.appIcon ?? "").length === 0
-                            fill: 1
-                            text: "notifications"
-                            iconSize: Appearance.font.pixelSize.normal
-                            color: Appearance.m3colors.m3onSecondaryContainer
-                        }
+                    NotificationAppIcon {
+                        Layout.alignment: Qt.AlignTop
+                        Layout.topMargin: 1
+                        scale: 26 / 38
+                        appIcon: notifRow.modelData.appIcon ?? ""
+                        image: notifRow.modelData.image ?? ""
+                        summary: notifRow.modelData.summary ?? ""
+                        urgency: notifRow.modelData.urgency
                     }
 
                     ColumnLayout {
@@ -116,12 +87,11 @@ ColumnLayout {
                         StyledText {
                             Layout.fillWidth: true
                             visible: text.length > 0
-                            elide: Text.ElideRight
                             wrapMode: Text.Wrap
-                            maximumLineCount: 2
                             font.pixelSize: Appearance.font.pixelSize.smaller
                             color: Appearance.colors.colSubtext
-                            text: notifRow.modelData.body ?? ""
+                            textFormat: Text.RichText
+                            text: NotificationUtils.processNotificationBody(notifRow.modelData.body ?? "", notifRow.modelData.appName || notifRow.modelData.summary).replace(/\n/g, "<br/>")
                         }
                     }
                 }

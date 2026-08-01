@@ -19,6 +19,10 @@ Item {
     onPrimaryTextChanged: root.resetMarquee()
     onWidthChanged: root.resetMarquee()
 
+    function singleLine(text) {
+        return String(text ?? "").replace(/\s+/g, " ").trim();
+    }
+
     function resetMarquee() {
         marqueeAnimation.stop();
         primaryLabel.x = 0;
@@ -39,9 +43,10 @@ Item {
             Layout.fillWidth: true
             visible: root.metadataText.length > 0
             elide: Text.ElideRight
+            maximumLineCount: 1
             font.pixelSize: Appearance.font.pixelSize.smallest
             color: Appearance.colors.colSubtext
-            text: root.metadataText
+            text: root.singleLine(root.metadataText)
         }
 
         Item {
@@ -55,9 +60,10 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 width: root.primaryMarquee ? implicitWidth : parent.width
                 elide: root.primaryMarquee ? Text.ElideNone : Text.ElideRight
+                maximumLineCount: 1
                 color: Appearance.colors.colOnLayer0
                 font.pixelSize: Appearance.font.pixelSize.smaller
-                text: root.primaryText
+                text: root.singleLine(root.primaryText)
             }
         }
     }
