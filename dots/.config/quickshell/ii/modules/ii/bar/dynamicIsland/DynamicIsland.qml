@@ -142,8 +142,16 @@ Item {
         readonly property string activityId: "media"
         readonly property string kind: "activity"
         readonly property bool available: true
-        readonly property Component primaryContent: mediaPrimaryComponent
+        readonly property string leadingKind: "icon"
+        readonly property string leadingIcon: MprisController.activePlayer?.isPlaying ? "pause" : "music_note"
+        readonly property color leadingIconColor: Appearance.m3colors.m3onSecondaryContainer
+        readonly property string metadataText: MprisController.activePlayer?.trackArtist ?? ""
+        readonly property string primaryText: StringUtils.cleanMusicTitle(MprisController.activePlayer?.trackTitle) || Translation.tr("No media")
+        readonly property bool primaryMarquee: false
+        readonly property string actionIcon: ""
+        readonly property var primaryAction: null
         readonly property string queueIcon: MprisController.activePlayer?.isPlaying ? "pause" : "music_note"
+        readonly property int queuePriority: 10
         readonly property Component expandedContent: mediaExpandedComponent
         readonly property int primaryDuration: 0 // never auto-demotes
         readonly property var flashKey: MprisController.activePlayer?.trackTitle ?? ""
@@ -159,8 +167,16 @@ Item {
         readonly property string kind: "notification"
         property bool available: false
         readonly property bool isOn: HyprlandXkb.capsLockOn
-        readonly property Component primaryContent: capsLockPrimaryComponent
+        readonly property string leadingKind: "icon"
+        readonly property string leadingIcon: isOn ? "keyboard_capslock" : "keyboard"
+        readonly property color leadingIconColor: isOn ? Appearance.m3colors.m3onSecondaryContainer : Appearance.colors.colSubtext
+        readonly property string metadataText: Translation.tr("Keyboard")
+        readonly property string primaryText: isOn ? Translation.tr("Caps Lock activated") : Translation.tr("Caps Lock deactivated")
+        readonly property bool primaryMarquee: false
+        readonly property string actionIcon: ""
+        readonly property var primaryAction: null
         readonly property string queueIcon: "keyboard_capslock" // unused — notifications never queue
+        readonly property int queuePriority: 0
         readonly property Component expandedContent: null
         readonly property int primaryDuration: 3000
         readonly property var flashKey: HyprlandXkb.capsLockOn
@@ -174,8 +190,16 @@ Item {
         readonly property string kind: "activity"
         readonly property bool muted: Audio.source && Audio.source.audio ? Audio.source.audio.muted : false
         readonly property bool available: muted
-        readonly property Component primaryContent: micPrimaryComponent
+        readonly property string leadingKind: "icon"
+        readonly property string leadingIcon: muted ? "mic_off" : "mic"
+        readonly property color leadingIconColor: muted ? Appearance.colors.colError : Appearance.m3colors.m3onSecondaryContainer
+        readonly property string metadataText: Translation.tr("Microphone")
+        readonly property string primaryText: muted ? Translation.tr("Microphone muted") : Translation.tr("Microphone unmuted")
+        readonly property bool primaryMarquee: false
+        readonly property string actionIcon: muted ? "mic" : "mic_off"
+        readonly property var primaryAction: () => Audio.toggleMicMute()
         readonly property string queueIcon: "mic_off"
+        readonly property int queuePriority: 90
         readonly property Component expandedContent: null
         readonly property int primaryDuration: 2000
         readonly property var flashKey: muted
@@ -192,8 +216,21 @@ Item {
         readonly property var pending: Notifications.list
         readonly property bool available: pending.length > 0
         readonly property var newest: pending.length > 0 ? pending[pending.length - 1] : null
-        readonly property Component primaryContent: notificationPrimaryComponent
+        readonly property string leadingKind: "avatar"
+        readonly property string leadingIcon: "person"
+        readonly property color leadingIconColor: Appearance.m3colors.m3onSecondaryContainer
+        readonly property string leadingImage: newest?.image ?? ""
+        readonly property string appIcon: newest?.appIcon ?? ""
+        readonly property string metadataText: (newest?.body ?? "").length > 0 ? (newest?.summary || newest?.appName || Translation.tr("Notification")) : (newest?.appName || Translation.tr("Notification"))
+        readonly property string primaryText: newest?.body || newest?.summary || ""
+        readonly property bool primaryMarquee: true
+        readonly property string actionIcon: (newest?.actions.length ?? 0) > 0 ? "open_in_new" : ""
+        readonly property var primaryAction: () => {
+            if ((newest?.actions.length ?? 0) > 0)
+                Notifications.attemptInvokeAction(newest.notificationId, newest.actions[0].identifier);
+        }
         readonly property string queueIcon: "notifications"
+        readonly property int queuePriority: 80
         readonly property int queueBadgeCount: pending.length
         readonly property Component expandedContent: notificationExpandedComponent
         readonly property int primaryDuration: 0 // feed activity persists like media until another activity is promoted
@@ -314,7 +351,7 @@ Item {
                 implicitHeight: Math.max(incomingLoader.implicitHeight, outgoingLoader.implicitHeight)
                 clip: true
 
-                property Component sourceComponent: root.primaryActivity?.primaryContent ?? null
+                property Component sourceComponent: standardPrimaryComponent
                 property Component displayedSourceComponent
                 property Component outgoingSourceComponent
                 property bool initialized: false
@@ -507,96 +544,25 @@ Item {
                 }
             }
 
-            Repeater {
-                model: root.queuedActivities
-                delegate: RippleButton {
-                    id: queueChip
-                    required property QtObject modelData
-                    Layout.alignment: Qt.AlignVCenter
-                    implicitWidth: 26
-                    implicitHeight: 26
-                    buttonRadius: Appearance.rounding.full
-                    colBackground: Appearance.colors.colLayer2
-                    colBackgroundHover: Appearance.colors.colLayer2Hover
-                    contentItem: MaterialSymbol {
-                        // `anchors.centerIn: parent` fights Control's own
-                        // imperative content-box resizing here — center via
-                        // text alignment instead (matches PlayerControl.qml's
-                        // TrackChangeButton, the established icon-only pattern).
-                        horizontalAlignment: Text.AlignHCenter
-                        fill: 1
-                        iconSize: Appearance.font.pixelSize.normal
-                        text: queueChip.modelData.queueIcon
-                        color: Appearance.colors.colOnLayer2
-                    }
-
-                    // Resting state for a *feed* (e.g. notifications) is one
-                    // badge with a count, not one chip per item — entries
-                    // that don't define `queueBadgeCount` (Media/CapsLock/
-                    // mic) simply never show this (reading a missing QML
-                    // property is `undefined`, not an error).
-                    Rectangle {
-                        visible: (queueChip.modelData.queueBadgeCount ?? 0) > 0
-                        anchors {
-                            top: parent.top
-                            right: parent.right
-                            topMargin: -4
-                            rightMargin: -4
-                        }
-                        implicitWidth: Math.max(14, badgeText.implicitWidth + 6)
-                        implicitHeight: 14
-                        radius: Appearance.rounding.full
-                        color: Appearance.colors.colPrimary
-                        border.width: 1
-                        border.color: Appearance.colors.colLayer1
-
-                        StyledText {
-                            id: badgeText
-                            anchors.centerIn: parent
-                            font.pixelSize: Appearance.font.pixelSize.smallest
-                            color: Appearance.colors.colOnPrimary
-                            text: queueChip.modelData.queueBadgeCount ?? 0
-                        }
-                    }
-
-                    onClicked: {
-                        if (queueChip.modelData.queueAction)
-                            queueChip.modelData.queueAction();
-                        else
-                            root.promote(queueChip.modelData);
-                    }
-
-                    // List item enter/exit: local spatial pop, not a fade —
-                    // see docs/design/motion.md#recipes.
-                    scale: 0
-                    Behavior on scale {
-                        animation: Appearance.animation.elementMoveSmall.numberAnimation.createObject(queueChip)
-                    }
-                    Component.onCompleted: scale = 1
+            IslandQueue {
+                Layout.alignment: Qt.AlignVCenter
+                activities: root.queuedActivities
+                promoteCallback: function(activity) {
+                    root.promote(activity);
                 }
             }
         }
     }
 
     Component {
-        id: mediaPrimaryComponent
-        MediaPrimary {}
+        id: standardPrimaryComponent
+        IslandPrimary {
+            activity: root.primaryActivity
+        }
     }
     Component {
         id: mediaExpandedComponent
         MediaExpanded {}
-    }
-    Component {
-        id: capsLockPrimaryComponent
-        CapsLockPrimary {}
-    }
-    Component {
-        id: micPrimaryComponent
-        MicPrimary {}
-    }
-    Component {
-        id: notificationPrimaryComponent
-        NotificationPrimary {}
     }
     Component {
         id: notificationExpandedComponent
