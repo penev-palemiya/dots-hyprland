@@ -1,4 +1,5 @@
 import QtQuick
+import Qt5Compat.GraphicalEffects
 import Quickshell
 import Quickshell.Widgets
 import qs.modules.common
@@ -62,6 +63,15 @@ Rectangle {
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 cache: false
+                antialiasing: true
+                layer.enabled: visible
+                layer.effect: OpacityMask {
+                    maskSource: Rectangle {
+                        width: avatarImage.width
+                        height: avatarImage.height
+                        radius: width / 2
+                    }
+                }
                 onStatusChanged: {
                     if (status === Image.Ready && root.notificationId >= 0)
                         Notifications.cacheNotificationImage(root.notificationId, avatarImage);

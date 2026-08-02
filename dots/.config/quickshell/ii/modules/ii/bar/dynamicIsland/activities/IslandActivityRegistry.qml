@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import ".."
 import qs.modules.common
 import qs.modules.common.functions
@@ -24,14 +25,34 @@ Item {
         NotificationExpanded {}
     }
 
+    function mediaFallbackIcon(player) {
+        const dbusName = String(player?.dbusName ?? "").toLowerCase();
+        if (dbusName.includes("firefox"))
+            return "firefox";
+        if (dbusName.includes("chromium"))
+            return "chromium";
+        if (dbusName.includes("chrome"))
+            return "google-chrome";
+        if (dbusName.includes("spotify"))
+            return "spotify";
+        if (dbusName.includes("vlc"))
+            return "vlc";
+        if (dbusName.includes("mpv"))
+            return "mpv";
+        return "";
+    }
+
     IslandActivityDescriptor {
         id: mediaActivity
+
+        readonly property var desktopEntry: DesktopEntries.byId(MprisController.activePlayer?.desktopEntry ?? "")
 
         activityId: "media"
         available: true
         leadingKind: MediaArt.hasArt ? "avatar" : "icon"
         leadingIcon: MprisController.activePlayer?.isPlaying ? "pause" : "music_note"
         leadingImage: MediaArt.displayedArtUrl
+        appIcon: desktopEntry?.icon || root.mediaFallbackIcon(MprisController.activePlayer)
         metadataText: MprisController.activePlayer?.trackArtist ?? ""
         primaryText: StringUtils.cleanMusicTitle(MprisController.activePlayer?.trackTitle) || Translation.tr("No media")
         queueIcon: MprisController.activePlayer?.isPlaying ? "pause" : "music_note"

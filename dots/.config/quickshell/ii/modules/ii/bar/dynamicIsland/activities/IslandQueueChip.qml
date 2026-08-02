@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Layouts
 import qs.modules.common
 import qs.modules.common.widgets
 
@@ -14,6 +15,7 @@ Item {
 
     implicitWidth: shown ? 30 : 0
     implicitHeight: 30
+    Layout.alignment: Qt.AlignVCenter
     visible: shown || implicitWidth > 0.5
     scale: shown ? 1 : 0
     opacity: shown ? 1 : 0
@@ -29,13 +31,11 @@ Item {
         colBackgroundHover: Appearance.colors.colLayer2Hover
         onClicked: root.clicked()
 
-        anchors {
-            left: parent.left
-            bottom: parent.bottom
-        }
+        anchors.centerIn: parent
 
         contentItem: MaterialSymbol {
             horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
             fill: 1
             iconSize: Appearance.font.pixelSize.normal
             text: root.iconName
