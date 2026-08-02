@@ -23,18 +23,13 @@ QtObject {
     property int queuePriority: 0
     property int queueBadgeCount: 0
     property bool hasSecondaryPressAction: false
+    // True means the queue chip performs a direct action instead of opening
+    // the activity. Action chips are sorted to the left of openable chips.
     property bool hasQueueAction: false
     property var expandedContent: null
     property int primaryDuration: 0
     property var flashKey: null
-
-    function primaryAction() {
-    }
-
-    function secondaryPressAction(event) {
-    }
-
-    function queueAction() {
-    }
-
+    property var primaryAction: null
+    property var secondaryPressAction: null
+    property var queueAction: null
 }

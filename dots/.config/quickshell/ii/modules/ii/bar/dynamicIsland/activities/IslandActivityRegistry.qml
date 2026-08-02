@@ -1,4 +1,5 @@
 import QtQuick
+import ".."
 import qs.modules.common
 import qs.modules.common.functions
 import qs.services
@@ -36,8 +37,7 @@ Item {
         hasSecondaryPressAction: true
         expandedContent: mediaExpandedContent
         flashKey: MprisController.activePlayer?.trackTitle ?? ""
-
-        function secondaryPressAction(event) {
+        secondaryPressAction: function(event) {
             if (!MprisController.activePlayer)
                 return;
             if (event.button === Qt.MiddleButton)
@@ -84,12 +84,10 @@ Item {
         hasQueueAction: true
         primaryDuration: 2000
         flashKey: muted
-
-        function primaryAction() {
+        primaryAction: function() {
             Audio.toggleMicMute();
         }
-
-        function queueAction() {
+        queueAction: function() {
             Audio.toggleMicMute();
         }
     }
@@ -115,8 +113,7 @@ Item {
         queueBadgeCount: pending.length
         expandedContent: notificationExpandedContent
         flashKey: newest?.notificationId ?? -1
-
-        function primaryAction() {
+        primaryAction: function() {
             if ((newest?.actions.length ?? 0) > 0)
                 Notifications.attemptInvokeAction(newest.notificationId, newest.actions[0].identifier);
         }

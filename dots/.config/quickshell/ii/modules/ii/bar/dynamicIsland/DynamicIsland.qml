@@ -1,4 +1,5 @@
 import qs.modules.common
+import qs.modules.common.functions
 import qs.modules.common.widgets
 import qs.modules.ii.bar.dynamicIsland.activities
 import QtQuick
@@ -66,8 +67,8 @@ Item {
     // work on a window degenerate enough not to be "a member of a window"
     // yet (confirmed via live logging). Passing plain numbers as ordinary
     // properties into IslandOverlay sidesteps all of that.
-    property real screenWidth: root.QsWindow.window?.screen?.width ?? 0
-    property real screenHeight: root.QsWindow.window?.screen?.height ?? 0
+    property real screenWidth: root.QsWindow?.window?.screen?.width ?? 0
+    property real screenHeight: root.QsWindow?.window?.screen?.height ?? 0
     property real pillScreenX: 0
     property real pillScreenY: 0
     property real pillScreenWidth: 0

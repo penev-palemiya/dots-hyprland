@@ -14,13 +14,31 @@ RowLayout {
     readonly property var queuedActivities: activities.filter(function(activity) {
         return activity.available && activity.kind === "activity" && activity !== root.primaryActivity;
     })
-    readonly property var sortedActivities: queuedActivities.slice().sort(function(a, b) {
-        return (b.queuePriority || 0) - (a.queuePriority || 0);
-    })
-    readonly property var visibleActivities: sortedActivities.slice(0, maxVisibleChips)
-    readonly property var overflowActivities: sortedActivities.slice(maxVisibleChips)
+    readonly property var actionActivities: queuedActivities.filter(function(activity) {
+        return activity.hasQueueAction;
+    }).sort(root.sortByPriorityThenRegistry)
+    readonly property var openableActivities: queuedActivities.filter(function(activity) {
+        return !activity.hasQueueAction;
+    }).sort(root.sortByPriorityThenRegistry)
+    readonly property int openableVisibleLimit: Math.max(0, maxVisibleChips - actionActivities.length)
+    readonly property var visibleOpenableActivities: openableActivities.slice(0, openableVisibleLimit)
+    readonly property var visibleActivities: actionActivities.concat(visibleOpenableActivities)
+    readonly property var overflowActivities: openableActivities.slice(openableVisibleLimit)
     readonly property int visibleChipCount: visibleActivities.length + (overflowActivities.length > 0 ? 1 : 0)
     readonly property var overflowTarget: overflowActivities.length > 0 ? overflowActivities[Math.min(overflowCursor, overflowActivities.length - 1)] : null
+
+    function sortByPriorityThenRegistry(a, b) {
+        const priorityDelta = (b.queuePriority || 0) - (a.queuePriority || 0);
+        if (priorityDelta !== 0)
+            return priorityDelta;
+
+        return root.registryIndex(a) - root.registryIndex(b);
+    }
+
+    function registryIndex(activity) {
+        const index = root.activities.indexOf(activity);
+        return index >= 0 ? index : 9999;
+    }
 
     implicitWidth: visibleChipCount > 0 ? visibleChipCount * 30 + (visibleChipCount - 1) * spacing : 0
     visible: visibleChipCount > 0 || implicitWidth > 0.5
@@ -33,13 +51,12 @@ RowLayout {
     }
 
     Repeater {
-        model: root.activities
+        model: root.visibleActivities
 
         delegate: IslandQueueChip {
             required property QtObject modelData
 
             activity: modelData
-            shown: root.visibleActivities.includes(modelData)
             onClicked: {
                 if (modelData.hasQueueAction)
                     modelData.queueAction();
