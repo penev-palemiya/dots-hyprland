@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import ".."
 import qs.modules.common
 import qs.modules.common.functions
@@ -11,7 +12,7 @@ Item {
     // Add new descriptors here and include their ids in this array. Keep
     // entry-specific service logic in the descriptor; keep surface/layout
     // behavior in DynamicIsland/IslandPrimary/IslandQueue.
-    readonly property var activities: [mediaActivity, capsLockNotification, micActivity, notificationActivity]
+    readonly property var activities: [mediaActivity, capsLockNotification, brightnessNotification, micActivity, notificationActivity]
     readonly property var fallbackActivity: mediaActivity
 
     Component {
@@ -97,6 +98,45 @@ Item {
         flashKey: HyprlandXkb.capsLockOn
 
         onFlashKeyChanged: capsLockNotification.available = true
+    }
+
+    IslandActivityDescriptor {
+        id: brightnessNotification
+
+        readonly property var focusedScreen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name)
+        readonly property var brightnessMonitor: Brightness.getMonitorForScreen(focusedScreen)
+        readonly property bool gammaActive: Hyprsunset.gamma < 100
+        readonly property real displayValue: gammaActive ? (Hyprsunset.gamma / 100) : (brightnessMonitor?.brightness ?? 0)
+        readonly property int percent: Math.round(displayValue * 100)
+        property int eventSerial: 0
+
+        activityId: "brightness"
+        kind: "notification"
+        available: eventSerial > 0
+        leadingIcon: gammaActive ? "routine" : "light_mode"
+        metadataText: gammaActive ? Translation.tr("Gamma") : Translation.tr("Brightness")
+        primaryText: `${percent}%`
+        valueIndicatorVisible: true
+        valueIndicatorValue: displayValue
+        queueIcon: "light_mode"
+        primaryDuration: 2000
+        flashKey: eventSerial
+    }
+
+    Connections {
+        target: Brightness
+
+        function onBrightnessChanged() {
+            brightnessNotification.eventSerial += 1;
+        }
+    }
+
+    Connections {
+        target: Hyprsunset
+
+        function onGammaChangeAttempt() {
+            brightnessNotification.eventSerial += 1;
+        }
     }
 
     IslandActivityDescriptor {

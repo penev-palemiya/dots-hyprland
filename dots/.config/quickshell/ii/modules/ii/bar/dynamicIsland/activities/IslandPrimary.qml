@@ -18,6 +18,10 @@ Item {
     readonly property string metadataText: activity ? (activity.metadataText || "") : ""
     readonly property string primaryText: activity ? (activity.primaryText || "") : ""
     readonly property bool primaryMarquee: activity ? !!activity.primaryMarquee : false
+    readonly property bool valueIndicatorVisible: activity ? !!activity.valueIndicatorVisible : false
+    readonly property real valueIndicatorValue: activity ? (activity.valueIndicatorValue ?? 0) : 0
+    readonly property color valueIndicatorColor: activity ? (activity.valueIndicatorColor || Appearance.colors.colOnSecondaryContainer) : Appearance.colors.colOnSecondaryContainer
+    readonly property color valueIndicatorTrackColor: activity ? (activity.valueIndicatorTrackColor || Appearance.colors.colSecondaryContainer) : Appearance.colors.colSecondaryContainer
     readonly property string actionIcon: activity ? (activity.actionIcon || "") : ""
     readonly property bool hasSecondaryPressAction: activity && !!activity.hasSecondaryPressAction
 
@@ -66,7 +70,7 @@ Item {
         Row {
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignVCenter
-            height: Math.max(primaryTextSlot.implicitHeight, primaryActionSlot.implicitHeight)
+            height: Math.max(primaryTextSlot.implicitHeight, primaryValueSlot.implicitHeight, primaryActionSlot.implicitHeight)
             spacing: 6
             clip: true
 
@@ -74,10 +78,20 @@ Item {
                 id: primaryTextSlot
 
                 anchors.verticalCenter: parent.verticalCenter
-                width: Math.max(0, parent.width - primaryActionSlot.width - (primaryActionSlot.visible ? parent.spacing : 0))
+                width: Math.max(0, parent.width - primaryValueSlot.width - primaryActionSlot.width - (primaryValueSlot.visible ? parent.spacing : 0) - (primaryActionSlot.visible ? parent.spacing : 0))
                 metadataText: root.metadataText
                 primaryText: root.primaryText
                 primaryMarquee: root.primaryMarquee
+            }
+
+            IslandValueSlot {
+                id: primaryValueSlot
+
+                anchors.verticalCenter: parent.verticalCenter
+                active: root.valueIndicatorVisible
+                value: root.valueIndicatorValue
+                fillColor: root.valueIndicatorColor
+                trackColor: root.valueIndicatorTrackColor
             }
 
             IslandActionSlot {

@@ -21,6 +21,10 @@ QtObject {
     property string metadataText: ""
     property string primaryText: ""
     property bool primaryMarquee: false
+    property bool valueIndicatorVisible: false
+    property real valueIndicatorValue: 0
+    property color valueIndicatorColor: Appearance.colors.colOnSecondaryContainer
+    property color valueIndicatorTrackColor: Appearance.colors.colSecondaryContainer
     property string actionIcon: ""
     property string queueIcon: leadingIcon
     property string queueImage: ""
