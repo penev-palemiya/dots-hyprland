@@ -52,8 +52,10 @@ Rectangle {
             clip: true
 
             Image {
+                id: avatarImage
+
                 anchors.fill: parent
-                visible: root.leadingImage.length > 0
+                visible: root.leadingImage.length > 0 && status !== Image.Error
                 source: root.leadingImage
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
@@ -62,7 +64,7 @@ Rectangle {
 
             MaterialSymbol {
                 anchors.centerIn: parent
-                visible: root.leadingImage.length === 0
+                visible: root.leadingImage.length === 0 || avatarImage.status === Image.Error
                 fill: 1
                 text: root.leadingIcon || "person"
                 iconSize: Appearance.font.pixelSize.normal

@@ -260,6 +260,13 @@ Singleton {
         notifFileView.reload()
     }
 
+    function persistedImageSource(image) {
+        // image://qsimage handles are process-local. After a shell reload the
+        // provider handle is gone, so persisted notifications must fall back
+        // to appIcon/material symbol instead of trying to load a dead image.
+        return String(image ?? "").startsWith("image://qsimage/") ? "" : (image ?? "");
+    }
+
     Component.onCompleted: {
         refresh()
     }
@@ -276,7 +283,7 @@ Singleton {
                     "appIcon": notif.appIcon,
                     "appName": notif.appName,
                     "body": notif.body,
-                    "image": notif.image,
+                    "image": root.persistedImageSource(notif.image),
                     "summary": notif.summary,
                     "time": notif.time,
                     "urgency": notif.urgency,

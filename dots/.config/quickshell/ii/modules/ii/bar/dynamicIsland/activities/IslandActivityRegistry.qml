@@ -29,7 +29,9 @@ Item {
 
         activityId: "media"
         available: true
+        leadingKind: MediaArt.hasArt ? "avatar" : "icon"
         leadingIcon: MprisController.activePlayer?.isPlaying ? "pause" : "music_note"
+        leadingImage: MediaArt.displayedArtUrl
         metadataText: MprisController.activePlayer?.trackArtist ?? ""
         primaryText: StringUtils.cleanMusicTitle(MprisController.activePlayer?.trackTitle) || Translation.tr("No media")
         queueIcon: MprisController.activePlayer?.isPlaying ? "pause" : "music_note"

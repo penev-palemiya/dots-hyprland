@@ -19,6 +19,9 @@ MaterialShape { // App icon
     property real materialIconSize: implicitSize * materialIconScale
     property real appIconSize: implicitSize * appIconScale
     property real smallAppIconSize: implicitSize * smallAppIconScale
+    property bool imageLoadFailed: false
+
+    onImageChanged: imageLoadFailed = false
 
     implicitSize: 38 * scale
     property list<var> urgentShapes: [
@@ -30,7 +33,7 @@ MaterialShape { // App icon
     color: isUrgent ? Appearance.colors.colPrimaryContainer : Appearance.colors.colSecondaryContainer
     Loader {
         id: materialSymbolLoader
-        active: root.appIcon == "" && root.image == ""
+        active: root.appIcon == "" && (root.image == "" || root.imageLoadFailed)
         anchors.fill: parent
         sourceComponent: MaterialSymbol {
             text: {
@@ -48,7 +51,7 @@ MaterialShape { // App icon
     }
     Loader {
         id: appIconLoader
-        active: root.image == "" && root.appIcon != ""
+        active: (root.image == "" || root.imageLoadFailed) && root.appIcon != ""
         anchors.centerIn: parent
         sourceComponent: IconImage {
             id: appIconImage
@@ -59,7 +62,7 @@ MaterialShape { // App icon
     }
     Loader {
         id: notifImageLoader
-        active: root.image != ""
+        active: root.image != "" && !root.imageLoadFailed
         anchors.fill: parent
         sourceComponent: Item {
             anchors.fill: parent
@@ -73,6 +76,10 @@ MaterialShape { // App icon
                 cache: false
                 antialiasing: true
                 asynchronous: true
+                onStatusChanged: {
+                    if (status === Image.Error)
+                        root.imageLoadFailed = true;
+                }
 
                 layer.enabled: true
                 layer.effect: OpacityMask {
