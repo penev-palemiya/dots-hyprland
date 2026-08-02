@@ -16,11 +16,14 @@ QtObject {
     property string leadingImage: ""
     property int leadingImageNotificationId: -1
     property string appIcon: ""
+    property string appIconImage: ""
+    property string appIconUrl: ""
     property string metadataText: ""
     property string primaryText: ""
     property bool primaryMarquee: false
     property string actionIcon: ""
     property string queueIcon: leadingIcon
+    property string queueImage: ""
     property int queuePriority: 0
     property int queueBadgeCount: 0
     property bool hasSecondaryPressAction: false

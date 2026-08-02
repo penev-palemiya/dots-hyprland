@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import Qt5Compat.GraphicalEffects
 import qs.modules.common
 import qs.modules.common.widgets
 
@@ -8,8 +9,12 @@ Item {
 
     property var activity
     property string iconName: activity ? (activity.queueIcon || "") : ""
+    property string imageSource: activity ? (activity.queueImage || "") : ""
     property int badgeCount: activity ? (activity.queueBadgeCount || 0) : 0
     property bool shown: true
+    property bool imageLoadFailed: false
+
+    onImageSourceChanged: imageLoadFailed = false
 
     signal clicked()
 
@@ -33,13 +38,41 @@ Item {
 
         anchors.centerIn: parent
 
-        contentItem: MaterialSymbol {
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            fill: 1
-            iconSize: Appearance.font.pixelSize.normal
-            text: root.iconName
-            color: Appearance.colors.colOnLayer2
+        contentItem: Item {
+            Image {
+                id: chipImage
+
+                anchors.fill: parent
+                visible: root.imageSource.length > 0 && !root.imageLoadFailed
+                source: root.imageSource
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                cache: false
+                antialiasing: true
+                layer.enabled: visible
+                layer.effect: OpacityMask {
+                    maskSource: Rectangle {
+                        width: chipImage.width
+                        height: chipImage.height
+                        radius: width / 2
+                    }
+                }
+                onStatusChanged: {
+                    if (status === Image.Error)
+                        root.imageLoadFailed = true;
+                }
+            }
+
+            MaterialSymbol {
+                anchors.fill: parent
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                fill: 1
+                iconSize: Appearance.font.pixelSize.normal
+                text: root.iconName
+                color: Appearance.colors.colOnLayer2
+                visible: root.imageSource.length === 0 || root.imageLoadFailed
+            }
         }
 
     }

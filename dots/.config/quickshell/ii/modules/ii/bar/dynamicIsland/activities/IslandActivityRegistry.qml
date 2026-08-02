@@ -42,6 +42,12 @@ Item {
         return "";
     }
 
+    function mediaIsBrowser(player) {
+        const dbusName = String(player?.dbusName ?? "").toLowerCase();
+        const desktopEntry = String(player?.desktopEntry ?? "").toLowerCase();
+        return dbusName.includes("firefox") || dbusName.includes("chromium") || dbusName.includes("chrome") || desktopEntry.includes("firefox") || desktopEntry.includes("chromium") || desktopEntry.includes("chrome");
+    }
+
     IslandActivityDescriptor {
         id: mediaActivity
 
@@ -53,9 +59,12 @@ Item {
         leadingIcon: MprisController.activePlayer?.isPlaying ? "pause" : "music_note"
         leadingImage: MediaArt.displayedArtUrl
         appIcon: desktopEntry?.icon || root.mediaFallbackIcon(MprisController.activePlayer)
+        appIconImage: root.mediaIsBrowser(MprisController.activePlayer) ? MediaArt.sourceFaviconImageUrl : ""
+        appIconUrl: root.mediaIsBrowser(MprisController.activePlayer) ? MediaArt.sourceUrl : ""
         metadataText: MprisController.activePlayer?.trackArtist ?? ""
         primaryText: StringUtils.cleanMusicTitle(MprisController.activePlayer?.trackTitle) || Translation.tr("No media")
         queueIcon: MprisController.activePlayer?.isPlaying ? "pause" : "music_note"
+        queueImage: MediaArt.displayedArtUrl
         queuePriority: 10
         hasSecondaryPressAction: true
         expandedContent: mediaExpandedContent

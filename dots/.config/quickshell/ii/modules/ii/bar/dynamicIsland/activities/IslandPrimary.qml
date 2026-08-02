@@ -13,6 +13,8 @@ Item {
     readonly property string leadingImage: activity ? (activity.leadingImage || "") : ""
     readonly property int leadingImageNotificationId: activity ? (activity.leadingImageNotificationId ?? -1) : -1
     readonly property string appIcon: activity ? (activity.appIcon || "") : ""
+    readonly property string appIconImage: activity ? (activity.appIconImage || "") : ""
+    readonly property string appIconUrl: activity ? (activity.appIconUrl || "") : ""
     readonly property string metadataText: activity ? (activity.metadataText || "") : ""
     readonly property string primaryText: activity ? (activity.primaryText || "") : ""
     readonly property bool primaryMarquee: activity ? !!activity.primaryMarquee : false
@@ -57,6 +59,8 @@ Item {
             leadingImage: root.leadingImage
             notificationId: root.leadingImageNotificationId
             appIcon: root.appIcon
+            appIconImage: root.appIconImage
+            appIconUrl: root.appIconUrl
         }
 
         Row {

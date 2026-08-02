@@ -15,8 +15,13 @@ Rectangle {
     property string leadingImage: ""
     property int notificationId: -1
     property string appIcon: ""
-    readonly property string visualKey: `${leadingKind}:${leadingIcon}:${leadingImage}:${appIcon}`
+    property string appIconImage: ""
+    property string appIconUrl: ""
+    property bool appIconImageLoadFailed: false
+    readonly property string visualKey: `${leadingKind}:${leadingIcon}:${leadingImage}:${appIcon}:${appIconImage}:${appIconUrl}`
     property bool initialized: false
+
+    onAppIconImageChanged: appIconImageLoadFailed = false
 
     implicitWidth: 26
     implicitHeight: 26
@@ -98,16 +103,38 @@ Rectangle {
             border.width: 1
             border.color: Appearance.colors.colLayer1
             clip: true
-            visible: root.appIcon.length > 0
+            visible: root.appIcon.length > 0 || root.appIconImage.length > 0 || root.appIconUrl.length > 0
 
             anchors {
                 right: parent.right
                 bottom: parent.bottom
             }
 
+            Image {
+                anchors.fill: parent
+                anchors.margins: 1
+                visible: root.appIconImage.length > 0 && !root.appIconImageLoadFailed
+                source: root.appIconImage
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                cache: false
+                onStatusChanged: {
+                    if (status === Image.Error)
+                        root.appIconImageLoadFailed = true;
+                }
+            }
+
+            Favicon {
+                anchors.centerIn: parent
+                visible: root.appIconImage.length === 0 && root.appIconUrl.length > 0
+                url: root.appIconUrl
+                size: 10
+            }
+
             IconImage {
                 anchors.fill: parent
                 anchors.margins: 1
+                visible: root.appIconUrl.length === 0 && (root.appIconImage.length === 0 || root.appIconImageLoadFailed)
                 source: Quickshell.iconPath(root.appIcon, "image-missing")
             }
 
