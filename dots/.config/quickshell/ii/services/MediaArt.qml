@@ -25,6 +25,7 @@ Singleton {
     property string timelineTrackKey: ""
     property real timelinePosition: 0
     property double timelineUpdatedAt: 0
+    readonly property int timelineUpdateInterval: 1000
     property string playerctlTrackUrl: ""
     property string browserMprisArtUrl: ""
     readonly property string sourceUrl: playerctlTrackUrl.length > 0 ? playerctlTrackUrl : trackUrl
@@ -71,7 +72,7 @@ Singleton {
     }
 
     Timer {
-        interval: Config.options.resources.updateInterval
+        interval: root.timelineUpdateInterval
         running: root.playing
         repeat: true
         triggeredOnStart: true

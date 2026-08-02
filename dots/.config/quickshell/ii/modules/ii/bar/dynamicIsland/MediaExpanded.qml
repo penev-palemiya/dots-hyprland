@@ -23,7 +23,7 @@ ColumnLayout {
 
     Timer {
         running: root.activePlayer?.playbackState == MprisPlaybackState.Playing
-        interval: Config.options.resources.updateInterval
+        interval: MediaArt.timelineUpdateInterval
         repeat: true
         onTriggered: root.activePlayer.positionChanged()
     }
