@@ -11,6 +11,8 @@ Item {
 
     implicitWidth: active ? 22 : 0
     implicitHeight: 22
+    width: implicitWidth
+    height: implicitHeight
     visible: active || implicitWidth > 0.5
     clip: false
 

@@ -26,6 +26,7 @@ QtObject {
     property color valueIndicatorColor: Appearance.colors.colOnSecondaryContainer
     property color valueIndicatorTrackColor: Appearance.colors.colSecondaryContainer
     property string actionIcon: ""
+    property string secondaryActionIcon: ""
     property string queueIcon: leadingIcon
     property string queueImage: ""
     property int queuePriority: 0
@@ -38,6 +39,7 @@ QtObject {
     property int primaryDuration: 0
     property var flashKey: null
     property var primaryAction: null
+    property var secondaryAction: null
     property var secondaryPressAction: null
     property var queueAction: null
 }

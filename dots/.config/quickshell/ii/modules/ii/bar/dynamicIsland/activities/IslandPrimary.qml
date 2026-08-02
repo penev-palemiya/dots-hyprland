@@ -23,11 +23,18 @@ Item {
     readonly property color valueIndicatorColor: activity ? (activity.valueIndicatorColor || Appearance.colors.colOnSecondaryContainer) : Appearance.colors.colOnSecondaryContainer
     readonly property color valueIndicatorTrackColor: activity ? (activity.valueIndicatorTrackColor || Appearance.colors.colSecondaryContainer) : Appearance.colors.colSecondaryContainer
     readonly property string actionIcon: activity ? (activity.actionIcon || "") : ""
+    readonly property string secondaryActionIcon: activity ? (activity.secondaryActionIcon || "") : ""
     readonly property bool hasSecondaryPressAction: activity && !!activity.hasSecondaryPressAction
 
     function triggerPrimaryAction() {
         if (root.activity && root.activity.primaryAction)
             root.activity.primaryAction();
+
+    }
+
+    function triggerSecondaryAction() {
+        if (root.activity && root.activity.secondaryAction)
+            root.activity.secondaryAction();
 
     }
 
@@ -70,7 +77,7 @@ Item {
         Row {
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignVCenter
-            height: Math.max(primaryTextSlot.implicitHeight, primaryValueSlot.implicitHeight, primaryActionSlot.implicitHeight)
+            height: Math.max(primaryTextSlot.implicitHeight, primaryValueSlot.implicitHeight, primaryActionSlot.implicitHeight, secondaryActionSlot.implicitHeight)
             spacing: 6
             clip: true
 
@@ -78,7 +85,7 @@ Item {
                 id: primaryTextSlot
 
                 anchors.verticalCenter: parent.verticalCenter
-                width: Math.max(0, parent.width - primaryValueSlot.width - primaryActionSlot.width - (primaryValueSlot.visible ? parent.spacing : 0) - (primaryActionSlot.visible ? parent.spacing : 0))
+                width: Math.max(0, parent.width - primaryValueSlot.width - primaryActionSlot.width - secondaryActionSlot.width - (primaryValueSlot.visible ? parent.spacing : 0) - (primaryActionSlot.visible ? parent.spacing : 0) - (secondaryActionSlot.visible ? parent.spacing : 0))
                 metadataText: root.metadataText
                 primaryText: root.primaryText
                 primaryMarquee: root.primaryMarquee
@@ -100,6 +107,14 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 iconName: root.actionIcon
                 action: root.triggerPrimaryAction
+            }
+
+            IslandActionSlot {
+                id: secondaryActionSlot
+
+                anchors.verticalCenter: parent.verticalCenter
+                iconName: root.secondaryActionIcon
+                action: root.triggerSecondaryAction
             }
 
         }

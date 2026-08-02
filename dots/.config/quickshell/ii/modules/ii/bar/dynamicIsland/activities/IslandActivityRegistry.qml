@@ -211,6 +211,7 @@ Item {
         primaryText: newest?.body || newest?.summary || ""
         primaryMarquee: true
         actionIcon: (newest?.actions.length ?? 0) > 0 ? "open_in_new" : ""
+        secondaryActionIcon: newest ? "check" : ""
         queueIcon: "notifications"
         queuePriority: 80
         queueBadgeCount: pending.length
@@ -219,6 +220,10 @@ Item {
         primaryAction: function() {
             if ((newest?.actions.length ?? 0) > 0)
                 Notifications.attemptInvokeAction(newest.notificationId, newest.actions[0].identifier);
+        }
+        secondaryAction: function() {
+            if (newest)
+                Notifications.discardNotification(newest.notificationId);
         }
     }
 }
