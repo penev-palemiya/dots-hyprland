@@ -41,7 +41,7 @@ RowLayout {
             activity: modelData
             shown: root.visibleActivities.includes(modelData)
             onClicked: {
-                if (modelData.queueAction)
+                if (modelData.hasQueueAction)
                     modelData.queueAction();
                 else if (root.promoteCallback)
                     root.promoteCallback(modelData);

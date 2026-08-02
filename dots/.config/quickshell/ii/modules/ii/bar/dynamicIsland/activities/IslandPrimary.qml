@@ -16,8 +16,13 @@ Item {
     readonly property string primaryText: activity ? (activity.primaryText || "") : ""
     readonly property bool primaryMarquee: activity ? !!activity.primaryMarquee : false
     readonly property string actionIcon: activity ? (activity.actionIcon || "") : ""
-    readonly property var primaryAction: activity ? activity.primaryAction : null
-    readonly property bool hasSecondaryPressAction: activity && !!activity.secondaryPressAction
+    readonly property bool hasSecondaryPressAction: activity && !!activity.hasSecondaryPressAction
+
+    function triggerPrimaryAction() {
+        if (root.activity && root.activity.primaryAction)
+            root.activity.primaryAction();
+
+    }
 
     implicitHeight: primaryRow.implicitHeight
     clip: true
@@ -74,7 +79,7 @@ Item {
 
                 anchors.verticalCenter: parent.verticalCenter
                 iconName: root.actionIcon
-                action: root.primaryAction
+                action: root.triggerPrimaryAction
             }
 
         }

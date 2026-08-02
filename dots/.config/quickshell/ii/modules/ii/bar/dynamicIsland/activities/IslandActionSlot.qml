@@ -7,7 +7,7 @@ Item {
 
     property string iconName: ""
     property var action
-    readonly property bool active: iconName.length > 0 && !!action
+    readonly property bool active: iconName.length > 0
 
     implicitWidth: active ? 22 : 0
     implicitHeight: 22
