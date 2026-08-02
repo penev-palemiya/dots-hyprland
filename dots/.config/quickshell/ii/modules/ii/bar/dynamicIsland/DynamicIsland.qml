@@ -256,9 +256,6 @@ Item {
 
     property string activePrimaryId: "media"
     readonly property QtObject primaryActivity: activities.find(a => a.activityId === root.activePrimaryId) ?? mediaActivity
-    // One chip per available activity that is not primary. One-shot
-    // notifications are excluded by kind; notification feed is an activity.
-    readonly property list<QtObject> queuedActivities: activities.filter(a => a.available && a.kind === "activity" && a !== root.primaryActivity)
 
     function promote(activity) {
         const previous = root.primaryActivity;
@@ -365,7 +362,8 @@ Item {
 
             IslandQueue {
                 Layout.alignment: Qt.AlignVCenter
-                activities: root.queuedActivities
+                activities: root.activities
+                primaryActivity: root.primaryActivity
                 promoteCallback: function(activity) {
                     root.promote(activity);
                 }

@@ -7,9 +7,13 @@ RowLayout {
     id: root
 
     property var activities: []
+    property var primaryActivity
     property int maxVisibleChips: 3
     property var promoteCallback
-    readonly property var sortedActivities: activities.slice().sort(function(a, b) {
+    readonly property var queuedActivities: activities.filter(function(activity) {
+        return activity.available && activity.kind === "activity" && activity !== root.primaryActivity;
+    })
+    readonly property var sortedActivities: queuedActivities.slice().sort(function(a, b) {
         return (b.queuePriority || 0) - (a.queuePriority || 0);
     })
     readonly property var visibleActivities: sortedActivities.slice(0, maxVisibleChips)
@@ -22,12 +26,13 @@ RowLayout {
     clip: true
 
     Repeater {
-        model: root.visibleActivities
+        model: root.activities
 
         delegate: IslandQueueChip {
             required property QtObject modelData
 
             activity: modelData
+            shown: root.visibleActivities.includes(modelData)
             onClicked: {
                 if (modelData.queueAction)
                     modelData.queueAction();
@@ -39,7 +44,7 @@ RowLayout {
     }
 
     IslandQueueChip {
-        visible: root.overflowActivities.length > 0
+        shown: root.overflowActivities.length > 0
         activity: null
         iconName: "more_horiz"
         badgeCount: root.overflowActivities.length

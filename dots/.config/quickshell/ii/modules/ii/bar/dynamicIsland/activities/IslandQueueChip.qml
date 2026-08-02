@@ -8,19 +8,22 @@ Item {
     property var activity
     property string iconName: activity ? (activity.queueIcon || "") : ""
     property int badgeCount: activity ? (activity.queueBadgeCount || 0) : 0
+    property bool shown: true
 
     signal clicked()
 
-    implicitWidth: 30
+    implicitWidth: shown ? 30 : 0
     implicitHeight: 30
-    scale: 0
-    Component.onCompleted: scale = 1
+    visible: shown || implicitWidth > 0.5
+    scale: shown ? 1 : 0
+    opacity: shown ? 1 : 0
 
     RippleButton {
         id: button
 
         implicitWidth: 26
         implicitHeight: 26
+        enabled: root.shown
         buttonRadius: Appearance.rounding.full
         colBackground: Appearance.colors.colLayer2
         colBackgroundHover: Appearance.colors.colLayer2Hover
@@ -42,7 +45,7 @@ Item {
     }
 
     Rectangle {
-        visible: root.badgeCount > 0
+        visible: root.shown && root.badgeCount > 0
         z: 2
         implicitWidth: Math.max(14, badgeText.implicitWidth + 6)
         implicitHeight: 14
@@ -69,6 +72,24 @@ Item {
 
     Behavior on scale {
         animation: Appearance.animation.elementMoveSmall.numberAnimation.createObject(root)
+    }
+
+    Behavior on opacity {
+        NumberAnimation {
+            duration: Appearance.animation.elementMoveFast.duration
+            easing.type: Appearance.animation.elementMoveFast.type
+            easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
+        }
+
+    }
+
+    Behavior on implicitWidth {
+        NumberAnimation {
+            duration: Appearance.animation.elementMoveSmall.duration
+            easing.type: Appearance.animation.elementMoveSmall.type
+            easing.bezierCurve: Appearance.animation.elementMoveSmall.bezierCurve
+        }
+
     }
 
 }
