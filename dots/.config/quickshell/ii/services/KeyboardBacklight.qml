@@ -147,7 +147,7 @@ Singleton {
     // LED node does not consistently emit inotify events. Re-reading one tiny
     // sysfs file is cheaper and more reliable than spawning brightnessctl.
     Timer {
-        interval: 250
+        interval: 100
         running: root.available
         repeat: true
         onTriggered: root.readSysfs()
