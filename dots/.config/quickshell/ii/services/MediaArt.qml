@@ -9,17 +9,40 @@ import qs.modules.common.functions
 Singleton {
     id: root
 
-    readonly property string artUrl: MprisController.activeTrack?.artUrl ?? ""
+    readonly property string mprisArtUrl: MprisController.activeTrack?.artUrl ?? ""
+    readonly property string trackUrl: MprisController.activePlayer?.trackUrl ?? ""
+    property string playerctlTrackUrl: ""
+    readonly property string fallbackArtUrl: youtubeThumbnailUrl(trackUrl.length > 0 ? trackUrl : playerctlTrackUrl)
+    readonly property string artUrl: mprisArtUrl.length > 0 ? mprisArtUrl : fallbackArtUrl
     readonly property string artFilePath: artUrl.length > 0 ? `${Directories.coverArt}/${Qt.md5(artUrl)}` : ""
-    readonly property string displayedArtUrl: downloaded ? Qt.resolvedUrl(artFilePath) : ""
+    readonly property bool directFileArt: artUrl.startsWith("file://") || artUrl.startsWith("/")
+    readonly property bool shouldDownload: artUrl.length > 0 && !directFileArt
+    readonly property string directArtUrl: artUrl.startsWith("/") ? Qt.resolvedUrl(artUrl) : artUrl
+    readonly property string displayedArtUrl: directFileArt ? directArtUrl : (downloaded ? Qt.resolvedUrl(artFilePath) : "")
     readonly property bool hasArt: displayedArtUrl.length > 0
     property bool downloaded: false
 
     onArtFilePathChanged: root.refresh()
-    Component.onCompleted: root.refresh()
+    onMprisArtUrlChanged: root.refreshPlayerctlTrackUrl()
+    onTrackUrlChanged: root.refreshPlayerctlTrackUrl()
+    onPlayerctlTrackUrlChanged: root.refresh()
+    Component.onCompleted: {
+        root.refreshPlayerctlTrackUrl();
+        root.refresh();
+    }
+
+    function youtubeThumbnailUrl(url) {
+        const text = String(url ?? "");
+        let match = text.match(/[?&]v=([^&#]+)/);
+        if (!match)
+            match = text.match(/youtu\.be\/([^?&#]+)/);
+        if (!match)
+            match = text.match(/youtube\.com\/shorts\/([^?&#]+)/);
+        return match ? `https://i.ytimg.com/vi/${match[1]}/hqdefault.jpg` : "";
+    }
 
     function refresh() {
-        if (artUrl.length === 0 || artFilePath.length === 0) {
+        if (artUrl.length === 0 || artFilePath.length === 0 || !shouldDownload) {
             downloaded = false;
             return;
         }
@@ -27,6 +50,22 @@ Singleton {
         artLoader.targetPath = artFilePath;
         downloaded = false;
         artLoader.running = true;
+    }
+
+    function refreshPlayerctlTrackUrl() {
+        if (mprisArtUrl.length === 0 && trackUrl.length === 0)
+            playerctlUrlLoader.running = true;
+        else
+            playerctlTrackUrl = "";
+    }
+
+    Process {
+        id: playerctlUrlLoader
+
+        command: ["playerctl", "metadata", "xesam:url"]
+        stdout: StdioCollector {
+            onStreamFinished: root.playerctlTrackUrl = text.trim()
+        }
     }
 
     Process {

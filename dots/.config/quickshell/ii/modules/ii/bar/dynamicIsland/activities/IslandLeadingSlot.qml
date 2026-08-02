@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Widgets
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.services
 
 Rectangle {
     id: root
@@ -11,6 +12,7 @@ Rectangle {
     property string leadingIcon: ""
     property color leadingIconColor: Appearance.m3colors.m3onSecondaryContainer
     property string leadingImage: ""
+    property int notificationId: -1
     property string appIcon: ""
     readonly property string visualKey: `${leadingKind}:${leadingIcon}:${leadingImage}:${appIcon}`
     property bool initialized: false
@@ -60,6 +62,11 @@ Rectangle {
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 cache: false
+                onStatusChanged: {
+                    if (status === Image.Ready && root.notificationId >= 0)
+                        Notifications.cacheNotificationImage(root.notificationId, avatarImage);
+
+                }
             }
 
             MaterialSymbol {

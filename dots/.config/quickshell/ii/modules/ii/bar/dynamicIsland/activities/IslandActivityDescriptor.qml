@@ -14,6 +14,7 @@ QtObject {
     property string leadingIcon: ""
     property color leadingIconColor: Appearance.m3colors.m3onSecondaryContainer
     property string leadingImage: ""
+    property int leadingImageNotificationId: -1
     property string appIcon: ""
     property string metadataText: ""
     property string primaryText: ""

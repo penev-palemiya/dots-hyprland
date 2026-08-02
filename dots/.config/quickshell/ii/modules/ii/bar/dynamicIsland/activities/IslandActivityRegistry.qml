@@ -105,6 +105,7 @@ Item {
         leadingKind: "avatar"
         leadingIcon: "person"
         leadingImage: newest?.image ?? ""
+        leadingImageNotificationId: newest?.notificationId ?? -1
         appIcon: newest?.appIcon ?? ""
         metadataText: (newest?.body ?? "").length > 0 ? (newest?.summary || newest?.appName || Translation.tr("Notification")) : (newest?.appName || Translation.tr("Notification"))
         primaryText: newest?.body || newest?.summary || ""

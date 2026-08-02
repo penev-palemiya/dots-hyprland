@@ -5,12 +5,14 @@ import QtQuick
 import Quickshell
 import Quickshell.Widgets
 import Quickshell.Services.Notifications
+import qs.services
 
 MaterialShape { // App icon
     id: root
     property var appIcon: ""
     property var summary: ""
     property var urgency: NotificationUrgency.Normal
+    property int notificationId: -1
     property bool isUrgent: urgency === NotificationUrgency.Critical
     property var image: ""
     property real materialIconScale: 0.57
@@ -77,6 +79,8 @@ MaterialShape { // App icon
                 antialiasing: true
                 asynchronous: true
                 onStatusChanged: {
+                    if (status === Image.Ready && root.notificationId >= 0)
+                        Notifications.cacheNotificationImage(root.notificationId, notifImage);
                     if (status === Image.Error)
                         root.imageLoadFailed = true;
                 }

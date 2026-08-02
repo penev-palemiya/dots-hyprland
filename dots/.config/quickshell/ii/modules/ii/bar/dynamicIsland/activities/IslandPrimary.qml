@@ -11,6 +11,7 @@ Item {
     readonly property string leadingIcon: activity ? (activity.leadingIcon || "") : ""
     readonly property color leadingIconColor: activity ? (activity.leadingIconColor || Appearance.m3colors.m3onSecondaryContainer) : Appearance.m3colors.m3onSecondaryContainer
     readonly property string leadingImage: activity ? (activity.leadingImage || "") : ""
+    readonly property int leadingImageNotificationId: activity ? (activity.leadingImageNotificationId ?? -1) : -1
     readonly property string appIcon: activity ? (activity.appIcon || "") : ""
     readonly property string metadataText: activity ? (activity.metadataText || "") : ""
     readonly property string primaryText: activity ? (activity.primaryText || "") : ""
@@ -54,6 +55,7 @@ Item {
             leadingIcon: root.leadingIcon
             leadingIconColor: root.leadingIconColor
             leadingImage: root.leadingImage
+            notificationId: root.leadingImageNotificationId
             appIcon: root.appIcon
         }
 

@@ -62,6 +62,7 @@ ColumnLayout {
                         scale: 26 / 38
                         appIcon: notifRow.modelData.appIcon ?? ""
                         image: notifRow.modelData.image ?? ""
+                        notificationId: notifRow.modelData.notificationId
                         summary: notifRow.modelData.summary ?? ""
                         urgency: notifRow.modelData.urgency
                     }

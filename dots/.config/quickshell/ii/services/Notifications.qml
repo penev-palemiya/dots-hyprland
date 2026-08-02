@@ -29,7 +29,9 @@ Singleton {
         property string appIcon: notification?.appIcon ?? ""
         property string appName: notification?.appName ?? ""
         property string body: notification?.body ?? ""
-        property string image: notification?.image ?? ""
+        property string cachedImage: ""
+        property string rawImage: notification?.image ?? ""
+        property string image: cachedImage || rawImage
         property string summary: notification?.summary ?? ""
         property double time
         property string urgency: notification?.urgency.toString() ?? "normal"
@@ -49,7 +51,7 @@ Singleton {
             "appIcon": notif.appIcon,
             "appName": notif.appName,
             "body": notif.body,
-            "image": notif.image,
+            "image": notif.cachedImage || notif.image,
             "summary": notif.summary,
             "time": notif.time,
             "urgency": notif.urgency,
@@ -267,6 +269,24 @@ Singleton {
         return String(image ?? "").startsWith("image://qsimage/") ? "" : (image ?? "");
     }
 
+    function notificationImagePath(id) {
+        return `${Directories.notificationImages}/${id}.png`;
+    }
+
+    function cacheNotificationImage(id, imageItem) {
+        const index = root.list.findIndex(notif => notif.notificationId === id);
+        if (index === -1 || root.list[index].cachedImage.length > 0)
+            return;
+        const filePath = notificationImagePath(id);
+        imageItem.grabToImage(result => {
+            if (result.saveToFile(filePath)) {
+                root.list[index].cachedImage = Qt.resolvedUrl(filePath);
+                notifFileView.setText(stringifyList(root.list));
+                triggerListChange();
+            }
+        });
+    }
+
     Component.onCompleted: {
         refresh()
     }
@@ -283,7 +303,8 @@ Singleton {
                     "appIcon": notif.appIcon,
                     "appName": notif.appName,
                     "body": notif.body,
-                    "image": root.persistedImageSource(notif.image),
+                    "cachedImage": root.persistedImageSource(notif.image),
+                    "rawImage": "",
                     "summary": notif.summary,
                     "time": notif.time,
                     "urgency": notif.urgency,
