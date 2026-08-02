@@ -150,6 +150,16 @@ Item {
         readonly property bool primaryMarquee: false
         readonly property string actionIcon: ""
         readonly property var primaryAction: null
+        readonly property var secondaryPressAction: event => {
+            if (!MprisController.activePlayer)
+                return;
+            if (event.button === Qt.MiddleButton)
+                MprisController.activePlayer.togglePlaying();
+            else if (event.button === Qt.BackButton)
+                MprisController.activePlayer.previous();
+            else if (event.button === Qt.ForwardButton || event.button === Qt.RightButton)
+                MprisController.activePlayer.next();
+        }
         readonly property string queueIcon: MprisController.activePlayer?.isPlaying ? "pause" : "music_note"
         readonly property int queuePriority: 10
         readonly property Component expandedContent: mediaExpandedComponent
@@ -175,6 +185,7 @@ Item {
         readonly property bool primaryMarquee: false
         readonly property string actionIcon: ""
         readonly property var primaryAction: null
+        readonly property var secondaryPressAction: null
         readonly property string queueIcon: "keyboard_capslock" // unused — notifications never queue
         readonly property int queuePriority: 0
         readonly property Component expandedContent: null
@@ -198,6 +209,7 @@ Item {
         readonly property bool primaryMarquee: false
         readonly property string actionIcon: muted ? "mic" : "mic_off"
         readonly property var primaryAction: () => Audio.toggleMicMute()
+        readonly property var secondaryPressAction: null
         readonly property string queueIcon: "mic_off"
         readonly property int queuePriority: 90
         readonly property Component expandedContent: null
@@ -229,6 +241,7 @@ Item {
             if ((newest?.actions.length ?? 0) > 0)
                 Notifications.attemptInvokeAction(newest.notificationId, newest.actions[0].identifier);
         }
+        readonly property var secondaryPressAction: null
         readonly property string queueIcon: "notifications"
         readonly property int queuePriority: 80
         readonly property int queueBadgeCount: pending.length
@@ -344,204 +357,10 @@ Item {
             }
             spacing: 6
 
-            Item {
-                id: primaryTransitionSlot
+            IslandPrimary {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                implicitHeight: Math.max(incomingLoader.implicitHeight, outgoingLoader.implicitHeight)
-                clip: true
-
-                property Component sourceComponent: standardPrimaryComponent
-                property Component displayedSourceComponent
-                property Component outgoingSourceComponent
-                property bool initialized: false
-                property bool transitionRunning: false
-                property real incomingOpacity: 1
-                property real outgoingOpacity: 0
-                property real incomingOffset: 0
-                property real outgoingOffset: 0
-                property real incomingScale: 1
-                property real outgoingScale: 1
-                readonly property real transitionDistance: 8
-                readonly property var flashKey: root.primaryActivity?.flashKey
-
-                onFlashKeyChanged: {
-                    if (initialized && displayedSourceComponent === sourceComponent && !transitionRunning)
-                        pulseAnimation.restart();
-                }
-
-                function setCurrentSource(nextSource) {
-                    if (displayedSourceComponent === nextSource)
-                        return;
-
-                    if (!initialized || !displayedSourceComponent || !nextSource) {
-                        transitionAnimation.stop();
-                        outgoingSourceComponent = null;
-                        displayedSourceComponent = nextSource;
-                        transitionRunning = false;
-                        incomingOpacity = 1;
-                        outgoingOpacity = 0;
-                        incomingOffset = 0;
-                        outgoingOffset = 0;
-                        incomingScale = 1;
-                        outgoingScale = 1;
-                        return;
-                    }
-
-                    transitionAnimation.stop();
-                    outgoingSourceComponent = displayedSourceComponent;
-                    displayedSourceComponent = nextSource;
-                    transitionRunning = true;
-                    incomingOpacity = 0;
-                    outgoingOpacity = 1;
-                    incomingOffset = transitionDistance;
-                    outgoingOffset = 0;
-                    incomingScale = 0.96;
-                    outgoingScale = 1;
-                    transitionAnimation.restart();
-                }
-
-                Component.onCompleted: {
-                    initialized = true;
-                    setCurrentSource(sourceComponent);
-                }
-
-                onSourceComponentChanged: setCurrentSource(sourceComponent)
-
-                Loader {
-                    id: outgoingLoader
-                    width: parent.width
-                    height: implicitHeight
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: primaryTransitionSlot.transitionRunning
-                    opacity: primaryTransitionSlot.outgoingOpacity
-                    scale: primaryTransitionSlot.outgoingScale
-                    sourceComponent: primaryTransitionSlot.outgoingSourceComponent
-                    transform: Translate {
-                        y: primaryTransitionSlot.outgoingOffset
-                    }
-                }
-
-                Loader {
-                    id: incomingLoader
-                    width: parent.width
-                    height: implicitHeight
-                    anchors.verticalCenter: parent.verticalCenter
-                    opacity: primaryTransitionSlot.incomingOpacity
-                    scale: primaryTransitionSlot.incomingScale
-                    sourceComponent: primaryTransitionSlot.displayedSourceComponent
-                    transform: Translate {
-                        y: primaryTransitionSlot.incomingOffset
-                    }
-                }
-
-                ParallelAnimation {
-                    id: transitionAnimation
-
-                    NumberAnimation {
-                        target: primaryTransitionSlot
-                        property: "incomingOpacity"
-                        to: 1
-                        duration: Appearance.animation.elementMoveFast.duration
-                        easing.type: Appearance.animation.elementMoveFast.type
-                        easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
-                    }
-                    NumberAnimation {
-                        target: primaryTransitionSlot
-                        property: "outgoingOpacity"
-                        to: 0
-                        duration: Appearance.animation.elementMoveFast.duration
-                        easing.type: Appearance.animation.elementMoveFast.type
-                        easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
-                    }
-                    NumberAnimation {
-                        target: primaryTransitionSlot
-                        property: "incomingOffset"
-                        to: 0
-                        duration: Appearance.animation.elementMoveSmall.duration
-                        easing.type: Appearance.animation.elementMoveSmall.type
-                        easing.bezierCurve: Appearance.animation.elementMoveSmall.bezierCurve
-                    }
-                    NumberAnimation {
-                        target: primaryTransitionSlot
-                        property: "outgoingOffset"
-                        to: -primaryTransitionSlot.transitionDistance
-                        duration: Appearance.animation.elementMoveSmall.duration
-                        easing.type: Appearance.animation.elementMoveSmall.type
-                        easing.bezierCurve: Appearance.animation.elementMoveSmall.bezierCurve
-                    }
-                    NumberAnimation {
-                        target: primaryTransitionSlot
-                        property: "incomingScale"
-                        to: 1
-                        duration: Appearance.animation.elementMoveSmall.duration
-                        easing.type: Appearance.animation.elementMoveSmall.type
-                        easing.bezierCurve: Appearance.animation.elementMoveSmall.bezierCurve
-                    }
-                    NumberAnimation {
-                        target: primaryTransitionSlot
-                        property: "outgoingScale"
-                        to: 0.98
-                        duration: Appearance.animation.elementMoveSmall.duration
-                        easing.type: Appearance.animation.elementMoveSmall.type
-                        easing.bezierCurve: Appearance.animation.elementMoveSmall.bezierCurve
-                    }
-
-                    onStopped: {
-                        primaryTransitionSlot.transitionRunning = false;
-                        primaryTransitionSlot.outgoingSourceComponent = null;
-                        primaryTransitionSlot.incomingOpacity = 1;
-                        primaryTransitionSlot.outgoingOpacity = 0;
-                        primaryTransitionSlot.incomingOffset = 0;
-                        primaryTransitionSlot.outgoingOffset = 0;
-                        primaryTransitionSlot.incomingScale = 1;
-                        primaryTransitionSlot.outgoingScale = 1;
-                    }
-                }
-
-                ParallelAnimation {
-                    id: pulseAnimation
-
-                    PropertyAction {
-                        target: primaryTransitionSlot
-                        property: "incomingOpacity"
-                        value: 0.35
-                    }
-                    PropertyAction {
-                        target: primaryTransitionSlot
-                        property: "incomingOffset"
-                        value: primaryTransitionSlot.transitionDistance
-                    }
-                    PropertyAction {
-                        target: primaryTransitionSlot
-                        property: "incomingScale"
-                        value: 0.97
-                    }
-                    NumberAnimation {
-                        target: primaryTransitionSlot
-                        property: "incomingOpacity"
-                        to: 1
-                        duration: Appearance.animation.elementMoveFast.duration
-                        easing.type: Appearance.animation.elementMoveFast.type
-                        easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
-                    }
-                    NumberAnimation {
-                        target: primaryTransitionSlot
-                        property: "incomingOffset"
-                        to: 0
-                        duration: Appearance.animation.elementMoveSmall.duration
-                        easing.type: Appearance.animation.elementMoveSmall.type
-                        easing.bezierCurve: Appearance.animation.elementMoveSmall.bezierCurve
-                    }
-                    NumberAnimation {
-                        target: primaryTransitionSlot
-                        property: "incomingScale"
-                        to: 1
-                        duration: Appearance.animation.elementMoveSmall.duration
-                        easing.type: Appearance.animation.elementMoveSmall.type
-                        easing.bezierCurve: Appearance.animation.elementMoveSmall.bezierCurve
-                    }
-                }
+                activity: root.primaryActivity
             }
 
             IslandQueue {
@@ -554,12 +373,6 @@ Item {
         }
     }
 
-    Component {
-        id: standardPrimaryComponent
-        IslandPrimary {
-            activity: root.primaryActivity
-        }
-    }
     Component {
         id: mediaExpandedComponent
         MediaExpanded {}
