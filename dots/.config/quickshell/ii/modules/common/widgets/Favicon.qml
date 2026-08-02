@@ -17,7 +17,7 @@ IconImage {
     property string faviconDownloadPath: Directories.favicons
     property string domainName: url.includes("vertexaisearch") ? displayText : (StringUtils.getDomain(url) ?? "")
     property string faviconUrl: domainName ? `https://www.google.com/s2/favicons?domain=${domainName}&sz=32` : ""
-    property string fileName: domainName ? `${domainName.replace(/[^A-Za-z0-9._-]/g, "_")}.ico` : ""
+    property string fileName: domainName ? `${domainName.replace(/[^A-Za-z0-9._-]/g, "_")}.png` : ""
     property string faviconFilePath: fileName ? `${faviconDownloadPath}/${fileName}` : ""
     property string urlToLoad
 

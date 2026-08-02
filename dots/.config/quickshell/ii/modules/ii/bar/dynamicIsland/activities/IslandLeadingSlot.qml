@@ -3,6 +3,7 @@ import Qt5Compat.GraphicalEffects
 import Quickshell
 import Quickshell.Widgets
 import qs.modules.common
+import qs.modules.common.functions
 import qs.modules.common.widgets
 import qs.services
 
@@ -19,9 +20,12 @@ Rectangle {
     property string appIconUrl: ""
     property bool appIconImageLoadFailed: false
     readonly property string visualKey: `${leadingKind}:${leadingIcon}:${leadingImage}:${appIcon}:${appIconImage}:${appIconUrl}`
+    readonly property string appIconDomain: StringUtils.getDomain(appIconUrl) ?? ""
+    readonly property string appIconFaviconUrl: appIconDomain.length > 0 ? `https://www.google.com/s2/favicons?domain=${appIconDomain}&sz=32` : ""
     property bool initialized: false
 
     onAppIconImageChanged: appIconImageLoadFailed = false
+    onAppIconUrlChanged: appIconImageLoadFailed = false
 
     implicitWidth: 26
     implicitHeight: 26
@@ -113,7 +117,7 @@ Rectangle {
             Image {
                 anchors.fill: parent
                 anchors.margins: 1
-                visible: root.appIconImage.length > 0 && !root.appIconImageLoadFailed
+                visible: root.appIconUrl.length === 0 && root.appIconImage.length > 0 && !root.appIconImageLoadFailed
                 source: root.appIconImage
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
@@ -124,17 +128,24 @@ Rectangle {
                 }
             }
 
-            Favicon {
-                anchors.centerIn: parent
-                visible: root.appIconImage.length === 0 && root.appIconUrl.length > 0
-                url: root.appIconUrl
-                size: 10
+            Image {
+                anchors.fill: parent
+                anchors.margins: 1
+                visible: root.appIconFaviconUrl.length > 0 && !root.appIconImageLoadFailed
+                source: root.appIconFaviconUrl
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                cache: true
+                onStatusChanged: {
+                    if (status === Image.Error)
+                        root.appIconImageLoadFailed = true;
+                }
             }
 
             IconImage {
                 anchors.fill: parent
                 anchors.margins: 1
-                visible: root.appIconUrl.length === 0 && (root.appIconImage.length === 0 || root.appIconImageLoadFailed)
+                visible: root.appIconFaviconUrl.length > 0 ? root.appIconImageLoadFailed : (root.appIconImage.length === 0 || root.appIconImageLoadFailed)
                 source: Quickshell.iconPath(root.appIcon, "image-missing")
             }
 

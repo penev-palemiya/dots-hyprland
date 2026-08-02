@@ -11,13 +11,14 @@ Singleton {
 
     readonly property string mprisArtUrl: MprisController.activeTrack?.artUrl ?? ""
     readonly property string trackUrl: MprisController.activePlayer?.trackUrl ?? ""
+    readonly property string trackKey: `${MprisController.activeTrack?.title ?? ""}:${MprisController.activeTrack?.artist ?? ""}:${mprisArtUrl}:${trackUrl}`
     property string playerctlTrackUrl: ""
-    readonly property string sourceUrl: trackUrl.length > 0 ? trackUrl : playerctlTrackUrl
+    readonly property string sourceUrl: playerctlTrackUrl.length > 0 ? playerctlTrackUrl : trackUrl
     readonly property string sourceDomain: StringUtils.getDomain(sourceUrl) ?? ""
     readonly property string faviconUrl: sourceDomain.length > 0 ? `https://www.google.com/s2/favicons?domain=${sourceDomain}&sz=32` : ""
-    readonly property string faviconFilePath: sourceDomain.length > 0 ? `${Directories.favicons}/${sourceDomain.replace(/[^A-Za-z0-9._-]/g, "_")}.ico` : ""
+    readonly property string faviconFilePath: sourceDomain.length > 0 ? `${Directories.favicons}/${sourceDomain.replace(/[^A-Za-z0-9._-]/g, "_")}.png` : ""
     property string sourceFaviconImageUrl: ""
-    readonly property string fallbackArtUrl: youtubeThumbnailUrl(trackUrl.length > 0 ? trackUrl : playerctlTrackUrl)
+    readonly property string fallbackArtUrl: youtubeThumbnailUrl(sourceUrl)
     readonly property string artUrl: mprisArtUrl.length > 0 ? mprisArtUrl : fallbackArtUrl
     readonly property string artFilePath: artUrl.length > 0 ? `${Directories.coverArt}/${Qt.md5(artUrl)}` : ""
     readonly property bool directFileArt: artUrl.startsWith("file://") || artUrl.startsWith("/")
@@ -30,12 +31,20 @@ Singleton {
     onArtFilePathChanged: root.refresh()
     onMprisArtUrlChanged: root.refreshPlayerctlTrackUrl()
     onTrackUrlChanged: root.refreshPlayerctlTrackUrl()
+    onTrackKeyChanged: root.refreshPlayerctlTrackUrl()
     onPlayerctlTrackUrlChanged: root.refresh()
     onSourceDomainChanged: root.refreshFavicon()
     Component.onCompleted: {
         root.refreshPlayerctlTrackUrl();
         root.refresh();
         root.refreshFavicon();
+    }
+
+    Timer {
+        interval: 600
+        running: true
+        repeat: false
+        onTriggered: root.refreshPlayerctlTrackUrl()
     }
 
     function youtubeThumbnailUrl(url) {
@@ -60,10 +69,7 @@ Singleton {
     }
 
     function refreshPlayerctlTrackUrl() {
-        if (trackUrl.length === 0)
-            playerctlUrlLoader.running = true;
-        else
-            playerctlTrackUrl = "";
+        playerctlUrlLoader.running = true;
     }
 
     function refreshFavicon() {

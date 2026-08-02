@@ -25,6 +25,53 @@ Item {
     scale: shown ? 1 : 0
     opacity: shown ? 1 : 0
 
+    Rectangle {
+        id: visualBackground
+
+        width: 26
+        height: 26
+        radius: width / 2
+        color: Appearance.colors.colLayer2
+        clip: true
+
+        anchors.centerIn: parent
+
+        Image {
+            id: chipImage
+
+            anchors.fill: parent
+            visible: root.imageSource.length > 0 && !root.imageLoadFailed
+            source: root.imageSource
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+            cache: false
+            antialiasing: true
+            layer.enabled: visible
+            layer.effect: OpacityMask {
+                maskSource: Rectangle {
+                    width: chipImage.width
+                    height: chipImage.height
+                    radius: width / 2
+                }
+            }
+            onStatusChanged: {
+                if (status === Image.Error)
+                    root.imageLoadFailed = true;
+            }
+        }
+
+        MaterialSymbol {
+            anchors.fill: parent
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            fill: 1
+            iconSize: Appearance.font.pixelSize.normal
+            text: root.iconName
+            color: Appearance.colors.colOnLayer2
+            visible: root.imageSource.length === 0 || root.imageLoadFailed
+        }
+    }
+
     RippleButton {
         id: button
 
@@ -32,47 +79,12 @@ Item {
         implicitHeight: 26
         enabled: root.shown
         buttonRadius: Appearance.rounding.full
-        colBackground: Appearance.colors.colLayer2
+        colBackground: "transparent"
         colBackgroundHover: Appearance.colors.colLayer2Hover
         onClicked: root.clicked()
 
         anchors.centerIn: parent
-
         contentItem: Item {
-            Image {
-                id: chipImage
-
-                anchors.fill: parent
-                visible: root.imageSource.length > 0 && !root.imageLoadFailed
-                source: root.imageSource
-                fillMode: Image.PreserveAspectCrop
-                asynchronous: true
-                cache: false
-                antialiasing: true
-                layer.enabled: visible
-                layer.effect: OpacityMask {
-                    maskSource: Rectangle {
-                        width: chipImage.width
-                        height: chipImage.height
-                        radius: width / 2
-                    }
-                }
-                onStatusChanged: {
-                    if (status === Image.Error)
-                        root.imageLoadFailed = true;
-                }
-            }
-
-            MaterialSymbol {
-                anchors.fill: parent
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                fill: 1
-                iconSize: Appearance.font.pixelSize.normal
-                text: root.iconName
-                color: Appearance.colors.colOnLayer2
-                visible: root.imageSource.length === 0 || root.imageLoadFailed
-            }
         }
 
     }
