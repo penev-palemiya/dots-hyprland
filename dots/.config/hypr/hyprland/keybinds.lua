@@ -41,6 +41,12 @@ hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd(qsIpcCall .. " brightness increme
     { locked = true, repeating = true })
 hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd(qsIpcCall .. " brightness decrement || brightnessctl s 5%-"),
     { locked = true, repeating = true })
+hl.bind("XF86KbdBrightnessUp", hl.dsp.exec_cmd(qsIpcCall .. " keyboardBacklight increase || brightnessctl --class leds --device 'asus::kbd_backlight' s +1"),
+    { locked = true, repeating = true })
+hl.bind("XF86KbdBrightnessDown", hl.dsp.exec_cmd(qsIpcCall .. " keyboardBacklight decrease || brightnessctl --class leds --device 'asus::kbd_backlight' s 1-"),
+    { locked = true, repeating = true })
+hl.bind("XF86KbdLightOnOff", hl.dsp.exec_cmd(qsIpcCall .. " keyboardBacklight cycle"),
+    { locked = true })
 hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%+ -l 1.5"),
     { locked = true, repeating = true })
 hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%-"),

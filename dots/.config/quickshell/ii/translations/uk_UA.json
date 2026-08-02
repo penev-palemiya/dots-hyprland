@@ -797,5 +797,7 @@
   "Health:": "Стан:",
   "Forget": "Забути",
   "End session": "Завершити сеанс",
-  "Clock style": "Стиль годинника"
+  "Clock style": "Стиль годинника",
+  "Keyboard brightness": "Яскравість клавіатури",
+  "%1 pending": "%1 очікує"
 }

@@ -12,7 +12,7 @@ Item {
     // Add new descriptors here and include their ids in this array. Keep
     // entry-specific service logic in the descriptor; keep surface/layout
     // behavior in DynamicIsland/IslandPrimary/IslandQueue.
-    readonly property var activities: [mediaActivity, capsLockNotification, brightnessNotification, micActivity, notificationActivity]
+    readonly property var activities: [mediaActivity, capsLockNotification, brightnessNotification, keyboardBacklightNotification, micActivity, notificationActivity]
     readonly property var fallbackActivity: mediaActivity
 
     Component {
@@ -112,7 +112,6 @@ Item {
 
         activityId: "brightness"
         kind: "notification"
-        available: eventSerial > 0
         leadingIcon: gammaActive ? "routine" : "light_mode"
         metadataText: gammaActive ? Translation.tr("Gamma") : Translation.tr("Brightness")
         primaryText: `${percent}%`
@@ -127,6 +126,7 @@ Item {
         target: Brightness
 
         function onBrightnessChanged() {
+            brightnessNotification.available = true;
             brightnessNotification.eventSerial += 1;
         }
     }
@@ -135,7 +135,37 @@ Item {
         target: Hyprsunset
 
         function onGammaChangeAttempt() {
+            brightnessNotification.available = true;
             brightnessNotification.eventSerial += 1;
+        }
+    }
+
+    IslandActivityDescriptor {
+        id: keyboardBacklightNotification
+
+        readonly property int percent: Math.round(KeyboardBacklight.value * 100)
+        property int eventSerial: 0
+
+        activityId: "keyboardBacklight"
+        kind: "notification"
+        leadingIcon: "keyboard"
+        metadataText: Translation.tr("Keyboard brightness")
+        primaryText: `${percent}%`
+        valueIndicatorVisible: true
+        valueIndicatorValue: KeyboardBacklight.value
+        queueIcon: "keyboard"
+        primaryDuration: 2000
+        flashKey: eventSerial
+    }
+
+    Connections {
+        target: KeyboardBacklight
+
+        function onBacklightChanged() {
+            if (!KeyboardBacklight.available)
+                return;
+            keyboardBacklightNotification.available = true;
+            keyboardBacklightNotification.eventSerial += 1;
         }
     }
 

@@ -24,6 +24,50 @@ ColumnLayout {
     anchors.fill: parent
     spacing: 10
 
+    RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 0
+
+            StyledText {
+                Layout.fillWidth: true
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+                text: Translation.tr("Notifications")
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                font.pixelSize: Appearance.font.pixelSize.small
+                color: Appearance.colors.colOnLayer1
+                text: Translation.tr("%1 pending").arg(root.pending.length)
+            }
+        }
+
+        RippleButton {
+            Layout.alignment: Qt.AlignVCenter
+            implicitWidth: 30
+            implicitHeight: 30
+            enabled: root.pending.length > 0
+            buttonRadius: Appearance.rounding.full
+            colBackground: Appearance.colors.colSecondaryContainer
+            colBackgroundHover: Appearance.colors.colSecondaryContainerHover
+            onClicked: Notifications.discardAllNotifications()
+
+            contentItem: MaterialSymbol {
+                anchors.centerIn: parent
+                horizontalAlignment: Text.AlignHCenter
+                fill: 0
+                iconSize: Appearance.font.pixelSize.normal
+                color: Appearance.colors.colOnSecondaryContainer
+                text: "delete_sweep"
+            }
+        }
+    }
+
     ListView {
         id: notifList
         Layout.fillWidth: true
