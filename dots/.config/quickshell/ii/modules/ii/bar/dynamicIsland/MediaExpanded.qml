@@ -13,7 +13,10 @@ ColumnLayout {
     readonly property MprisPlayer activePlayer: MprisController.activePlayer
 
     readonly property bool playing: activePlayer?.isPlaying ?? false
-    readonly property real progress: (activePlayer?.length > 0) ? (activePlayer.position / activePlayer.length) : 0
+    readonly property real durationSeconds: MediaArt.durationSeconds
+    readonly property real displayPositionSeconds: MediaArt.displayPositionSeconds
+    readonly property bool timelineAvailable: MediaArt.timelineAvailable
+    readonly property real progress: MediaArt.progress
 
     anchors.fill: parent
     spacing: 12
@@ -119,10 +122,10 @@ ColumnLayout {
                 Layout.fillWidth: true
                 implicitHeight: 8
                 radius: height / 2
-                color: Appearance.colors.colLayer2
+                color: root.timelineAvailable ? Appearance.colors.colLayer2 : ColorUtils.transparentize(Appearance.colors.colLayer2, 0.45)
 
                 Rectangle {
-                    width: parent.width * Math.max(0, Math.min(1, root.progress))
+                    width: root.timelineAvailable ? parent.width * Math.max(0, Math.min(1, root.progress)) : 0
                     height: parent.height
                     radius: height / 2
                     color: Appearance.colors.colPrimary
@@ -140,7 +143,7 @@ ColumnLayout {
                 StyledText {
                     font.pixelSize: Appearance.font.pixelSize.smallest
                     color: Appearance.colors.colSubtext
-                    text: StringUtils.friendlyTimeForSeconds(root.activePlayer?.position ?? 0)
+                    text: root.timelineAvailable ? StringUtils.friendlyTimeForSeconds(root.displayPositionSeconds) : ""
                 }
 
                 Item {
@@ -150,7 +153,7 @@ ColumnLayout {
                 StyledText {
                     font.pixelSize: Appearance.font.pixelSize.smallest
                     color: Appearance.colors.colSubtext
-                    text: StringUtils.friendlyTimeForSeconds(root.activePlayer?.length ?? 0)
+                    text: StringUtils.friendlyTimeForSeconds(root.durationSeconds)
                 }
             }
         }
