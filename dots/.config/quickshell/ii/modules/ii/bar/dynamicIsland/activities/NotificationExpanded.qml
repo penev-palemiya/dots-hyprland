@@ -8,9 +8,9 @@ import QtQuick.Layouts
 /**
  * Full backlog for the notification feed activity: every currently pending
  * notification (newest first), each with its own icon, app name, body, all
- * of its actions, and a dismiss button. NotificationPrimary.qml only ever
- * shows the newest one plus a single quick action — this is where the rest
- * of a 5-7-message burst actually gets read and acted on.
+ * of its actions, and a dismiss button. The compact primary slot only shows
+ * the newest one plus a single quick action — this is where the rest of a
+ * 5-7-message burst actually gets read and acted on.
  *
  * Reuses Notifications.attemptInvokeAction/discardNotification directly
  * (the same functions the sidebar's NotificationItem.qml uses), so acting

@@ -10,6 +10,7 @@ RowLayout {
     property var primaryActivity
     property int maxVisibleChips: 3
     property var promoteCallback
+    property int overflowCursor: 0
     readonly property var queuedActivities: activities.filter(function(activity) {
         return activity.available && activity.kind === "activity" && activity !== root.primaryActivity;
     })
@@ -19,11 +20,17 @@ RowLayout {
     readonly property var visibleActivities: sortedActivities.slice(0, maxVisibleChips)
     readonly property var overflowActivities: sortedActivities.slice(maxVisibleChips)
     readonly property int visibleChipCount: visibleActivities.length + (overflowActivities.length > 0 ? 1 : 0)
+    readonly property var overflowTarget: overflowActivities.length > 0 ? overflowActivities[Math.min(overflowCursor, overflowActivities.length - 1)] : null
 
     implicitWidth: visibleChipCount > 0 ? visibleChipCount * 30 + (visibleChipCount - 1) * spacing : 0
     visible: visibleChipCount > 0 || implicitWidth > 0.5
     spacing: 6
     clip: true
+    onOverflowActivitiesChanged: {
+        if (overflowCursor >= overflowActivities.length)
+            overflowCursor = 0;
+
+    }
 
     Repeater {
         model: root.activities
@@ -49,9 +56,10 @@ RowLayout {
         iconName: "more_horiz"
         badgeCount: root.overflowActivities.length
         onClicked: {
-            if (root.overflowActivities.length > 0 && root.promoteCallback)
-                root.promoteCallback(root.overflowActivities[0]);
-
+            if (root.overflowTarget && root.promoteCallback) {
+                root.promoteCallback(root.overflowTarget);
+                root.overflowCursor = root.overflowActivities.length > 0 ? (root.overflowCursor + 1) % root.overflowActivities.length : 0;
+            }
         }
     }
 
