@@ -39,20 +39,27 @@ Singleton {
             root.backlightChanged();
     }
 
+    // .reload() is asynchronous (see the `loaded` signal in Quickshell.Io) -
+    // reading .text() in the same tick as calling it returns the *previous*
+    // content, always one change behind. That was invisible while a 100ms
+    // poll kept re-triggering it fast enough to "catch up" unnoticed, but
+    // became a permanent, visible lag once the poll was removed in favor of
+    // one read per real change. These two functions now only kick off the
+    // reload; the actual read happens in each FileView's onLoaded below,
+    // once the new content genuinely exists.
+    property bool pendingBrightnessNotify: true
+
     function readSysfs(notify = true) {
         if (brightnessPath.length === 0 || maxBrightnessPath.length === 0)
             return;
+        root.pendingBrightnessNotify = notify;
         brightnessFile.reload();
-        maxBrightnessFile.reload();
-        updateBrightness(Number(brightnessFile.text().trim()), Number(maxBrightnessFile.text().trim()), notify);
     }
 
     function readHardwareSysfs() {
         if (hardwareBrightnessPath.length === 0 || maxBrightnessPath.length === 0)
             return;
         hardwareBrightnessFile.reload();
-        maxBrightnessFile.reload();
-        updateBrightness(Number(hardwareBrightnessFile.text().trim()), Number(maxBrightnessFile.text().trim()));
     }
 
     function setBrightness(value) {
@@ -129,6 +136,10 @@ Singleton {
         path: root.brightnessPath
         watchChanges: true
         onFileChanged: root.readSysfs()
+        // Fires once the reload triggered by readSysfs() (or the initial
+        // automatic load) has actually completed - this is the only place
+        // .text() is guaranteed current.
+        onLoaded: root.updateBrightness(Number(brightnessFile.text().trim()), Number(maxBrightnessFile.text().trim()), root.pendingBrightnessNotify)
     }
 
     FileView {
@@ -136,6 +147,7 @@ Singleton {
         path: root.hardwareBrightnessPath
         watchChanges: true
         onFileChanged: root.readHardwareSysfs()
+        onLoaded: root.updateBrightness(Number(hardwareBrightnessFile.text().trim()), Number(maxBrightnessFile.text().trim()))
     }
 
     FileView {
@@ -143,23 +155,22 @@ Singleton {
         path: root.maxBrightnessPath
     }
 
-    // ASUS updates the sysfs brightness value for Fn-key changes, but this
-    // LED node does not consistently emit inotify events. Re-reading one tiny
-    // sysfs file is cheaper and more reliable than spawning brightnessctl.
-    // The interactive path (Fn key -> Hyprland keybind -> IpcHandler above)
-    // already updates root.brightness the instant the key is pressed, with
-    // no dependency on this timer - so this is only a periodic resync for
-    // the rare case where the EC changes the LED without going through the
-    // OS key-event path at all (confirmed no udev event fires for this
-    // device even on a normal userspace write, so udev isn't a substitute).
-    // That case isn't latency-sensitive, so 1s keeps correctness while
-    // cutting wakeups ~10x versus the previous 100ms.
-    Timer {
-        interval: 1000
-        running: root.available
-        repeat: true
-        onTriggered: root.readSysfs()
-    }
+    // No polling timer here on purpose - tested on real hardware (Fn+kbd-
+    // illum key, physically pressed, 12s inotify watch on this exact LED's
+    // brightness AND brightness_hw_changed, plus a fresh evtest capture of
+    // "Asus WMI hotkeys": zero evdev event, zero inotify event, and the
+    // sysfs brightness value itself didn't move at all). On this machine
+    // the Fn key has no OS-visible effect whatsoever, so the old 100ms poll
+    // was never catching anything real - it was pure overhead. The
+    // interactive path (Fn key -> Hyprland keybind -> IpcHandler above)
+    // already updates root.brightness the instant the key is pressed, and
+    // brightnessFile's watchChanges above (plain inotify on a real write())
+    // catches any *other* process changing the value on disk - standard,
+    // reliable POSIX behavior, nothing exotic. If a different ASUS model
+    // genuinely does move the LED via firmware without any OS-visible
+    // write (the scenario the removed timer was guarding against), that
+    // would need re-adding for that specific hardware - it doesn't apply
+    // here.
 
     Process {
         id: setProc
