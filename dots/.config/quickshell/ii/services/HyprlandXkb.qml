@@ -6,6 +6,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import qs.modules.common
+import qs.modules.common.functions
 
 /**
  * Exposes the active Hyprland Xkb keyboard layout name and code for indicators.
@@ -21,19 +22,26 @@ Singleton {
     property var baseLayoutFilePath: "/usr/share/X11/xkb/rules/base.lst"
     property bool needsLayoutRefresh: false
 
-    // Caps/Num Lock: Hyprland has no IPC event for these, but the kernel
-    // exposes the keyboard LED state under sysfs, which FileView can watch
-    // via inotify (watchChanges: true) — genuinely event-driven, no polling.
-    // Some machines (no physical LED, some Bluetooth keyboards) don't expose
-    // this node at all, so a `hyprctl -j devices` polling Timer is kept as a
-    // fallback, only ever started if the sysfs discovery comes up empty.
+    // Caps/Num Lock: Hyprland has no IPC event for these. Both inotify
+    // (FileView watchChanges) and udev (confirmed by hand: no event at all,
+    // even for a plain userspace write to this exact LED node) are
+    // unreliable here, and periodic sysfs polling — even at 1s — adds a
+    // real, perceptible delay before the indicator reflects the key you
+    // just pressed. What actually fires immediately and unconditionally is
+    // the kernel's own input-core LED event (EV_LED on the keyboard's
+    // /dev/input/eventN) — that's the same primitive `xset led` / any DE's
+    // caps lock indicator relies on, sub-millisecond, and zero-cost while
+    // idle since reading it is a blocking read, not a timer. Falls back to
+    // polling hyprctl only if no such device is found at all (e.g. a
+    // Bluetooth keyboard with no exposed LED device node).
     property bool capsLockOn: false
     property bool numLockOn: false
 
     property var capsLockLedPaths: []
     property var numLockLedPaths: []
-    property var capsLockLedStates: ({}) // path -> bool, OR'd together
+    property var capsLockLedStates: ({}) // key -> bool, OR'd together
     property var numLockLedStates: ({})
+    property list<string> ledEventDevices: [] // deduped /dev/input/eventN paths to listen on
 
     function recomputeCapsLock() {
         root.capsLockOn = Object.values(root.capsLockLedStates).some(v => v);
@@ -45,79 +53,76 @@ Singleton {
     Process {
         id: findLedNodesProc
         running: true
-        // Plain bash globbing instead of `find -iname` — simpler, nothing to escape.
-        // Unmatched patterns just print a suppressed "no such file" to stderr.
-        command: ["bash", "-c", "ls -d /sys/class/leds/*capslock*/brightness /sys/class/leds/*numlock*/brightness 2>/dev/null"]
+        // For each capslock/numlock LED sysfs node, also resolve the
+        // /dev/input/eventN that owns it (the LED's realpath is
+        // .../inputN/inputN::capslock, and eventN sits right alongside it
+        // under .../inputN/) - that's the device we can read EV_LED events
+        // from directly, instead of polling the LED brightness file itself.
+        command: ["bash", "-c", `
+            for p in /sys/class/leds/*capslock*/brightness /sys/class/leds/*numlock*/brightness; do
+                [ -f "$p" ] || continue
+                d=$(dirname "$(readlink -f "$(dirname "$p")")")
+                ev=$(ls "$d" 2>/dev/null | grep -m1 '^event')
+                [ -n "$ev" ] && echo "$p|/dev/input/$ev"
+            done
+        `]
 
         stdout: StdioCollector {
             id: ledNodesCollector
             onStreamFinished: {
-                const paths = ledNodesCollector.text.trim().split("\n").filter(l => l.length > 0);
-                root.capsLockLedPaths = paths.filter(p => /capslock/i.test(p));
-                root.numLockLedPaths = paths.filter(p => /numlock/i.test(p));
+                const lines = ledNodesCollector.text.trim().split("\n").filter(l => l.length > 0);
+                const capsPaths = [], numPaths = [], devices = {};
+                for (const line of lines) {
+                    const [ledPath, evDevice] = line.split("|");
+                    if (/capslock/i.test(ledPath)) capsPaths.push(ledPath);
+                    if (/numlock/i.test(ledPath)) numPaths.push(ledPath);
+                    if (evDevice) devices[evDevice] = true;
+                }
+                root.capsLockLedPaths = capsPaths;
+                root.numLockLedPaths = numPaths;
+                root.ledEventDevices = Object.keys(devices);
 
-                // No sysfs LED exposed on this machine at all — fall back to polling hyprctl.
-                if (root.capsLockLedPaths.length === 0 && root.numLockLedPaths.length === 0) {
+                // No sysfs LED (and so no event device) found at all - fall back to polling hyprctl.
+                if (root.ledEventDevices.length === 0) {
                     lockStatePollTimer.running = true;
                 }
             }
         }
     }
 
+    // One persistent, blocking reader per physical/virtual keyboard device -
+    // evtest prints the device's current LED state immediately on startup
+    // ("... state 1"), then one line per subsequent real change ("Event: ...
+    // type 17 (EV_LED), code N (LED_X), value V"). Both forms match the
+    // same regex below, so this alone provides the initial state AND every
+    // live change - no separate poll or file read needed either way.
+    // grep filters server-side: this device also reports every ordinary
+    // keystroke (evtest dumps ALL of that device's events, not just LEDs),
+    // and without the filter every key the user types anywhere would still
+    // reach QML only to be discarded there - cheap per line, but needless
+    // when a single `grep` avoids ever crossing the process boundary for it.
     Instantiator {
-        id: capsLockInstantiator
-        model: root.capsLockLedPaths
-        delegate: FileView {
-            id: capsLedFile
+        id: ledEventReaders
+        model: root.ledEventDevices
+        delegate: Process {
+            id: ledEventReader
             required property string modelData
-            path: modelData
-            watchChanges: true // may not fire for kernel-driven LED changes on every driver — see sysfsPollTimer below
-            onFileChanged: capsLedFile.refresh()
-            Component.onCompleted: capsLedFile.refresh()
-            function refresh() {
-                reload();
-                root.capsLockLedStates[modelData] = text().trim() === "1";
-                root.recomputeCapsLock();
+            running: true
+            command: ["bash", "-c", `evtest ${StringUtils.shellSingleQuoteEscape(modelData)} | grep --line-buffered -E 'LED_(CAPSL|NUML)'`]
+            stdout: SplitParser {
+                onRead: line => {
+                    const m = line.match(/\(LED_(CAPSL|NUML)\).*?(?:state|value) (\d+)/);
+                    if (!m) return;
+                    const value = m[2] === "1";
+                    if (m[1] === "CAPSL") {
+                        root.capsLockLedStates[ledEventReader.modelData] = value;
+                        root.recomputeCapsLock();
+                    } else {
+                        root.numLockLedStates[ledEventReader.modelData] = value;
+                        root.recomputeNumLock();
+                    }
+                }
             }
-        }
-    }
-    Instantiator {
-        id: numLockInstantiator
-        model: root.numLockLedPaths
-        delegate: FileView {
-            id: numLedFile
-            required property string modelData
-            path: modelData
-            watchChanges: true
-            onFileChanged: numLedFile.refresh()
-            Component.onCompleted: numLedFile.refresh()
-            function refresh() {
-                reload();
-                root.numLockLedStates[modelData] = text().trim() === "1";
-                root.recomputeNumLock();
-            }
-        }
-    }
-
-    // Belt-and-suspenders: some LED drivers update the sysfs value without
-    // calling sysfs_notify(), so inotify (watchChanges above) never fires
-    // even though the file's content is correct if you just read it. This
-    // re-reads the already-open sysfs files directly — no subprocess spawn.
-    // Caps/Num Lock toggling from the keyboard itself normally does fire
-    // inotify (or gets caught on the next keystroke either way), and no
-    // udev event fires for this device on a plain write either - so this is
-    // purely a periodic resync for the rare driver that skips sysfs_notify,
-    // not a latency-sensitive path. 1s keeps correctness while cutting
-    // wakeups ~5x versus the previous 200ms.
-    Timer {
-        interval: 1000
-        running: root.capsLockLedPaths.length > 0 || root.numLockLedPaths.length > 0
-        repeat: true
-        onTriggered: {
-            for (let i = 0; i < capsLockInstantiator.count; i++)
-                capsLockInstantiator.objectAt(i).refresh();
-            for (let i = 0; i < numLockInstantiator.count; i++)
-                numLockInstantiator.objectAt(i).refresh();
         }
     }
 
