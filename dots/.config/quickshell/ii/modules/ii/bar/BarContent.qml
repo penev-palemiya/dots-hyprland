@@ -17,6 +17,7 @@ Item { // Bar content region
     property var brightnessMonitor: Brightness.getMonitorForScreen(screen)
     property real useShortenedForm: (Appearance.sizes.barHellaShortenScreenWidthThreshold >= screen?.width) ? 2 : (Appearance.sizes.barShortenScreenWidthThreshold >= screen?.width) ? 1 : 0
     readonly property int centerSideModuleWidth: (useShortenedForm == 2) ? Appearance.sizes.barCenterSideModuleWidthHellaShortened : (useShortenedForm == 1) ? Appearance.sizes.barCenterSideModuleWidthShortened : Appearance.sizes.barCenterSideModuleWidth
+    readonly property int dynamicIslandWidth: Math.round(root.centerSideModuleWidth * 1.15)
 
     component VerticalBarSeparator: Rectangle {
         Layout.topMargin: Appearance.sizes.baseBarHeight / 3
@@ -151,7 +152,7 @@ Item { // Bar content region
             right: leftSeparator.visible ? leftSeparator.left : middleCenterGroup.left
             rightMargin: root.middleSectionSpacing
         }
-        implicitWidth: root.centerSideModuleWidth
+        implicitWidth: root.dynamicIslandWidth
     }
 
     VerticalBarSeparator {
