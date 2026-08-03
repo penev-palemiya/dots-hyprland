@@ -5,6 +5,33 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 
+/**
+ * Shared chrome for every bar popup: positioning against the bar edge,
+ * outside-click dismissal, the shadow, the rounded surface — and the motion.
+ *
+ * The motion is a container transform, same as the dynamic island's overlay
+ * (see IslandOverlay.qml and docs/design/motion.md):
+ *
+ * 1. The surface itself grows. `popupBackground` is a real Rectangle whose
+ *    height (or width, on a vertical bar) animates from 0 — it is NOT a
+ *    full-size rectangle revealed by a moving clip edge, which is what this
+ *    used to do. Two things were wrong with the clip: the rounded corners on
+ *    the growing edge only appeared at the very end (until then the popup had
+ *    a hard straight edge), and a spatial spring's overshoot was invisible,
+ *    because past 1.0 the clip was simply taller than the thing it revealed.
+ *    Now the shape genuinely overshoots and settles, so it reads as something
+ *    that physically opened.
+ * 2. Enter and exit are asymmetric: `elementMove` (500ms, the bouncier
+ *    "hero moment" curve) opening, `elementMoveSmall` (350ms) closing.
+ * 3. Content trails the shape rather than racing it, and popups that opt into
+ *    `staggerContent` reveal their sections one after another instead of as a
+ *    single block — see `sectionOpacity`/`sectionOffset` below.
+ *
+ * Closing is animated too. The window stays mapped for the length of the exit
+ * animation, but its input region collapses to nothing the instant `shown`
+ * goes false, so it cannot eat the click that dismissed it — which is what
+ * the previous "unmap immediately, no exit animation" approach was avoiding.
+ */
 LazyLoader {
     id: root
 
@@ -12,18 +39,45 @@ LazyLoader {
     default property Item contentItem
     property real popupBackgroundMargin: 0
     property bool shown: false
-    readonly property int popupEnterDuration: Appearance.animation.elementMoveSmall.duration
-    // Content trails the shape by this much, per docs/design/motion.md
-    // (§Container transform, rule 2) — long enough that text isn't already
-    // solid while the container is still small, short enough that the two
-    // still finish together (120 + 200 ≈ the 350ms reveal).
-    readonly property int contentEnterDelay: 120
+
+    // Opt-in staggered content reveal. When false (the default) the content
+    // fades in as one block, which is all a small popup needs.
+    property bool staggerContent: false
 
     signal dismissRequested()
 
-    // Layer-shell windows keep an input region even when visually transparent.
-    // Keep the popup mounted only while open; close must unmap immediately.
-    active: root.shown
+    // Kept mounted through the exit animation, then torn down.
+    property bool exiting: false
+    active: root.shown || root.exiting
+
+    onShownChanged: {
+        if (!root.shown && root.active)
+            root.exiting = true;
+    }
+
+    // 0 while closed, 1 once the content has fully arrived. Driven from inside
+    // the component; content reads it through the two helpers below.
+    property real revealPhase: 0
+
+    // Each section gets its own slice of the reveal: section i starts at
+    // i * sectionStagger and takes sectionSpan to complete, so later sections
+    // are still arriving while earlier ones have settled.
+    readonly property real sectionStagger: 0.13
+    readonly property real sectionSpan: 0.5
+
+    function sectionProgress(index) {
+        const start = Math.min(0.5, index * root.sectionStagger);
+        return Math.max(0, Math.min(1, (root.revealPhase - start) / root.sectionSpan));
+    }
+
+    function sectionOpacity(index) {
+        return root.sectionProgress(index);
+    }
+
+    // A short slide toward the bar edge the popup grew out of.
+    function sectionOffset(index) {
+        return (1 - root.sectionProgress(index)) * 8;
+    }
 
     component: PanelWindow {
         id: popupWindow
@@ -38,6 +92,25 @@ LazyLoader {
         implicitWidth: popupSurface.implicitWidth + Appearance.sizes.elevationMargin * 2 + root.popupBackgroundMargin
         implicitHeight: popupSurface.implicitHeight + Appearance.sizes.elevationMargin * 2 + root.popupBackgroundMargin
 
+        // Input region. While open it's just the visible surface, so the
+        // elevation margin around the popup stays click-through; while closing
+        // it collapses to nothing so the window can remain mapped for the exit
+        // animation without swallowing clicks meant for whatever is underneath.
+        Region {
+            id: openMask
+
+            item: popupSurface
+        }
+
+        Region {
+            id: closedMask
+
+            width: 0
+            height: 0
+        }
+
+        mask: root.shown ? openMask : closedMask
+
         exclusionMode: ExclusionMode.Ignore
         exclusiveZone: 0
         margins {
@@ -45,21 +118,16 @@ LazyLoader {
                 if (!Config.options.bar.vertical) {
                     if (!root.QsWindow || !root.hoverTarget)
                         return 0;
-                    return root.QsWindow.mapFromItem(
-                        root.hoverTarget,
-                        (root.hoverTarget.width - popupSurface.implicitWidth) / 2, 0
-                    ).x;
+                    return root.QsWindow.mapFromItem(root.hoverTarget, (root.hoverTarget.width - popupSurface.implicitWidth) / 2, 0).x;
                 }
                 return Appearance.sizes.verticalBarWidth;
             }
             top: {
-                if (!Config.options.bar.vertical) return Appearance.sizes.barHeight;
+                if (!Config.options.bar.vertical)
+                    return Appearance.sizes.barHeight;
                 if (!root.QsWindow || !root.hoverTarget)
                     return 0;
-                return root.QsWindow.mapFromItem(
-                    root.hoverTarget,
-                    (root.hoverTarget.height - popupSurface.implicitHeight) / 2, 0
-                ).y;
+                return root.QsWindow.mapFromItem(root.hoverTarget, (root.hoverTarget.height - popupSurface.implicitHeight) / 2, 0).y;
             }
             right: Appearance.sizes.verticalBarWidth
             bottom: Appearance.sizes.barHeight
@@ -74,12 +142,25 @@ LazyLoader {
 
         Component.onDestruction: GlobalFocusGrab.removeDismissable(popupWindow)
 
+        // Fires once the exit animation has finished, unmounting the window.
+        Timer {
+            id: exitTimer
+
+            interval: Appearance.animation.elementMoveSmall.duration + 40
+            onTriggered: root.exiting = false
+        }
+
         Connections {
             target: root
 
             function onShownChanged() {
-                if (root.shown)
+                if (root.shown) {
+                    exitTimer.stop();
                     GlobalFocusGrab.addDismissable(popupWindow);
+                } else {
+                    GlobalFocusGrab.removeDismissable(popupWindow);
+                    exitTimer.restart();
+                }
             }
         }
 
@@ -97,19 +178,10 @@ LazyLoader {
 
             readonly property real margin: 10
             property bool mounted: false
-            readonly property real closedOffset: 8
+            // 0 = collapsed against the bar edge, 1 = fully open. Overshoots
+            // past 1 on the way in — the shape is real, so that reads as a
+            // settle rather than being clipped away.
             property real motionProgress: root.shown && mounted ? 1 : 0
-            property real contentOpacity: root.shown && mounted ? 1 : 0
-            readonly property real shiftX: {
-                if (!Config.options.bar.vertical)
-                    return 0;
-                return (popupWindow.anchors.left ? -closedOffset : closedOffset) * (1 - motionProgress);
-            }
-            readonly property real shiftY: {
-                if (Config.options.bar.vertical)
-                    return 0;
-                return (popupWindow.anchors.top ? -closedOffset : closedOffset) * (1 - motionProgress);
-            }
 
             anchors {
                 fill: parent
@@ -121,94 +193,101 @@ LazyLoader {
             implicitWidth: root.contentItem.implicitWidth + margin * 2
             implicitHeight: root.contentItem.implicitHeight + margin * 2
 
-            transform: Translate {
-                x: popupSurface.shiftX
-                y: popupSurface.shiftY
-            }
-
             Component.onCompleted: mounted = true
 
-            // motionProgress drives revealClip's height (a clip wipe), NOT the
-            // size of an actual shape — so an overshooting spring has nowhere
-            // to go: past 1.0 the clip is simply taller than the background it
-            // reveals, and nothing further appears. This used to carry
-            // elementMove's curve (expressiveDefaultSpatial), which exceeds 1
-            // for 57% of its travel — 199ms of this 350ms animation was
-            // visually dead, and the curve was also the one tuned for 500ms,
-            // not for the 350ms duration used here.
-            //
-            // emphasizedDecel is the right shape for a reveal: fast out of the
-            // gate, settling into the final height without overshoot. If this
-            // ever becomes a real growing shape rather than a clip, switch to
-            // the matching spatial spring and the bounce will actually show —
-            // see docs/design/motion.md.
+            // Spatial: enter on the slower, bouncier "hero" token, exit on the
+            // faster one (docs/design/motion.md §"Enter vs exit is
+            // asymmetric"). One static animation whose own properties vary —
+            // reassigning Behavior.animation per direction silently keeps
+            // whichever was assigned first.
             Behavior on motionProgress {
                 NumberAnimation {
-                    duration: root.popupEnterDuration
+                    duration: root.shown ? Appearance.animation.elementMove.duration : Appearance.animation.elementMoveSmall.duration
                     easing.type: Easing.BezierSpline
-                    easing.bezierCurve: Appearance.animationCurves.emphasizedDecel
+                    easing.bezierCurve: root.shown ? Appearance.animation.elementMove.bezierCurve : Appearance.animation.elementMoveSmall.bezierCurve
                 }
             }
 
-            Behavior on contentOpacity {
-                SequentialAnimation {
-                    PauseAnimation {
-                        duration: root.shown ? root.contentEnterDelay : 0
-                    }
-                    NumberAnimation {
-                        duration: Appearance.animation.elementMoveFast.duration
-                        easing.type: Appearance.animation.elementMoveFast.type
-                        easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
-                    }
+            // Content reveal. Enters after a beat so the shape leads, leaves
+            // immediately so the collapse isn't waiting on it.
+            SequentialAnimation {
+                id: revealAnimation
+
+                running: false
+
+                PauseAnimation {
+                    duration: root.shown ? 110 : 0
+                }
+
+                NumberAnimation {
+                    target: root
+                    property: "revealPhase"
+                    to: root.shown ? 1 : 0
+                    duration: root.shown ? 420 : Appearance.animation.elementMoveFast.duration
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
                 }
             }
 
-            // Fades in with the content rather than being derived from the
-            // spatial progress. The previous max(0, (motionProgress-0.7)/0.3)
-            // meant no shadow at all for the first 70% and then a hard ramp
-            // over the remainder — it read as the shadow snapping on.
+            Component.onDestruction: root.revealPhase = 0
+
+            onMountedChanged: if (mounted) revealAnimation.restart()
+
+            Connections {
+                target: root
+
+                function onShownChanged() {
+                    revealAnimation.restart();
+                }
+            }
+
             StyledRectangularShadow {
                 target: popupBackground
-                opacity: popupSurface.contentOpacity
+                opacity: popupSurface.motionProgress
                 visible: opacity > 0
             }
 
-            Item {
-                id: revealClip
+            Rectangle {
+                id: popupBackground
 
-                property real radius: Appearance.rounding.small
-                clip: true
+                // The growing edge is the one away from the bar, so the popup
+                // unfolds out of it instead of sliding as a whole.
                 width: Config.options.bar.vertical ? popupSurface.implicitWidth * popupSurface.motionProgress : popupSurface.implicitWidth
                 height: Config.options.bar.vertical ? popupSurface.implicitHeight : popupSurface.implicitHeight * popupSurface.motionProgress
+
                 anchors.left: Config.options.bar.vertical && popupWindow.anchors.left ? parent.left : undefined
                 anchors.right: Config.options.bar.vertical && popupWindow.anchors.right ? parent.right : undefined
                 anchors.top: !Config.options.bar.vertical && popupWindow.anchors.top ? parent.top : undefined
                 anchors.bottom: !Config.options.bar.vertical && popupWindow.anchors.bottom ? parent.bottom : undefined
 
-                Rectangle {
-                    id: popupBackground
-
-                    width: popupSurface.implicitWidth
-                    height: popupSurface.implicitHeight
-                    anchors.left: Config.options.bar.vertical && popupWindow.anchors.left ? parent.left : undefined
-                    anchors.right: Config.options.bar.vertical && popupWindow.anchors.right ? parent.right : undefined
-                    anchors.top: !Config.options.bar.vertical && popupWindow.anchors.top ? parent.top : undefined
-                    anchors.bottom: !Config.options.bar.vertical && popupWindow.anchors.bottom ? parent.bottom : undefined
-                    color: Appearance.m3colors.m3surfaceContainer
-                    radius: Appearance.rounding.small
-                    border.width: 1
-                    border.color: Appearance.colors.colLayer0Border
-                }
+                color: Appearance.m3colors.m3surfaceContainer
+                radius: Appearance.rounding.small
+                border.width: 1
+                border.color: Appearance.colors.colLayer0Border
+                // The content is full-size from the start; the surface growing
+                // over it is what reveals it. Rounded corners stay correct
+                // throughout because this is the real shape, not a clip mask.
+                clip: true
 
                 Item {
                     id: contentHost
 
-                    x: popupBackground.x + popupSurface.margin
-                    y: popupBackground.y + popupSurface.margin
                     width: popupSurface.implicitWidth - popupSurface.margin * 2
                     height: popupSurface.implicitHeight - popupSurface.margin * 2
+
+                    // Pinned to whichever edge the surface grows out of, so the
+                    // content doesn't drift while the shape expands.
+                    anchors.left: Config.options.bar.vertical && popupWindow.anchors.left ? parent.left : undefined
+                    anchors.right: Config.options.bar.vertical && popupWindow.anchors.right ? parent.right : undefined
+                    anchors.top: !Config.options.bar.vertical && popupWindow.anchors.top ? parent.top : undefined
+                    anchors.bottom: !Config.options.bar.vertical && popupWindow.anchors.bottom ? parent.bottom : undefined
+                    anchors.horizontalCenter: Config.options.bar.vertical ? undefined : parent.horizontalCenter
+                    anchors.verticalCenter: Config.options.bar.vertical ? parent.verticalCenter : undefined
+                    anchors.margins: popupSurface.margin
+
                     children: [root.contentItem]
-                    opacity: popupSurface.contentOpacity
+                    // Popups that stagger drive their own sections' opacity.
+                    opacity: root.staggerContent ? 1 : root.revealPhase
                 }
             }
         }

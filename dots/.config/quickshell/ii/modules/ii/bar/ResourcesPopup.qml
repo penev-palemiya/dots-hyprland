@@ -26,6 +26,11 @@ import Qt5Compat.GraphicalEffects
 StyledPopup {
     id: root
 
+    // Reveal hero -> history -> tiles one after another rather than as a
+    // single block. StyledPopup drives the timing; each section just declares
+    // which step it is.
+    staggerContent: true
+
     // Draw across however many samples actually exist rather than always
     // assuming a full historyLength buffer: on a fresh shell the buffer is
     // empty and fills one sample per updateInterval, so a fixed point count
@@ -107,6 +112,8 @@ StyledPopup {
                 implicitHeight: heroContent.implicitHeight + 24
                 radius: Appearance.rounding.small
                 color: Appearance.colors.colSurfaceContainerHigh
+                opacity: root.sectionOpacity(0)
+                transform: Translate { y: root.sectionOffset(0) }
 
                 RowLayout {
                     id: heroContent
@@ -192,6 +199,8 @@ StyledPopup {
                 implicitHeight: graphColumn.implicitHeight + 20
                 radius: Appearance.rounding.small
                 color: Appearance.colors.colSurfaceContainerHigh
+                opacity: root.sectionOpacity(1)
+                transform: Translate { y: root.sectionOffset(1) }
 
                 ColumnLayout {
                     id: graphColumn
@@ -315,6 +324,8 @@ StyledPopup {
 
                 WeatherCard {
                     Layout.columnSpan: root.tileSpan("ram")
+                    opacity: root.sectionOpacity(2)
+                    transform: Translate { y: root.sectionOffset(2) }
                     title: Translation.tr("RAM")
                     symbol: "memory"
                     value: `${root.formatKB(ResourceUsage.memoryUsed)} / ${root.formatKB(ResourceUsage.memoryTotal)}`
@@ -325,6 +336,8 @@ StyledPopup {
                 WeatherCard {
                     visible: root.hasSwap
                     Layout.columnSpan: root.tileSpan("swap")
+                    opacity: root.sectionOpacity(3)
+                    transform: Translate { y: root.sectionOffset(3) }
                     title: Translation.tr("Swap")
                     symbol: "storage"
                     value: `${root.formatKB(ResourceUsage.swapUsed)} / ${root.formatKB(ResourceUsage.swapTotal)}`
@@ -335,6 +348,8 @@ StyledPopup {
                 WeatherCard {
                     visible: root.hasGpu
                     Layout.columnSpan: root.tileSpan("gpu")
+                    opacity: root.sectionOpacity(4)
+                    transform: Translate { y: root.sectionOffset(4) }
                     title: Translation.tr("GPU")
                     symbol: "monitor"
                     value: GpuUsage.statsAvailable
@@ -347,6 +362,8 @@ StyledPopup {
                 WeatherCard {
                     visible: root.hasBattery
                     Layout.columnSpan: root.tileSpan("battery")
+                    opacity: root.sectionOpacity(5)
+                    transform: Translate { y: root.sectionOffset(5) }
                     title: Battery.isCharging ? Translation.tr("Charging") : Translation.tr("Battery")
                     symbol: Battery.isCharging ? "battery_charging_full" : "battery_android_full"
                     value: `${Math.round(Battery.percentage * 100)}%`
