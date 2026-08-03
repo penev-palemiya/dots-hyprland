@@ -118,8 +118,15 @@ Singleton {
                     cpuTemp = milliDegrees / 1000
             }
 
-            if (detailedPollingActive)
-                root.updateHistories()
+            // Histories are kept unconditionally, not gated behind
+            // detailedPollingActive. This timer already ticks every
+            // updateInterval regardless, so appending to three bounded arrays
+            // costs no extra wakeup and no extra IO — the values were just
+            // parsed above either way. Gating it meant the graph in
+            // ResourcesPopup started empty on every open and needed
+            // historyLength * updateInterval (3 minutes by default) of the
+            // popup being held open before it showed a full window of data.
+            root.updateHistories()
             interval = Config.options?.resources?.updateInterval ?? 3000
         }
 	}

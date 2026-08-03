@@ -847,5 +847,10 @@
   "Heavy snow showers": "Сильні снігові зливи",
   "Thunderstorm": "Гроза",
   "Thunderstorm with hail": "Гроза з градом",
-  "Severe thunderstorm": "Сильна гроза"
+  "Severe thunderstorm": "Сильна гроза",
+  "Idle": "Спокій",
+  "Busy": "Навантажено",
+  "Heavy": "Високе",
+  "Last %1 min": "Останні %1 хв",
+  "Last %1 s": "Останні %1 с"
 }

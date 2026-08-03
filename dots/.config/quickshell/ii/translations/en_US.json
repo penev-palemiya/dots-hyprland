@@ -690,5 +690,10 @@
   "Heavy snow showers": "Heavy snow showers",
   "Thunderstorm": "Thunderstorm",
   "Thunderstorm with hail": "Thunderstorm with hail",
-  "Severe thunderstorm": "Severe thunderstorm"
+  "Severe thunderstorm": "Severe thunderstorm",
+  "Idle": "Idle",
+  "Busy": "Busy",
+  "Heavy": "Heavy",
+  "Last %1 min": "Last %1 min",
+  "Last %1 s": "Last %1 s"
 }

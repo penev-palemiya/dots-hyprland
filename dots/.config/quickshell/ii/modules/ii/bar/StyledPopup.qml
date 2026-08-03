@@ -13,7 +13,11 @@ LazyLoader {
     property real popupBackgroundMargin: 0
     property bool shown: false
     readonly property int popupEnterDuration: Appearance.animation.elementMoveSmall.duration
-    readonly property int contentEnterDelay: 90
+    // Content trails the shape by this much, per docs/design/motion.md
+    // (§Container transform, rule 2) — long enough that text isn't already
+    // solid while the container is still small, short enough that the two
+    // still finish together (120 + 200 ≈ the 350ms reveal).
+    readonly property int contentEnterDelay: 120
 
     signal dismissRequested()
 
@@ -124,11 +128,25 @@ LazyLoader {
 
             Component.onCompleted: mounted = true
 
+            // motionProgress drives revealClip's height (a clip wipe), NOT the
+            // size of an actual shape — so an overshooting spring has nowhere
+            // to go: past 1.0 the clip is simply taller than the background it
+            // reveals, and nothing further appears. This used to carry
+            // elementMove's curve (expressiveDefaultSpatial), which exceeds 1
+            // for 57% of its travel — 199ms of this 350ms animation was
+            // visually dead, and the curve was also the one tuned for 500ms,
+            // not for the 350ms duration used here.
+            //
+            // emphasizedDecel is the right shape for a reveal: fast out of the
+            // gate, settling into the final height without overshoot. If this
+            // ever becomes a real growing shape rather than a clip, switch to
+            // the matching spatial spring and the bounce will actually show —
+            // see docs/design/motion.md.
             Behavior on motionProgress {
                 NumberAnimation {
                     duration: root.popupEnterDuration
                     easing.type: Easing.BezierSpline
-                    easing.bezierCurve: Appearance.animation.elementMove.bezierCurve
+                    easing.bezierCurve: Appearance.animationCurves.emphasizedDecel
                 }
             }
 
@@ -138,16 +156,20 @@ LazyLoader {
                         duration: root.shown ? root.contentEnterDelay : 0
                     }
                     NumberAnimation {
-                        duration: 130
+                        duration: Appearance.animation.elementMoveFast.duration
                         easing.type: Appearance.animation.elementMoveFast.type
-                        easing.bezierCurve: Appearance.animationCurves.expressiveEffects
+                        easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
                     }
                 }
             }
 
+            // Fades in with the content rather than being derived from the
+            // spatial progress. The previous max(0, (motionProgress-0.7)/0.3)
+            // meant no shadow at all for the first 70% and then a hard ramp
+            // over the remainder — it read as the shadow snapping on.
             StyledRectangularShadow {
                 target: popupBackground
-                opacity: Math.max(0, (popupSurface.motionProgress - 0.7) / 0.3)
+                opacity: popupSurface.contentOpacity
                 visible: opacity > 0
             }
 
