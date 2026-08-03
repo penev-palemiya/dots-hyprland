@@ -30,6 +30,7 @@ StyledPopup {
     // single block. StyledPopup drives the timing; each section just declares
     // which step it is.
     staggerContent: true
+    sectionCount: 6 // hero, history strip, and the four tiles
 
     // Draw across however many samples actually exist rather than always
     // assuming a full historyLength buffer: on a fresh shell the buffer is

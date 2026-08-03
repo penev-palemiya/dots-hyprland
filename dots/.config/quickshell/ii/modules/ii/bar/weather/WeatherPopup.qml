@@ -8,6 +8,13 @@ import qs.modules.ii.bar
 
 StyledPopup {
     id: root
+
+    // Same cascade the resources popup uses. The 2-column grid is staggered
+    // by ROW rather than per tile: eight individually-delayed tiles read as a
+    // slow ripple, whereas paired rows keep the whole reveal inside the same
+    // window as every other popup.
+    staggerContent: true
+    sectionCount: 7 // hero, hourly strip, four grid rows, footer
     
     Item {
         anchors.centerIn: parent
@@ -25,6 +32,8 @@ StyledPopup {
                 implicitHeight: heroContent.implicitHeight + 24
                 radius: Appearance.rounding.small
                 color: Appearance.colors.colSurfaceContainerHigh
+                opacity: root.sectionOpacity(0)
+                transform: Translate { y: root.sectionOffset(0) }
 
                 RowLayout {
                     id: heroContent
@@ -105,6 +114,8 @@ StyledPopup {
                 implicitHeight: 72
                 radius: Appearance.rounding.small
                 color: Appearance.colors.colSurfaceContainerHigh
+                opacity: root.sectionOpacity(1)
+                transform: Translate { y: root.sectionOffset(1) }
 
                 RowLayout {
                     id: hourlyRow
@@ -173,41 +184,57 @@ StyledPopup {
                 uniformCellWidths: true
 
                 WeatherCard {
+                    opacity: root.sectionOpacity(2)
+                    transform: Translate { y: root.sectionOffset(2) }
                     title: Translation.tr("Rain")
                     symbol: "rainy"
                     value: Weather.data.insights?.rain ?? "--"
                 }
                 WeatherCard {
+                    opacity: root.sectionOpacity(2)
+                    transform: Translate { y: root.sectionOffset(2) }
                     title: Translation.tr("Comfort")
                     symbol: "device_thermostat"
                     value: Weather.data.insights?.comfort ?? "--"
                 }
                 WeatherCard {
+                    opacity: root.sectionOpacity(3)
+                    transform: Translate { y: root.sectionOffset(3) }
                     title: Translation.tr("Wind")
                     symbol: "air"
                     value: Weather.data.details?.wind ?? "--"
                 }
                 WeatherCard {
+                    opacity: root.sectionOpacity(3)
+                    transform: Translate { y: root.sectionOffset(3) }
                     title: Translation.tr("UV Index")
                     symbol: "wb_sunny"
                     value: Weather.data.details?.uv ?? "--"
                 }
                 WeatherCard {
+                    opacity: root.sectionOpacity(4)
+                    transform: Translate { y: root.sectionOffset(4) }
                     title: Translation.tr("Daylight")
                     symbol: "wb_twilight"
                     value: Weather.data.today?.daylight ?? "--"
                 }
                 WeatherCard {
+                    opacity: root.sectionOpacity(4)
+                    transform: Translate { y: root.sectionOffset(4) }
                     title: Translation.tr("Humidity")
                     symbol: "humidity_low"
                     value: Weather.data.details?.humidity ?? "--"
                 }
                 WeatherCard {
+                    opacity: root.sectionOpacity(5)
+                    transform: Translate { y: root.sectionOffset(5) }
                     title: Translation.tr("Visibility")
                     symbol: "visibility"
                     value: Weather.data.details?.visibility ?? "--"
                 }
                 WeatherCard {
+                    opacity: root.sectionOpacity(5)
+                    transform: Translate { y: root.sectionOffset(5) }
                     title: Translation.tr("Pressure")
                     symbol: "readiness_score"
                     value: Weather.data.details?.pressure ?? "--"
@@ -217,6 +244,8 @@ StyledPopup {
             // Footer: last refresh
             StyledText {
                 Layout.alignment: Qt.AlignHCenter
+                opacity: root.sectionOpacity(6)
+                transform: Translate { y: root.sectionOffset(6) }
                 text: Translation.tr("Last refresh: %1").arg(Weather.data.lastRefresh)
                 font {
                     weight: Font.Normal

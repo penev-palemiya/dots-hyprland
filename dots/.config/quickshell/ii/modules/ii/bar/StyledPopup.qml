@@ -43,6 +43,11 @@ LazyLoader {
     // Opt-in staggered content reveal. When false (the default) the content
     // fades in as one block, which is all a small popup needs.
     property bool staggerContent: false
+    // How many steps the cascade is divided into. Set it to the number of
+    // sections actually used so the whole cascade always spans the same
+    // window no matter how many there are — otherwise a popup with a lot of
+    // sections runs past the end and the tail all lands at once.
+    property int sectionCount: 6
 
     signal dismissRequested()
 
@@ -59,14 +64,17 @@ LazyLoader {
     // the component; content reads it through the two helpers below.
     property real revealPhase: 0
 
-    // Each section gets its own slice of the reveal: section i starts at
-    // i * sectionStagger and takes sectionSpan to complete, so later sections
-    // are still arriving while earlier ones have settled.
-    readonly property real sectionStagger: 0.13
+    // Each section gets its own slice of the reveal: the last one starts at
+    // sectionMaxStart and every earlier one is spaced evenly before it, each
+    // taking sectionSpan to complete. So later sections are still arriving
+    // while earlier ones have settled, and the cascade always ends at the
+    // same moment whether there are three sections or ten.
+    readonly property real sectionMaxStart: 0.5
     readonly property real sectionSpan: 0.5
 
     function sectionProgress(index) {
-        const start = Math.min(0.5, index * root.sectionStagger);
+        const steps = Math.max(1, root.sectionCount - 1);
+        const start = Math.min(root.sectionMaxStart, (index / steps) * root.sectionMaxStart);
         return Math.max(0, Math.min(1, (root.revealPhase - start) / root.sectionSpan));
     }
 
