@@ -102,10 +102,15 @@ Singleton {
     // Belt-and-suspenders: some LED drivers update the sysfs value without
     // calling sysfs_notify(), so inotify (watchChanges above) never fires
     // even though the file's content is correct if you just read it. This
-    // re-reads the already-open sysfs files directly — no subprocess spawn,
-    // much cheaper than the hyprctl poll below, so a short interval is fine.
+    // re-reads the already-open sysfs files directly — no subprocess spawn.
+    // Caps/Num Lock toggling from the keyboard itself normally does fire
+    // inotify (or gets caught on the next keystroke either way), and no
+    // udev event fires for this device on a plain write either - so this is
+    // purely a periodic resync for the rare driver that skips sysfs_notify,
+    // not a latency-sensitive path. 1s keeps correctness while cutting
+    // wakeups ~5x versus the previous 200ms.
     Timer {
-        interval: 200
+        interval: 1000
         running: root.capsLockLedPaths.length > 0 || root.numLockLedPaths.length > 0
         repeat: true
         onTriggered: {

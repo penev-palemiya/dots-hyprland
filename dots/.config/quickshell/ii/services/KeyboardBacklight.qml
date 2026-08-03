@@ -146,8 +146,16 @@ Singleton {
     // ASUS updates the sysfs brightness value for Fn-key changes, but this
     // LED node does not consistently emit inotify events. Re-reading one tiny
     // sysfs file is cheaper and more reliable than spawning brightnessctl.
+    // The interactive path (Fn key -> Hyprland keybind -> IpcHandler above)
+    // already updates root.brightness the instant the key is pressed, with
+    // no dependency on this timer - so this is only a periodic resync for
+    // the rare case where the EC changes the LED without going through the
+    // OS key-event path at all (confirmed no udev event fires for this
+    // device even on a normal userspace write, so udev isn't a substitute).
+    // That case isn't latency-sensitive, so 1s keeps correctness while
+    // cutting wakeups ~10x versus the previous 100ms.
     Timer {
-        interval: 100
+        interval: 1000
         running: root.available
         repeat: true
         onTriggered: root.readSysfs()

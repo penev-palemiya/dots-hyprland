@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+#
+# Battery/CPU profiling helpers for the quickshell ("ii") config.
+#
+# Two independent tools:
+#   ./profile-battery qml       - attach qmlprofiler to a running quickshell,
+#                                  record a trace you open in Qt Creator to see
+#                                  exactly which Timer/Animation/binding is hot.
+#   ./profile-battery battery   - lightweight background sampler: logs system
+#                                  power draw + quickshell CPU% to a CSV over
+#                                  time, for quick before/after comparisons.
+#
+# Requires: quickshell (built with QML debug support), qmlprofiler (part of
+# qt6-declarative), and qtcreator to actually view .qtd traces.
+
+set -euo pipefail
+
+QS_CONFIG="${qsConfig:-ii}"
+OUT_DIR="${PROFILE_BATTERY_OUT:-$HOME/.cache/profile-battery}"
+mkdir -p "$OUT_DIR"
+
+usage() {
+  cat <<EOF
+Usage: $0 <qml|battery> [options]
+
+  qml [port] [categories]  Restart quickshell (-c $QS_CONFIG) with QML debugging
+                           enabled, attach qmlprofiler, and record a trace
+                           filtered to categories: animations,binding,
+                           handlingsignal,javascript by default - the ones
+                           that show a hot Timer/Animation/binding loop,
+                           skipping the heavy per-frame/per-object categories
+                           (painting, scenegraph, creating, ...) that
+                           otherwise blow trace size up to tens of MB in a
+                           few seconds. Keep the session short (a few
+                           seconds around the thing you want to see) since
+                           recording starts immediately on connect. Press
+                           Ctrl+C once to stop and save; open the resulting
+                           .qtd in Qt Creator (Analyze > QML Profiler > Load
+                           QML Trace).
+
+  battery [interval_sec]  Sample battery power draw (power_now) and
+                           quickshell's CPU% every interval_sec (default 5)
+                           into a CSV under $OUT_DIR. Press Ctrl+C to stop; a
+                           summary (avg/max power draw, avg CPU%) is printed.
+EOF
+}
+
+cmd_qml() {
+  local port="${1:-3768}"
+  # animations/binding/handlingsignal/javascript are exactly the categories
+  # that show a hot Timer/Animation/binding loop. Left out on purpose:
+  # painting/scenegraph (one event per rendered frame - huge, and it's
+  # rendering cost, not the *source* of the wakeup), creating/compiling
+  # (one-time QML object setup at launch, irrelevant to steady-state drain),
+  # pixmapcache/memory/debugmessages/inputevents (noise for this purpose).
+  # This alone cuts trace size roughly an order of magnitude; override with
+  # a 2nd argument if you need something else (e.g. "painting" to also see
+  # per-frame render cost).
+  local categories="${2:-animations,binding,handlingsignal,javascript}"
+  local ts
+  ts="$(date +%Y%m%d-%H%M%S)"
+  local trace_file="$OUT_DIR/qml-trace-$ts.qtd"
+
+  echo "[profile-battery] Killing any running '$QS_CONFIG' quickshell instance..."
+  quickshell kill -c "$QS_CONFIG" 2>/dev/null || true
+  sleep 0.5
+
+  echo "[profile-battery] Starting quickshell -c $QS_CONFIG --debug $port --waitfordebug (backgrounded)..."
+  quickshell -c "$QS_CONFIG" --debug "$port" --waitfordebug &
+  local qs_pid=$!
+  sleep 1
+
+  echo "[profile-battery] Attaching qmlprofiler on port $port (categories: $categories)"
+  echo "[profile-battery] Trace file: $trace_file"
+
+  # Plain (non-interactive) qmlprofiler does NOT flush the trace on SIGINT -
+  # it just dies and no file is written (confirmed by hand: manual SIGINT
+  # left no .qtd on disk). --interactive mode with explicit 'record'/'flush'/
+  # 'quit' commands is the only way that reliably writes the trace, so we
+  # drive it over a FIFO instead of relying on signal handling.
+  local ctl_fifo="$OUT_DIR/.ctl-$ts.fifo"
+  mkfifo "$ctl_fifo"
+  # Open read-write (not write-only) on fd 3: a write-only open blocks until
+  # a reader shows up, which would deadlock here since qmlprofiler (the
+  # reader) hasn't been started yet. Read-write open doesn't block, and
+  # having fd 3 open keeps the FIFO from seeing EOF between commands (which
+  # would make qmlprofiler's stdin reader quit early).
+  exec 3<>"$ctl_fifo"
+
+  # Recording starts immediately on connect (no --record off): tried gating
+  # this behind a manual "start recording now" command via --record off, but
+  # that combination has a real bug in this qmlprofiler build - toggling
+  # `record` on once then makes it spam "Application started recording"
+  # hundreds of times a second on its own (confirmed by hand: the FIFO only
+  # ever received the single "record" line we sent, so the loop is inside
+  # qmlprofiler itself, not our script). --include filtering below is the
+  # size lever that actually works reliably; keep sessions short (a few
+  # seconds around the thing you want to see) since everything from connect
+  # onward is captured.
+  qmlprofiler -a localhost -p "$port" -o "$trace_file" --include "$categories" --interactive <"$ctl_fifo" &
+  local qp_pid=$!
+
+  echo "[profile-battery] Recording started. Use the app normally (open the dynamic island, etc.) then press Ctrl+C once to stop and save."
+
+  trap '
+    echo;
+    echo "[profile-battery] Stopping and flushing trace...";
+    echo "flush" >&3;
+    sleep 1;
+    echo "quit" >&3;
+    while kill -0 "$qp_pid" 2>/dev/null; do sleep 0.3; done;
+    exec 3>&-;
+    rm -f "$ctl_fifo";
+    kill "$qs_pid" 2>/dev/null || true;
+    echo "[profile-battery] Saved: $trace_file";
+    echo "[profile-battery] Open it in Qt Creator: Analyze > QML Profiler > Load QML Trace";
+    exit 0
+  ' INT
+
+  while kill -0 "$qp_pid" 2>/dev/null; do
+    sleep 0.3
+  done
+  exec 3>&- 2>/dev/null || true
+  rm -f "$ctl_fifo"
+  kill "$qs_pid" 2>/dev/null || true
+}
+
+cmd_battery() {
+  local interval="${1:-5}"
+  local ts
+  ts="$(date +%Y%m%d-%H%M%S)"
+  local csv_file="$OUT_DIR/battery-log-$ts.csv"
+  local bat_dir=""
+  for d in /sys/class/power_supply/BAT*; do
+    [ -f "$d/power_now" ] && bat_dir="$d" && break
+  done
+  if [ -z "$bat_dir" ]; then
+    echo "[profile-battery] No battery with power_now found under /sys/class/power_supply/ (desktop?)." >&2
+    exit 1
+  fi
+
+  echo "timestamp,power_watts,quickshell_cpu_percent,quickshell_rss_kb" > "$csv_file"
+  echo "[profile-battery] Logging every ${interval}s to $csv_file (Ctrl+C to stop and summarize)"
+
+  local samples=0 power_sum=0 power_max=0 cpu_sum=0
+  trap 'summarize' INT
+
+  summarize() {
+    echo
+    if [ "$samples" -gt 0 ]; then
+      awk -v p="$power_sum" -v pm="$power_max" -v c="$cpu_sum" -v n="$samples" \
+        'BEGIN { printf "[profile-battery] Samples: %d\n[profile-battery] Avg power: %.2f W  Max power: %.2f W\n[profile-battery] Avg quickshell CPU: %.1f%%\n", n, p/n, pm, c/n }'
+    fi
+    echo "[profile-battery] Full log: $csv_file"
+    exit 0
+  }
+
+  while true; do
+    power_uw="$(cat "$bat_dir/power_now" 2>/dev/null || echo 0)"
+    power_w="$(awk -v u="$power_uw" 'BEGIN { printf "%.2f", u/1000000 }')"
+
+    # Matches both "quickshell" and "qs" (the /usr/bin/qs symlink runs with
+    # comm="qs", not "quickshell") - `|| true` keeps a no-match (exit 1) from
+    # tripping `set -e`/pipefail and killing the sampling loop.
+    qs_stats="$( (ps -C quickshell,qs -o %cpu=,rss= 2>/dev/null || true) | awk '{c+=$1; r+=$2} END { printf "%.1f,%d", c+0, r+0 }')"
+    qs_cpu="${qs_stats%,*}"
+    qs_rss="${qs_stats#*,}"
+
+    echo "$(date +%s),$power_w,$qs_cpu,$qs_rss" >> "$csv_file"
+
+    power_sum="$(awk -v a="$power_sum" -v b="$power_w" 'BEGIN{printf "%.4f", a+b}')"
+    power_max="$(awk -v a="$power_max" -v b="$power_w" 'BEGIN{ print (b>a)?b:a }')"
+    cpu_sum="$(awk -v a="$cpu_sum" -v b="$qs_cpu" 'BEGIN{printf "%.4f", a+b}')"
+    samples=$((samples + 1))
+
+    sleep "$interval"
+  done
+}
+
+case "${1:-}" in
+  qml) shift; cmd_qml "$@" ;;
+  battery) shift; cmd_battery "$@" ;;
+  *) usage; exit 1 ;;
+esac
