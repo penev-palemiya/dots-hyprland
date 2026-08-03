@@ -71,7 +71,11 @@ Item {
     SequentialAnimation {
         id: marqueeAnimation
         running: root.primaryMarquee && root.primaryOverflowing
-        loops: Animation.Infinite
+        // Play through once per text/overflow change, then stop (rather than
+        // looping forever) — an infinite loop here is a continuous
+        // GPU-composited animation for as long as a long title is shown in
+        // the always-visible compact pill, which is wasteful on battery.
+        loops: 1
 
         PauseAnimation {
             duration: 900
