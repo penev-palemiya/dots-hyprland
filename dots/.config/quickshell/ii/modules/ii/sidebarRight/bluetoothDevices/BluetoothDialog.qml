@@ -4,58 +4,124 @@ import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
-import Qt5Compat.GraphicalEffects
-import Quickshell.Io
 import Quickshell.Bluetooth
 import Quickshell
-import Quickshell.Wayland
-import Quickshell.Hyprland
 
+/**
+ * Bluetooth picker, split into the three groups the service already computes.
+ *
+ * `BluetoothStatus` has kept `connectedDevices`, `pairedButNotConnectedDevices`
+ * and `unpairedDevices` separate all along, and the view was flattening them
+ * back into `friendlyDeviceList` — so "connected", "saved" and "just nearby"
+ * all rendered identically and the sections existed only as sort order.
+ */
 WindowDialog {
     id: root
+
     backgroundHeight: 600
+
+    readonly property bool discovering: Bluetooth.defaultAdapter?.discovering ?? false
+    readonly property var connectedDevices: BluetoothStatus.connectedDevices
+    readonly property var savedDevices: BluetoothStatus.pairedButNotConnectedDevices
+    readonly property var nearbyDevices: BluetoothStatus.unpairedDevices
 
     WindowDialogTitle {
         text: Translation.tr("Bluetooth devices")
     }
+
     WindowDialogSeparator {
-        visible: !(Bluetooth.defaultAdapter?.discovering ?? false)
+        visible: !root.discovering
     }
+
     StyledIndeterminateProgressBar {
-        visible: Bluetooth.defaultAdapter?.discovering ?? false
+        visible: root.discovering
         Layout.fillWidth: true
         Layout.topMargin: -8
         Layout.bottomMargin: -8
         Layout.leftMargin: -Appearance.rounding.large
         Layout.rightMargin: -Appearance.rounding.large
     }
-    StyledListView {
+
+    StyledFlickable {
         Layout.fillHeight: true
         Layout.fillWidth: true
-        Layout.topMargin: -15
-        Layout.bottomMargin: -16
-        Layout.leftMargin: -Appearance.rounding.large
-        Layout.rightMargin: -Appearance.rounding.large
-
+        Layout.topMargin: 4
+        Layout.bottomMargin: -8
         clip: true
-        spacing: 0
-        animateAppearance: false
+        contentHeight: deviceColumn.implicitHeight
 
-        model: ScriptModel {
-            values: BluetoothStatus.friendlyDeviceList
-        }
-        delegate: BluetoothDeviceItem {
-            required property BluetoothDevice modelData
-            device: modelData
-            anchors {
-                left: parent?.left
-                right: parent?.right
+        ColumnLayout {
+            id: deviceColumn
+
+            width: parent.width
+            spacing: 16
+
+            component DeviceSection: ColumnLayout {
+                id: section
+
+                required property string label
+                required property var devices
+
+                Layout.fillWidth: true
+                visible: section.devices.length > 0
+                spacing: 6
+
+                ListSectionLabel {
+                    text: section.label
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+
+                    Repeater {
+                        model: ScriptModel {
+                            values: section.devices
+                        }
+
+                        delegate: BluetoothDeviceItem {
+                            required property BluetoothDevice modelData
+                            required property int index
+
+                            Layout.fillWidth: true
+                            device: modelData
+                            indexInSection: index
+                            sectionCount: section.devices.length
+                        }
+                    }
+                }
+            }
+
+            DeviceSection {
+                label: Translation.tr("Connected")
+                devices: root.connectedDevices
+            }
+
+            DeviceSection {
+                label: Translation.tr("Saved")
+                devices: root.savedDevices
+            }
+
+            DeviceSection {
+                label: Translation.tr("Nearby")
+                devices: root.nearbyDevices
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                Layout.topMargin: 20
+                horizontalAlignment: Text.AlignHCenter
+                visible: root.connectedDevices.length === 0 && root.savedDevices.length === 0 && root.nearbyDevices.length === 0
+                text: root.discovering ? Translation.tr("Scanning…") : Translation.tr("No devices found")
+                color: Appearance.colors.colOutline
+                font.pixelSize: Appearance.font.pixelSize.smaller
             }
         }
     }
+
     WindowDialogSeparator {}
+
     WindowDialogButtonRow {
         DialogButton {
             buttonText: Translation.tr("Details")

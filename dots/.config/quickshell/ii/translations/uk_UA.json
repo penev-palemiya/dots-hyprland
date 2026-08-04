@@ -860,5 +860,11 @@
   "Clean": "Чисто",
   "No upstream": "Немає upstream",
   "Up to date": "Актуально",
-  "%1 commits": "%1 комітів"
+  "%1 commits": "%1 комітів",
+  "Nearby": "Поруч",
+  "Connecting…": "Підключення…",
+  "Scanning…": "Пошук…",
+  "No networks found": "Мереж не знайдено",
+  "No devices found": "Пристроїв не знайдено",
+  "Available networks": "Доступні мережі"
 }

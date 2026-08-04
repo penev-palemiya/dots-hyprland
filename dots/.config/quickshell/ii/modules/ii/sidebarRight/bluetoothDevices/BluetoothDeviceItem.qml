@@ -5,114 +5,105 @@ import qs.services
 import QtQuick
 import QtQuick.Layouts
 
-DialogListItem {
+/**
+ * One Bluetooth device, as a card in a grouped list. Tapping expands the row
+ * into its actions rather than acting immediately — connecting and forgetting
+ * are both things you want to aim at deliberately.
+ */
+GroupedListCard {
     id: root
-    required property var device
-    property bool expanded: false
-    pointingHandCursor: !expanded
 
-    onClicked: expanded = !expanded
-    altAction: () => expanded = !expanded
-    
-    component ActionButton: DialogButton {
-        colBackground: Appearance.colors.colPrimary
-        colBackgroundHover: Appearance.colors.colPrimaryHover
-        colRipple: Appearance.colors.colPrimaryActive
-        colText: Appearance.colors.colOnPrimary
+    required property var device
+
+    readonly property bool connected: root.device?.connected ?? false
+    readonly property bool paired: root.device?.paired ?? false
+    readonly property bool batteryKnown: root.device?.batteryAvailable ?? false
+    readonly property int batteryPercent: Math.round((root.device?.battery ?? 0) * 100)
+    // Worth flagging before the headphones die mid-call.
+    readonly property bool batteryLow: root.batteryKnown && root.batteryPercent <= 20
+
+    selected: root.connected
+
+    iconName: Icons.getBluetoothDeviceMaterialSymbol(root.device?.icon || "")
+    title: root.device?.name || Translation.tr("Unknown device")
+
+    subtitle: {
+        const parts = [];
+        if (root.connected)
+            parts.push(Translation.tr("Connected"));
+        else if (root.paired)
+            parts.push(Translation.tr("Saved"));
+        if (root.batteryKnown)
+            parts.push(`${root.batteryPercent}%`);
+        return parts.join(" • ");
     }
 
-    contentItem: ColumnLayout {
-        anchors {
-            fill: parent
-            topMargin: root.verticalPadding
-            leftMargin: root.horizontalPadding
-            rightMargin: root.horizontalPadding
-        }
-        spacing: 0
+    trailingIcon: "keyboard_arrow_down"
+    trailingRotated: root.expanded
 
-        RowLayout {
-            // Name
-            spacing: 10
+    onClicked: root.expanded = !root.expanded
 
-            MaterialSymbol {
-                iconSize: Appearance.font.pixelSize.larger
-                text: Icons.getBluetoothDeviceMaterialSymbol(root.device?.icon || "")
-                color: Appearance.colors.colOnSurfaceVariant
-            }
+    RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
 
-            ColumnLayout {
-                spacing: 2
-                Layout.fillWidth: true
-                StyledText {
-                    Layout.fillWidth: true
-                    color: Appearance.colors.colOnSurfaceVariant
-                    elide: Text.ElideRight
-                    text: root.device?.name || Translation.tr("Unknown device")
-                    textFormat: Text.PlainText
-                }
-                StyledText {
-                    visible: (root.device?.connected || root.device?.paired) ?? false
-                    Layout.fillWidth: true
-                    font.pixelSize: Appearance.font.pixelSize.smaller
-                    color: Appearance.colors.colSubtext
-                    elide: Text.ElideRight
-                    text: {
-                        if (!root.device?.paired) return "";
-                        let statusText = root.device?.connected ? Translation.tr("Connected") : Translation.tr("Paired");
-                        if (!root.device?.batteryAvailable) return statusText;
-                        statusText += ` • ${Math.round(root.device?.battery * 100)}%`;
-                        return statusText;
-                    }
-                }
-            }
+        // Battery gets a real bar once it's actually known — a percentage in
+        // small grey text is easy to miss on the one device that's about to
+        // run out.
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignVCenter
+            visible: root.batteryKnown
+            implicitHeight: 4
+            radius: height / 2
+            color: Appearance.colors.colSurfaceContainerHighest
 
-            MaterialSymbol {
-                text: "keyboard_arrow_down"
-                iconSize: Appearance.font.pixelSize.larger
-                color: Appearance.colors.colOnLayer3
-                rotation: root.expanded ? 180 : 0
-                Behavior on rotation {
+            Rectangle {
+                width: parent.width * Math.max(0, Math.min(1, (root.device?.battery ?? 0)))
+                height: parent.height
+                radius: parent.radius
+                color: root.batteryLow ? Appearance.colors.colError : Appearance.colors.colPrimary
+
+                Behavior on width {
                     animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
                 }
             }
         }
 
-        RowLayout {
-            visible: root.expanded
-            Layout.topMargin: 8
-            Item {
-                Layout.fillWidth: true
-            }
-            ActionButton {
-                readonly property bool p: root.device?.paired ?? false
-                colBackground: p ? Appearance.colors.colError : ColorUtils.transparentize(Appearance.colors.colLayer3, 1)
-                colBackgroundHover: p ? Appearance.colors.colErrorHover : ColorUtils.transparentize(Appearance.colors.colLayer3, 1)
-                colRipple: p ? Appearance.colors.colErrorActive : Appearance.colors.colLayer3Hover
-                colText: p ? Appearance.colors.colOnError : Appearance.colors.colPrimary
+        Item {
+            Layout.fillWidth: !root.batteryKnown
+        }
 
-                buttonText: p ? Translation.tr("Forget") : Translation.tr("Always connect")
-                onClicked: {
-                    if (root.device?.paired) {
-                        root.device?.forget();
-                    } else {
-                        root.device?.pair();
-                    }
-                }
-            }
-            ActionButton {
-                buttonText: root.device?.connected ? Translation.tr("Disconnect") : Translation.tr("Connect")
-
-                onClicked: {
-                    if (root.device?.connected) {
-                        root.device.disconnect();
-                    } else {
-                        root.device.connect();
-                    }
-                }
+        // "Forget" is destructive but secondary, so it stays a quiet button
+        // with error-coloured text rather than a filled red slab — a solid
+        // errorContainer fill measured fine for contrast (7.24) but visually
+        // dominated the whole card for an action you rarely take.
+        DialogButton {
+            buttonText: root.paired ? Translation.tr("Forget") : Translation.tr("Always connect")
+            colBackground: ColorUtils.transparentize(Appearance.colors.colSecondaryContainer, 1)
+            colBackgroundHover: Appearance.colors.colSecondaryContainerHover
+            colRipple: Appearance.colors.colSecondaryContainerActive
+            colText: root.paired ? Appearance.colors.colError : Appearance.colors.colOnSurfaceVariant
+            onClicked: {
+                if (root.paired)
+                    root.device?.forget();
+                else
+                    root.device?.pair();
             }
         }
-        Item {
-            Layout.fillHeight: true
+
+        DialogButton {
+            buttonText: root.connected ? Translation.tr("Disconnect") : Translation.tr("Connect")
+            colBackground: Appearance.colors.colPrimary
+            colBackgroundHover: Appearance.colors.colPrimaryHover
+            colRipple: Appearance.colors.colPrimaryActive
+            colText: Appearance.colors.colOnPrimary
+            onClicked: {
+                if (root.connected)
+                    root.device.disconnect();
+                else
+                    root.device.connect();
+            }
         }
     }
 }

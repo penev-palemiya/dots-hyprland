@@ -703,5 +703,13 @@
   "Clean": "Clean",
   "No upstream": "No upstream",
   "Up to date": "Up to date",
-  "%1 commits": "%1 commits"
+  "%1 commits": "%1 commits",
+  "Saved": "Saved",
+  "Nearby": "Nearby",
+  "Open": "Open",
+  "Connecting…": "Connecting…",
+  "Scanning…": "Scanning…",
+  "No networks found": "No networks found",
+  "No devices found": "No devices found",
+  "Available networks": "Available networks"
 }
