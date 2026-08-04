@@ -695,5 +695,13 @@
   "Busy": "Busy",
   "Heavy": "Heavy",
   "Last %1 min": "Last %1 min",
-  "Last %1 s": "Last %1 s"
+  "Last %1 s": "Last %1 s",
+  "Project": "Project",
+  "Uncommitted": "Uncommitted",
+  "To push": "To push",
+  "%1 files": "%1 files",
+  "Clean": "Clean",
+  "No upstream": "No upstream",
+  "Up to date": "Up to date",
+  "%1 commits": "%1 commits"
 }

@@ -144,14 +144,32 @@ Item {
     readonly property var activities: activityRegistry.activities
     readonly property QtObject primaryActivity: activities.find(a => a.activityId === root.activePrimaryId) ?? activityRegistry.fallbackActivity
 
-    function promote(activity) {
+    /**
+     * `explicit` marks a promotion the user asked for — clicking a queue chip
+     * — as opposed to one an entry triggered by itself via `flashKey`.
+     * `primaryDuration` exists to time out *automatic* attention-grabs; taking
+     * the spotlight away from something the user deliberately selected is just
+     * the island overriding them, so explicit promotions never auto-demote.
+     */
+    function promote(activity, explicit = false) {
         const previous = root.primaryActivity;
         root.activePrimaryId = activity.activityId;
         demoteTimer.stop();
         if (previous && previous !== activity && previous.kind === "notification")
             previous.available = false;
-        if (activity.primaryDuration > 0)
+        if (!explicit && activity.primaryDuration > 0)
             demoteTimer.start();
+    }
+
+    // Reading the expanded panel must not be interrupted. The countdown is
+    // suspended while the overlay is open and resumes once it's closed, so an
+    // entry that auto-promoted still steps back eventually — just not out from
+    // under the panel you were looking at.
+    onOverlayOpenChanged: {
+        if (root.overlayOpen)
+            demoteTimer.stop();
+        else if ((root.primaryActivity?.primaryDuration ?? 0) > 0 && root.activePrimaryId !== "media")
+            demoteTimer.restart();
     }
 
     Timer {
@@ -252,7 +270,7 @@ Item {
                 activities: root.activities
                 primaryActivity: root.primaryActivity
                 promoteCallback: function(activity) {
-                    root.promote(activity);
+                    root.promote(activity, true);
                 }
             }
         }

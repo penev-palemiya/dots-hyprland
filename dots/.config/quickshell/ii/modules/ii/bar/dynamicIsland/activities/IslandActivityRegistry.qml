@@ -25,6 +25,12 @@ Item {
 
         NotificationExpanded {}
     }
+    // Disabled — see the git activity block further down.
+    // Component {
+    //     id: gitExpandedContent
+    //
+    //     GitExpanded {}
+    // }
 
     function mediaFallbackIcon(player) {
         const dbusName = String(player?.dbusName ?? "").toLowerCase();
@@ -193,6 +199,67 @@ Item {
             Audio.toggleMicMute();
         }
     }
+
+
+    // ---------------------------------------------------------------------
+    // Git / dev status — WIRED UP BUT DISABLED, work in progress.
+    //
+    // Left commented rather than deleted: `services/DevStatus.qml` and
+    // `../GitExpanded.qml` are complete and tested, this is just the wiring.
+    // To turn it back on: uncomment this block and the `gitExpandedContent`
+    // Component above, and add `gitActivity` back to `activities`.
+    //
+    // Nothing runs while it's off — DevStatus is a Singleton, so with no
+    // reference to it anywhere it is never even constructed: no file watches,
+    // no git subprocess, no cost.
+    // ---------------------------------------------------------------------
+    // /**
+    //  * Git state of the project in the focused editor. An activity rather than
+    //  * a notification: it's an ongoing state you return to, and it keeps a
+    //  * queue chip so the branch is one click away from any other window.
+    //  *
+    //  * It promotes itself when you focus an editor, but deliberately does NOT
+    //  * open the overlay — you switch to your editor dozens of times an hour,
+    //  * and a panel unfolding over the screen each time would be intolerable.
+    //  * Promotion is the quiet version of the same idea: the pill shows the
+    //  * branch, and expanding it stays a deliberate click.
+    //  */
+    // IslandActivityDescriptor {
+    //     id: gitActivity
+
+    //     property int focusSerial: 0
+
+    //     activityId: "git"
+    //     available: DevStatus.available
+    //     leadingIcon: DevStatus.detachedHead ? "commit" : "account_tree"
+    //     metadataText: DevStatus.projectName
+    //     primaryText: {
+    //         const parts = [DevStatus.branch];
+    //         if (DevStatus.hasUpstream && DevStatus.ahead > 0)
+    //             parts.push(`\u21e1${DevStatus.ahead}`);
+    //         if (DevStatus.changedFiles > 0)
+    //             parts.push(`\u25cf${DevStatus.changedFiles}`);
+    //         return parts.join("  ");
+    //     }
+    //     queueIcon: "account_tree"
+    //     queuePriority: 70
+    //     queueBadgeCount: DevStatus.hasUpstream ? DevStatus.ahead : 0
+    //     expandedContent: gitExpandedContent
+    //     primaryDuration: 4000
+    //     flashKey: focusSerial
+    // }
+
+    // // Focusing an editor is the "this just became relevant" moment. A serial
+    // // rather than the project name itself, so returning to the same project
+    // // still promotes.
+    // Connections {
+    //     target: DevStatus
+
+    //     function onEditorFocusedChanged() {
+    //         if (DevStatus.editorFocused && DevStatus.available)
+    //             gitActivity.focusSerial += 1;
+    //     }
+    // }
 
     IslandActivityDescriptor {
         id: notificationActivity
