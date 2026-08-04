@@ -20,106 +20,119 @@ import Quickshell
 WindowDialog {
     id: root
 
-    backgroundHeight: 600
-
     readonly property var connectedNetwork: Network.active
     readonly property var otherNetworks: Network.friendlyWifiNetworks.filter(n => n !== Network.active)
+    readonly property real maxListHeight: 380
 
-    WindowDialogTitle {
-        text: Translation.tr("Connect to Wi-Fi")
+
+    WindowDialogHeader {
+        id: header
+
+        title: Translation.tr("Wi-Fi")
+        subtitle: Network.wifiScanning ? Translation.tr("Scanning…") : root.otherNetworks.length > 0 ? Translation.tr("%1 nearby").arg(root.otherNetworks.length) : Translation.tr("No networks found")
+
+        DialogIconButton {
+            iconName: "refresh"
+            enabled: !Network.wifiScanning
+            onClicked: Network.rescanWifi()
+        }
     }
 
-    WindowDialogSeparator {
-        visible: !Network.wifiScanning
-    }
-
+    // Hairline progress under the header, full-bleed to the dialog edges.
     StyledIndeterminateProgressBar {
         visible: Network.wifiScanning
         Layout.fillWidth: true
-        Layout.topMargin: -8
-        Layout.bottomMargin: -8
-        Layout.leftMargin: -Appearance.rounding.large
-        Layout.rightMargin: -Appearance.rounding.large
+        Layout.topMargin: -10
+        Layout.bottomMargin: -10
+        Layout.leftMargin: -root.contentPadding
+        Layout.rightMargin: -root.contentPadding
     }
 
-    StyledFlickable {
-        Layout.fillHeight: true
+    ScrollDivider {
+        target: flickable
+        atStart: true
+    }
+
+    Item {
+        id: scrollArea
+
         Layout.fillWidth: true
-        Layout.topMargin: 4
-        Layout.bottomMargin: -8
-        clip: true
-        contentHeight: networkColumn.implicitHeight
+        implicitHeight: Math.min(root.maxListHeight, networkColumn.implicitHeight)
 
-        ColumnLayout {
-            id: networkColumn
+        StyledFlickable {
+            id: flickable
 
-            width: parent.width
-            spacing: 16
+            anchors.fill: parent
+            clip: true
+            contentHeight: networkColumn.implicitHeight
 
             ColumnLayout {
-                Layout.fillWidth: true
-                visible: root.connectedNetwork !== null
-                spacing: 6
+                id: networkColumn
 
-                ListSectionLabel {
-                    text: Translation.tr("Connected")
-                }
+                width: flickable.width
+                spacing: 16
 
-                WifiNetworkItem {
+                ColumnLayout {
                     Layout.fillWidth: true
                     visible: root.connectedNetwork !== null
-                    wifiNetwork: root.connectedNetwork
-                    indexInSection: 0
-                    sectionCount: 1
-                }
-            }
+                    spacing: 6
 
-            ColumnLayout {
-                Layout.fillWidth: true
-                visible: root.otherNetworks.length > 0
-                spacing: 6
+                    ListSectionLabel {
+                        text: Translation.tr("Connected")
+                    }
 
-                ListSectionLabel {
-                    text: Translation.tr("Available networks")
+                    WifiNetworkItem {
+                        Layout.fillWidth: true
+                        visible: root.connectedNetwork !== null
+                        wifiNetwork: root.connectedNetwork
+                        indexInSection: 0
+                        sectionCount: 1
+                    }
                 }
 
                 ColumnLayout {
                     Layout.fillWidth: true
-                    spacing: 4
+                    visible: root.otherNetworks.length > 0
+                    spacing: 6
 
-                    Repeater {
-                        model: ScriptModel {
-                            values: root.otherNetworks
-                        }
+                    ListSectionLabel {
+                        text: Translation.tr("Available networks")
+                    }
 
-                        delegate: WifiNetworkItem {
-                            required property WifiAccessPoint modelData
-                            required property int index
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
 
-                            Layout.fillWidth: true
-                            wifiNetwork: modelData
-                            indexInSection: index
-                            sectionCount: root.otherNetworks.length
+                        Repeater {
+                            model: ScriptModel {
+                                values: root.otherNetworks
+                            }
+
+                            delegate: WifiNetworkItem {
+                                required property WifiAccessPoint modelData
+                                required property int index
+
+                                Layout.fillWidth: true
+                                wifiNetwork: modelData
+                                indexInSection: index
+                                sectionCount: root.otherNetworks.length
+                            }
                         }
                     }
                 }
             }
-
-            StyledText {
-                Layout.fillWidth: true
-                Layout.topMargin: 20
-                horizontalAlignment: Text.AlignHCenter
-                visible: root.connectedNetwork === null && root.otherNetworks.length === 0
-                text: Network.wifiScanning ? Translation.tr("Scanning…") : Translation.tr("No networks found")
-                color: Appearance.colors.colOutline
-                font.pixelSize: Appearance.font.pixelSize.smaller
-            }
         }
+
     }
 
-    WindowDialogSeparator {}
+    ScrollDivider {
+        target: flickable
+        atStart: false
+    }
 
     WindowDialogButtonRow {
+        id: footer
+
         DialogButton {
             buttonText: Translation.tr("Details")
             onClicked: {
@@ -134,6 +147,10 @@ WindowDialog {
 
         DialogButton {
             buttonText: Translation.tr("Done")
+            colBackground: Appearance.colors.colPrimary
+            colBackgroundHover: Appearance.colors.colPrimaryHover
+            colRipple: Appearance.colors.colPrimaryActive
+            colText: Appearance.colors.colOnPrimary
             onClicked: root.dismiss()
         }
     }

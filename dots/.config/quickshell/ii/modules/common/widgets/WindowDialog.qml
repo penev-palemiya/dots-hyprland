@@ -10,8 +10,16 @@ Rectangle {
 
     property bool show: false
     default property alias contentData: contentColumn.data
-    property real backgroundHeight: dialogBackground.implicitHeight
+    // Content-driven by default. Deliberately NOT `dialogBackground.implicitHeight`
+    // — that was self-referential, which is why the height had to be assigned
+    // imperatively below instead of bound, and that in turn meant the dialog
+    // froze at whatever size it had when it opened.
+    property real backgroundHeight: contentColumn.implicitHeight + root.contentPadding * 2
     property real backgroundWidth: 350
+    // Was hard-coded to `dialogBackground.radius`, which happened to be 23 and
+    // meant the padding could never be tuned without changing the corner. Same
+    // default, so every existing dialog is unchanged.
+    property real contentPadding: Appearance.rounding.large
     property real backgroundAnimationMovementDistance: 60
     
     signal dismiss()
@@ -28,9 +36,12 @@ Rectangle {
     }
     visible: dialogBackground.implicitHeight > 0
 
+    // Only the curve is switched here; the height itself is a binding (see
+    // dialogBackground), so a dialog whose content changes while it is open —
+    // Bluetooth discovery finding devices, Wi-Fi networks appearing — grows to
+    // fit instead of letting the extra rows spill out past its own background.
     onShowChanged: {
-        dialogBackgroundHeightAnimation.easing.bezierCurve = (show ? Appearance.animationCurves.emphasizedDecel : Appearance.animationCurves.emphasizedAccel)
-        dialogBackground.implicitHeight = show ? backgroundHeight : 0
+        dialogBackgroundHeightAnimation.easing.bezierCurve = (show ? Appearance.animationCurves.emphasizedDecel : Appearance.animationCurves.emphasizedAccel);
     }
 
     radius: Appearance.rounding.screenRounding - Appearance.sizes.hyprlandGapsOut + 1
@@ -51,7 +62,7 @@ Rectangle {
         property real targetY: root.height / 2 - root.backgroundHeight / 2
         y: root.show ? targetY : (targetY - root.backgroundAnimationMovementDistance)
         implicitWidth: root.backgroundWidth
-        implicitHeight: contentColumn.implicitHeight + dialogBackground.radius * 2
+        implicitHeight: root.show ? root.backgroundHeight : 0
         Behavior on implicitHeight {
             NumberAnimation {
                 id: dialogBackgroundHeightAnimation
@@ -78,7 +89,7 @@ Rectangle {
             id: contentColumn
             anchors {
                 fill: parent
-                margins: dialogBackground.radius
+                margins: root.contentPadding
             }
             spacing: 16
             opacity: root.show ? 1 : 0

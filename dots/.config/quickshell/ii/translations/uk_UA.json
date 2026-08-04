@@ -866,5 +866,8 @@
   "Scanning…": "Пошук…",
   "No networks found": "Мереж не знайдено",
   "No devices found": "Пристроїв не знайдено",
-  "Available networks": "Доступні мережі"
+  "Available networks": "Доступні мережі",
+  "%1 nearby": "%1 поруч",
+  "%1 connected": "Підключено: %1",
+  "Nothing connected": "Нічого не підключено"
 }

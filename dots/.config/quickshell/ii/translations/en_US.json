@@ -711,5 +711,9 @@
   "Scanning…": "Scanning…",
   "No networks found": "No networks found",
   "No devices found": "No devices found",
-  "Available networks": "Available networks"
+  "Available networks": "Available networks",
+  "Wi-Fi": "Wi-Fi",
+  "%1 nearby": "%1 nearby",
+  "%1 connected": "%1 connected",
+  "Nothing connected": "Nothing connected"
 }

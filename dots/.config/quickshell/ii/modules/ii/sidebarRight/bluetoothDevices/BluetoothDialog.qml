@@ -19,42 +19,71 @@ import Quickshell
 WindowDialog {
     id: root
 
-    backgroundHeight: 600
+    readonly property real maxListHeight: 380
+
 
     readonly property bool discovering: Bluetooth.defaultAdapter?.discovering ?? false
     readonly property var connectedDevices: BluetoothStatus.connectedDevices
     readonly property var savedDevices: BluetoothStatus.pairedButNotConnectedDevices
     readonly property var nearbyDevices: BluetoothStatus.unpairedDevices
 
-    WindowDialogTitle {
-        text: Translation.tr("Bluetooth devices")
-    }
+    WindowDialogHeader {
+        id: header
 
-    WindowDialogSeparator {
-        visible: !root.discovering
+        title: Translation.tr("Bluetooth")
+        subtitle: {
+            if (root.discovering)
+                return Translation.tr("Scanning…");
+            const n = root.connectedDevices.length;
+            if (n > 0)
+                return Translation.tr("%1 connected").arg(n);
+            return Translation.tr("Nothing connected");
+        }
+
+        // Discovery is a real toggle, not a one-shot: it stays on until turned
+        // off, so the button reflects that instead of pretending to be a
+        // refresh action.
+        DialogIconButton {
+            iconName: "bluetooth_searching"
+            toggledOn: root.discovering
+            onClicked: {
+                if (Bluetooth.defaultAdapter)
+                    Bluetooth.defaultAdapter.discovering = !Bluetooth.defaultAdapter.discovering;
+            }
+        }
     }
 
     StyledIndeterminateProgressBar {
         visible: root.discovering
         Layout.fillWidth: true
-        Layout.topMargin: -8
-        Layout.bottomMargin: -8
-        Layout.leftMargin: -Appearance.rounding.large
-        Layout.rightMargin: -Appearance.rounding.large
+        Layout.topMargin: -10
+        Layout.bottomMargin: -10
+        Layout.leftMargin: -root.contentPadding
+        Layout.rightMargin: -root.contentPadding
     }
 
-    StyledFlickable {
-        Layout.fillHeight: true
+    ScrollDivider {
+        target: flickable
+        atStart: true
+    }
+
+    Item {
+        id: scrollArea
+
         Layout.fillWidth: true
-        Layout.topMargin: 4
-        Layout.bottomMargin: -8
-        clip: true
-        contentHeight: deviceColumn.implicitHeight
+        implicitHeight: Math.min(root.maxListHeight, deviceColumn.implicitHeight)
+
+        StyledFlickable {
+            id: flickable
+
+            anchors.fill: parent
+            clip: true
+            contentHeight: deviceColumn.implicitHeight
 
         ColumnLayout {
             id: deviceColumn
 
-            width: parent.width
+            width: flickable.width
             spacing: 16
 
             component DeviceSection: ColumnLayout {
@@ -118,11 +147,17 @@ WindowDialog {
                 font.pixelSize: Appearance.font.pixelSize.smaller
             }
         }
+        }
+
     }
 
-    WindowDialogSeparator {}
+    ScrollDivider {
+        target: flickable
+        atStart: false
+    }
 
     WindowDialogButtonRow {
+        id: footer
         DialogButton {
             buttonText: Translation.tr("Details")
             onClicked: {
@@ -137,6 +172,10 @@ WindowDialog {
 
         DialogButton {
             buttonText: Translation.tr("Done")
+            colBackground: Appearance.colors.colPrimary
+            colBackgroundHover: Appearance.colors.colPrimaryHover
+            colRipple: Appearance.colors.colPrimaryActive
+            colText: Appearance.colors.colOnPrimary
             onClicked: root.dismiss()
         }
     }
