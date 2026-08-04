@@ -13,6 +13,10 @@ Item {
     property int badgeCount: activity ? (activity.queueBadgeCount || 0) : 0
     property bool shown: true
     property bool imageLoadFailed: false
+    // Renders a plain dot instead of an icon/image — used by the queue's
+    // collapse toggle, so "there is more here" reads as a mark rather than as
+    // yet another activity icon competing with the real ones.
+    property bool dot: false
 
     onImageSourceChanged: imageLoadFailed = false
 
@@ -36,11 +40,26 @@ Item {
 
         anchors.centerIn: parent
 
+        Rectangle {
+            id: chipDot
+
+            anchors.centerIn: parent
+            visible: root.dot
+            implicitWidth: 5
+            implicitHeight: 5
+            radius: width / 2
+            color: Appearance.colors.colOnLayer2
+
+            Behavior on color {
+                animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(chipDot)
+            }
+        }
+
         Image {
             id: chipImage
 
             anchors.fill: parent
-            visible: root.imageSource.length > 0 && !root.imageLoadFailed
+            visible: !root.dot && root.imageSource.length > 0 && !root.imageLoadFailed
             source: root.imageSource
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
@@ -68,7 +87,7 @@ Item {
             iconSize: Appearance.font.pixelSize.normal
             text: root.iconName
             color: Appearance.colors.colOnLayer2
-            visible: root.imageSource.length === 0 || root.imageLoadFailed
+            visible: !root.dot && (root.imageSource.length === 0 || root.imageLoadFailed)
         }
     }
 
