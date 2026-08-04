@@ -312,11 +312,11 @@ StyledPopup {
             }
 
             // ---- Details ----
-            GridLayout {
+            GroupedGrid {
+                id: tileGrid
+
                 Layout.fillWidth: true
                 columns: 2
-                rowSpacing: 8
-                columnSpacing: 8
                 uniformCellWidths: true
 
                 // CPU is deliberately absent — it's the hero, and repeating the
@@ -324,6 +324,9 @@ StyledPopup {
                 // (its temperature is in the hero and nowhere in the grid).
 
                 WeatherCard {
+                    id: ramTile
+
+                    corners: tileGrid.cornersFor(ramTile)
                     Layout.columnSpan: root.tileSpan("ram")
                     opacity: root.sectionOpacity(2)
                     transform: Translate { y: root.sectionOffset(2) }
@@ -335,6 +338,9 @@ StyledPopup {
                 }
 
                 WeatherCard {
+                    id: swapTile
+
+                    corners: tileGrid.cornersFor(swapTile)
                     visible: root.hasSwap
                     Layout.columnSpan: root.tileSpan("swap")
                     opacity: root.sectionOpacity(3)
@@ -347,6 +353,9 @@ StyledPopup {
                 }
 
                 WeatherCard {
+                    id: gpuTile
+
+                    corners: tileGrid.cornersFor(gpuTile)
                     visible: root.hasGpu
                     Layout.columnSpan: root.tileSpan("gpu")
                     opacity: root.sectionOpacity(4)
@@ -361,6 +370,9 @@ StyledPopup {
                 }
 
                 WeatherCard {
+                    id: batteryTile
+
+                    corners: tileGrid.cornersFor(batteryTile)
                     visible: root.hasBattery
                     Layout.columnSpan: root.tileSpan("battery")
                     opacity: root.sectionOpacity(5)

@@ -8,6 +8,10 @@ Rectangle {
     id: root
     
     radius: Appearance.rounding.small
+    topLeftRadius: root.corners ? root.corners.topLeft : root.radius
+    topRightRadius: root.corners ? root.corners.topRight : root.radius
+    bottomLeftRadius: root.corners ? root.corners.bottomLeft : root.radius
+    bottomRightRadius: root.corners ? root.corners.bottomRight : root.radius
     color: Appearance.colors.colSurfaceContainerHigh
     
     Layout.fillWidth: true
@@ -17,6 +21,10 @@ Rectangle {
     property alias title: title.text
     property alias value: value.text
     property alias symbol: symbol.text
+    // Optional per-corner radii, supplied by GroupedGrid so a grid of cards
+    // can read as one rounded block. Null means "just use `radius`", which is
+    // what every standalone use of this card wants.
+    property var corners: null
     // Optional hairline usage bar under the value, for the one case
     // docs/design/bar-popups.md says a bar earns its place: a value that
     // genuinely is "N out of a total". Negative (the default) draws nothing,

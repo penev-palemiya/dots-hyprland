@@ -176,14 +176,17 @@ StyledPopup {
                 }
             }
 
-            GridLayout {
+            GroupedGrid {
+                id: detailsGrid
+
                 Layout.fillWidth: true
                 columns: 2
-                rowSpacing: 8
-                columnSpacing: 8
                 uniformCellWidths: true
 
                 WeatherCard {
+                    id: rainCard
+
+                    corners: detailsGrid.cornersFor(rainCard)
                     opacity: root.sectionOpacity(2)
                     transform: Translate { y: root.sectionOffset(2) }
                     title: Translation.tr("Rain")
@@ -191,6 +194,9 @@ StyledPopup {
                     value: Weather.data.insights?.rain ?? "--"
                 }
                 WeatherCard {
+                    id: comfortCard
+
+                    corners: detailsGrid.cornersFor(comfortCard)
                     opacity: root.sectionOpacity(2)
                     transform: Translate { y: root.sectionOffset(2) }
                     title: Translation.tr("Comfort")
@@ -198,6 +204,9 @@ StyledPopup {
                     value: Weather.data.insights?.comfort ?? "--"
                 }
                 WeatherCard {
+                    id: windCard
+
+                    corners: detailsGrid.cornersFor(windCard)
                     opacity: root.sectionOpacity(3)
                     transform: Translate { y: root.sectionOffset(3) }
                     title: Translation.tr("Wind")
@@ -205,6 +214,9 @@ StyledPopup {
                     value: Weather.data.details?.wind ?? "--"
                 }
                 WeatherCard {
+                    id: uvCard
+
+                    corners: detailsGrid.cornersFor(uvCard)
                     opacity: root.sectionOpacity(3)
                     transform: Translate { y: root.sectionOffset(3) }
                     title: Translation.tr("UV Index")
@@ -212,6 +224,9 @@ StyledPopup {
                     value: Weather.data.details?.uv ?? "--"
                 }
                 WeatherCard {
+                    id: daylightCard
+
+                    corners: detailsGrid.cornersFor(daylightCard)
                     opacity: root.sectionOpacity(4)
                     transform: Translate { y: root.sectionOffset(4) }
                     title: Translation.tr("Daylight")
@@ -219,6 +234,9 @@ StyledPopup {
                     value: Weather.data.today?.daylight ?? "--"
                 }
                 WeatherCard {
+                    id: humidityCard
+
+                    corners: detailsGrid.cornersFor(humidityCard)
                     opacity: root.sectionOpacity(4)
                     transform: Translate { y: root.sectionOffset(4) }
                     title: Translation.tr("Humidity")
@@ -226,6 +244,9 @@ StyledPopup {
                     value: Weather.data.details?.humidity ?? "--"
                 }
                 WeatherCard {
+                    id: visibilityCard
+
+                    corners: detailsGrid.cornersFor(visibilityCard)
                     opacity: root.sectionOpacity(5)
                     transform: Translate { y: root.sectionOffset(5) }
                     title: Translation.tr("Visibility")
@@ -233,6 +254,9 @@ StyledPopup {
                     value: Weather.data.details?.visibility ?? "--"
                 }
                 WeatherCard {
+                    id: pressureCard
+
+                    corners: detailsGrid.cornersFor(pressureCard)
                     opacity: root.sectionOpacity(5)
                     transform: Translate { y: root.sectionOffset(5) }
                     title: Translation.tr("Pressure")
