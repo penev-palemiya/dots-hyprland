@@ -21,31 +21,121 @@ WindowDialog {
     id: root
 
     readonly property var connectedNetwork: Network.active
-    readonly property var otherNetworks: Network.friendlyWifiNetworks.filter(n => n !== Network.active)
+    // Three tiers rather than two: a network we already have a profile for is one
+    // click away, an unknown one costs a password. That difference decides which
+    // row you actually want when you walk into range of a dozen of them, so it
+    // gets to be structure instead of a badge buried in a subtitle.
+    // Display order, snapshotted rather than live. `friendlyWifiNetworks` sorts
+    // by strength, so every scan that lands reshuffles the rows — click "Forget"
+    // on one network and a signal fluctuation can slide a different one under the
+    // pointer first. Positions are kept for networks already on screen,
+    // newcomers are appended, and the strength sort is only re-applied when the
+    // dialog opens or the user asks for a refresh.
+    property var networkOrder: []
+
+    // Filtered through the live list so a network that disappeared (or an object
+    // the service destroyed) can never be read out of the snapshot.
+    readonly property var rest: {
+        const live = Network.friendlyWifiNetworks;
+        return root.networkOrder.filter(n => live.includes(n) && n !== Network.active);
+    }
+    readonly property var savedNetworks: root.rest.filter(n => Network.isKnownNetwork(n.ssid))
+    readonly property var otherNetworks: root.rest.filter(n => !Network.isKnownNetwork(n.ssid))
     readonly property real maxListHeight: 380
 
+    // The dialog is vertically centred, so any content change moves the footer
+    // buttons by half the delta — a scan landing mid-click used to pull the
+    // button out from under the pointer. While the dialog is open the list keeps
+    // the tallest height it has needed, so it grows once on open and then holds
+    // still; the cap means a full list is stable from the first frame.
+    property real listHeight: 0
+    readonly property real listContentHeight: Math.min(root.maxListHeight, networkColumn.implicitHeight)
+    onListContentHeightChanged: root.listHeight = Math.max(root.listHeight, root.listContentHeight)
+
+    function resortNetworks(): void {
+        root.networkOrder = Network.friendlyWifiNetworks.slice();
+    }
+
+    function reconcileNetworks(): void {
+        const live = Network.friendlyWifiNetworks;
+        const kept = root.networkOrder.filter(n => live.includes(n));
+        root.networkOrder = kept.concat(live.filter(n => !kept.includes(n)));
+    }
+
+    Connections {
+        target: Network
+
+        function onFriendlyWifiNetworksChanged() {
+            root.reconcileNetworks();
+        }
+    }
+
+    // Not an `onShowChanged` handler: WindowDialog declares one of its own, and a
+    // handler in a derived type would take its place.
+    Connections {
+        target: root
+
+        function onShowChanged() {
+            if (!root.show)
+                return;
+            // Re-measure rather than zero it: if the content is the same height
+            // as last time, the change signal wouldn't fire and the list would
+            // open at nothing.
+            root.listHeight = root.listContentHeight;
+            root.resortNetworks();
+        }
+    }
+
+    Component.onCompleted: root.resortNetworks()
+
+
+    // Walking around the house means the list is already out of date by the time
+    // the dialog opens, and a scan takes seconds to land. Keep pulling
+    // NetworkManager's cached list while the dialog is on screen — it's cheap,
+    // and the scan behind it is rate-limited inside the service.
+    Timer {
+        running: root.show
+        interval: 2500
+        repeat: true
+        onTriggered: Network.rescanWifi()
+    }
 
     WindowDialogHeader {
         id: header
 
         title: Translation.tr("Wi-Fi")
-        subtitle: Network.wifiScanning ? Translation.tr("Scanning…") : root.otherNetworks.length > 0 ? Translation.tr("%1 nearby").arg(root.otherNetworks.length) : Translation.tr("No networks found")
+        subtitle: Network.wifiScanning ? Translation.tr("Scanning…") : root.rest.length > 0 ? Translation.tr("%1 nearby").arg(root.rest.length) : Translation.tr("No networks found")
 
         DialogIconButton {
             iconName: "refresh"
             enabled: !Network.wifiScanning
-            onClicked: Network.rescanWifi()
+            onClicked: {
+                // An explicit refresh is the one moment reordering is expected —
+                // the user asked for a fresh picture.
+                Network.rescanWifi(true); // and it skips the scan cooldown
+                root.resortNetworks();
+            }
         }
     }
 
-    // Hairline progress under the header, full-bleed to the dialog edges.
+    // Hairline progress under the header, full-bleed to the dialog edges. It
+    // keeps its space at all times and only fades: toggling `visible` relaid the
+    // dialog out the instant a scan began, which is the jump you feel most
+    // because it happens exactly when you reach for the refresh button.
     StyledIndeterminateProgressBar {
-        visible: Network.wifiScanning
         Layout.fillWidth: true
         Layout.topMargin: -10
         Layout.bottomMargin: -10
         Layout.leftMargin: -root.contentPadding
         Layout.rightMargin: -root.contentPadding
+
+        opacity: Network.wifiScanning ? 1 : 0
+        // No point animating a bar nobody can see.
+        indeterminate: Network.wifiScanning
+
+        Behavior on opacity {
+            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+        }
     }
 
     ScrollDivider {
@@ -57,7 +147,7 @@ WindowDialog {
         id: scrollArea
 
         Layout.fillWidth: true
-        implicitHeight: Math.min(root.maxListHeight, networkColumn.implicitHeight)
+        implicitHeight: root.listHeight
 
         StyledFlickable {
             id: flickable
@@ -90,35 +180,14 @@ WindowDialog {
                     }
                 }
 
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    visible: root.otherNetworks.length > 0
-                    spacing: 6
+                NetworkSection {
+                    label: Translation.tr("Saved networks")
+                    networks: root.savedNetworks
+                }
 
-                    ListSectionLabel {
-                        text: Translation.tr("Available networks")
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 4
-
-                        Repeater {
-                            model: ScriptModel {
-                                values: root.otherNetworks
-                            }
-
-                            delegate: WifiNetworkItem {
-                                required property WifiAccessPoint modelData
-                                required property int index
-
-                                Layout.fillWidth: true
-                                wifiNetwork: modelData
-                                indexInSection: index
-                                sectionCount: root.otherNetworks.length
-                            }
-                        }
-                    }
+                NetworkSection {
+                    label: Translation.tr("Other networks")
+                    networks: root.otherNetworks
                 }
             }
         }
@@ -128,6 +197,42 @@ WindowDialog {
     ScrollDivider {
         target: flickable
         atStart: false
+    }
+
+    component NetworkSection: ColumnLayout {
+        id: section
+
+        required property string label
+        required property var networks
+
+        Layout.fillWidth: true
+        visible: section.networks.length > 0
+        spacing: 6
+
+        ListSectionLabel {
+            text: section.label
+        }
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 4
+
+            Repeater {
+                model: ScriptModel {
+                    values: section.networks
+                }
+
+                delegate: WifiNetworkItem {
+                    required property WifiAccessPoint modelData
+                    required property int index
+
+                    Layout.fillWidth: true
+                    wifiNetwork: modelData
+                    indexInSection: index
+                    sectionCount: section.networks.length
+                }
+            }
+        }
     }
 
     WindowDialogButtonRow {

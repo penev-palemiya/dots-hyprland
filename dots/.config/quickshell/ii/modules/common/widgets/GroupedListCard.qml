@@ -40,6 +40,13 @@ Rectangle {
     property string trailingIcon: ""
     property bool trailingRotated: false
 
+    // Optional secondary action on the trailing edge (forget a network, unpair a
+    // device). A real button rather than another glyph on the row's own click:
+    // that click is already spoken for by the primary action, and a destructive
+    // one must not be reachable by aiming at the wrong part of a row.
+    property string actionIcon: ""
+    signal actionClicked
+
     // Extra content revealed under the row (password field, action buttons).
     default property alias expandedData: expandedColumn.data
 
@@ -166,6 +173,30 @@ Rectangle {
 
                 Behavior on rotation {
                     animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                }
+            }
+
+            RippleButton {
+                Layout.alignment: Qt.AlignVCenter
+                Layout.rightMargin: -6 // Optical: the glyph, not its hit area, lines up with the row
+                visible: root.actionIcon.length > 0
+                implicitWidth: 30
+                implicitHeight: 30
+                buttonRadius: Appearance.rounding.full
+                // Transparent at rest so the row keeps reading as one card; the
+                // button only materialises under the pointer.
+                colBackground: ColorUtils.transparentize(root.color, 1)
+                colBackgroundHover: root.selected ? Appearance.colors.colSecondaryContainerHover : Appearance.colors.colSurfaceContainerHighestHover
+                colRipple: root.selected ? Appearance.colors.colSecondaryContainerActive : Appearance.colors.colSurfaceContainerHighestActive
+                onClicked: root.actionClicked()
+
+                contentItem: MaterialSymbol {
+                    anchors.centerIn: parent
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    text: root.actionIcon
+                    iconSize: Appearance.font.pixelSize.large
+                    color: root.selected ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnSurfaceVariant
                 }
             }
         }

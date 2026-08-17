@@ -149,7 +149,7 @@ Item {
         onShownChanged: {
             if (!shown) return;
             Network.enableWifi();
-            Network.rescanWifi();
+            Network.rescanWifi(true);
         }
     }
 
