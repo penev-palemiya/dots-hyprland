@@ -11,6 +11,10 @@ RippleButton {
 
     property string iconName: ""
     property bool toggledOn: false
+    // Continuous spin while the action this button started is still running, so
+    // the feedback sits where the click happened instead of only in a progress
+    // bar somewhere else in the dialog.
+    property bool spinning: false
 
     implicitWidth: 36
     implicitHeight: 36
@@ -25,6 +29,10 @@ RippleButton {
     colRippleToggled: Appearance.colors.colPrimaryActive
 
     contentItem: MaterialSymbol {
+        id: icon
+
+        property real spinAngle: 0
+
         anchors.centerIn: parent
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
@@ -32,5 +40,23 @@ RippleButton {
         fill: 0
         iconSize: Appearance.font.pixelSize.larger
         color: root.toggledOn ? Appearance.colors.colOnPrimary : Appearance.colors.colOnSecondaryContainer
+
+        transform: Rotation {
+            origin.x: icon.width / 2
+            origin.y: icon.height / 2
+            angle: icon.spinAngle
+        }
+
+        // Linear loop: an eased spin reads as a stutter rather than as work.
+        NumberAnimation {
+            target: icon
+            property: "spinAngle"
+            running: root.spinning
+            from: 0
+            to: 360
+            duration: 1000
+            loops: Animation.Infinite
+            onStopped: icon.spinAngle = 0
+        }
     }
 }

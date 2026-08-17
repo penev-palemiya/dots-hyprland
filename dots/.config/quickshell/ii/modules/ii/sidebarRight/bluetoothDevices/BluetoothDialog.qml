@@ -21,6 +21,10 @@ WindowDialog {
 
     readonly property real maxListHeight: 380
 
+    // Same cascade as the Wi-Fi picker, driven by WindowDialog: header,
+    // connected, saved, nearby, footer.
+    staggerContent: true
+    revealSections: 5
 
     readonly property bool discovering: Bluetooth.defaultAdapter?.discovering ?? false
     readonly property var connectedDevices: BluetoothStatus.connectedDevices
@@ -29,6 +33,11 @@ WindowDialog {
 
     WindowDialogHeader {
         id: header
+
+        opacity: root.sectionOpacity(0)
+        transform: Translate {
+            y: root.sectionOffset(0)
+        }
 
         title: Translation.tr("Bluetooth")
         subtitle: {
@@ -53,18 +62,27 @@ WindowDialog {
         }
     }
 
+    // Keeps its space and only fades, so starting discovery doesn't relay the
+    // whole dialog out from under the pointer.
     StyledIndeterminateProgressBar {
-        visible: root.discovering
         Layout.fillWidth: true
         Layout.topMargin: -10
         Layout.bottomMargin: -10
         Layout.leftMargin: -root.contentPadding
         Layout.rightMargin: -root.contentPadding
+
+        opacity: root.sectionOpacity(0) * (root.discovering ? 1 : 0)
+        indeterminate: root.discovering
+
+        Behavior on opacity {
+            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+        }
     }
 
     ScrollDivider {
         target: flickable
         atStart: true
+        revealOpacity: root.sectionOpacity(1)
     }
 
     Item {
@@ -91,10 +109,16 @@ WindowDialog {
 
                 required property string label
                 required property var devices
+                required property int revealIndex
 
                 Layout.fillWidth: true
                 visible: section.devices.length > 0
                 spacing: 6
+
+                opacity: root.sectionOpacity(section.revealIndex)
+                transform: Translate {
+                    y: root.sectionOffset(section.revealIndex)
+                }
 
                 ListSectionLabel {
                     text: section.label
@@ -125,22 +149,26 @@ WindowDialog {
             DeviceSection {
                 label: Translation.tr("Connected")
                 devices: root.connectedDevices
+                revealIndex: 1
             }
 
             DeviceSection {
                 label: Translation.tr("Saved")
                 devices: root.savedDevices
+                revealIndex: 2
             }
 
             DeviceSection {
                 label: Translation.tr("Nearby")
                 devices: root.nearbyDevices
+                revealIndex: 3
             }
 
             StyledText {
                 Layout.fillWidth: true
                 Layout.topMargin: 20
                 horizontalAlignment: Text.AlignHCenter
+                opacity: root.sectionOpacity(2)
                 visible: root.connectedDevices.length === 0 && root.savedDevices.length === 0 && root.nearbyDevices.length === 0
                 text: root.discovering ? Translation.tr("Scanning…") : Translation.tr("No devices found")
                 color: Appearance.colors.colOutline
@@ -154,10 +182,17 @@ WindowDialog {
     ScrollDivider {
         target: flickable
         atStart: false
+        revealOpacity: root.sectionOpacity(3)
     }
 
     WindowDialogButtonRow {
         id: footer
+
+        opacity: root.sectionOpacity(4)
+        transform: Translate {
+            y: root.sectionOffset(4)
+        }
+
         DialogButton {
             buttonText: Translation.tr("Details")
             onClicked: {

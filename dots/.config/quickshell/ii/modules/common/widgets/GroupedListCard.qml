@@ -39,6 +39,8 @@ Rectangle {
     property string subtitle: ""
     property string trailingIcon: ""
     property bool trailingRotated: false
+    // Continuous spin for a glyph that means "working" (connecting, pairing).
+    property bool trailingSpinning: false
 
     // Optional secondary action on the trailing edge (forget a network, unpair a
     // device). A real button rather than another glyph on the row's own click:
@@ -77,8 +79,16 @@ Rectangle {
         animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(root)
     }
 
+    // Expanding is the hero moment of the interaction the user just started, so
+    // it gets the slower spring; collapsing steps back and gets the faster one
+    // (docs/design/motion.md). Ternaries on the animation's own properties, not
+    // on `animation` itself.
     Behavior on implicitHeight {
-        animation: Appearance.animation.elementMove.numberAnimation.createObject(root)
+        NumberAnimation {
+            duration: root.expanded ? Appearance.animation.elementMove.duration : Appearance.animation.elementMoveSmall.duration
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: root.expanded ? Appearance.animation.elementMove.bezierCurve : Appearance.animation.elementMoveSmall.bezierCurve
+        }
     }
 
     // M3 state layer rather than a ripple: these are list rows, and a ripple
@@ -163,6 +173,13 @@ Rectangle {
             }
 
             MaterialSymbol {
+                id: trailingSymbol
+
+                // Spin lives on its own transform rather than on `rotation`: that
+                // property carries the 180° flip binding, and an animation writing
+                // to it would fight the binding.
+                property real spinAngle: 0
+
                 Layout.alignment: Qt.AlignVCenter
                 visible: root.trailingIcon.length > 0
                 text: root.trailingIcon
@@ -171,8 +188,27 @@ Rectangle {
                 color: root.selected ? Appearance.colors.colPrimary : Appearance.colors.colOnSurfaceVariant
                 rotation: root.trailingRotated ? 180 : 0
 
+                transform: Rotation {
+                    origin.x: trailingSymbol.width / 2
+                    origin.y: trailingSymbol.height / 2
+                    angle: trailingSymbol.spinAngle
+                }
+
                 Behavior on rotation {
                     animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                }
+
+                // Linear, like every other indeterminate spinner — an eased loop
+                // pulses and reads as a stutter rather than as continuous work.
+                NumberAnimation {
+                    target: trailingSymbol
+                    property: "spinAngle"
+                    running: root.trailingSpinning
+                    from: 0
+                    to: 360
+                    duration: 1000
+                    loops: Animation.Infinite
+                    onStopped: trailingSymbol.spinAngle = 0
                 }
             }
 
@@ -206,8 +242,29 @@ Rectangle {
 
             Layout.fillWidth: true
             Layout.topMargin: root.expanded ? 10 : 0
+            // Dropped from the layout the moment it collapses, so the card starts
+            // shrinking immediately instead of waiting out a fade nobody asked
+            // for; the fade only has a job on the way in.
             visible: root.expanded
+            opacity: root.expanded ? 1 : 0
             spacing: 8
+
+            // Same trailing/leading relationship as the dialog: the revealed
+            // content waits for the card to have grown a little, and leaves at
+            // once so the collapse isn't waiting on it.
+            Behavior on opacity {
+                SequentialAnimation {
+                    PauseAnimation {
+                        duration: root.expanded ? 120 : 0
+                    }
+
+                    NumberAnimation {
+                        duration: Appearance.animation.elementMoveFast.duration
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
+                    }
+                }
+            }
         }
     }
 }

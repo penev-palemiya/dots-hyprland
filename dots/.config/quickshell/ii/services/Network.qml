@@ -493,6 +493,14 @@ Singleton {
                         }));
                     }
                 }
+
+                // The list is mutated in place, which does not notify on its own:
+                // bindings over it only re-ran because updating an existing access
+                // point's `lastIpcObject` happened to notify. With an empty list
+                // there is nothing to update, so the first batch of networks could
+                // land without a single binding noticing and the picker stayed
+                // empty for the life of the process.
+                root.wifiNetworksChanged();
             }
         }
     }

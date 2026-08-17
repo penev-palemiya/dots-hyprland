@@ -74,10 +74,47 @@ GroupedListCard {
     // password will be needed — which a saved network's won't, so it gets no
     // lock even though it is secured.
     trailingIcon: root.connected ? "check_circle" : root.connecting ? "sync" : (root.secure && !root.saved) ? "lock" : ""
+    trailingSpinning: root.connecting
 
     onClicked: {
         if (!root.connected)
             Network.connectToWifiNetwork(root.wifiNetwork);
+    }
+
+    // A row that appears on its own — a network coming into range, or one that
+    // moved between the saved and other sections after being forgotten — arrives
+    // rather than blinks into place. `staggered` is set by the dialog while its
+    // own cascade is running, which already animates these rows; playing both
+    // would double the fade.
+    property bool staggered: false
+
+    Component.onCompleted: if (!root.staggered) enterAnimation.start();
+
+    ParallelAnimation {
+        id: enterAnimation
+
+        running: false
+
+        // Spatial, small and local, so the fast spring per docs/design/motion.md.
+        NumberAnimation {
+            target: root
+            property: "scale"
+            from: 0.94
+            to: 1
+            duration: Appearance.animation.elementMoveSmall.duration
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: Appearance.animation.elementMoveSmall.bezierCurve
+        }
+
+        NumberAnimation {
+            target: root
+            property: "opacity"
+            from: 0
+            to: 1
+            duration: Appearance.animation.elementMoveFast.duration
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
+        }
     }
 
     // ---- password prompt ----

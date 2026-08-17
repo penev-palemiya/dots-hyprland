@@ -160,13 +160,68 @@ Item {
         readonly property bool shown: root[shownPropertyString]
         anchors.fill: parent
 
-        onShownChanged: if (shown) toggleDialogLoader.active = true;
-        active: shown
-        onActiveChanged: {
-            if (active) {
-                item.show = true;
-                item.forceActiveFocus();
+        // Every use of this component declares its own `onShownChanged`, which
+        // replaces any handler declared in here — so mounting is driven by a
+        // binding and a Connections block, neither of which can be overridden.
+        // It also means `active` must never be assigned imperatively: that would
+        // destroy the binding for good.
+        property bool warmingUp: false
+        property bool closing: false // Kept mounted through the exit animation
+
+        active: toggleDialogLoader.shown || toggleDialogLoader.warmingUp || toggleDialogLoader.closing
+
+        Connections {
+            target: toggleDialogLoader
+
+            function onShownChanged() {
+                if (toggleDialogLoader.shown) {
+                    toggleDialogLoader.closing = false;
+                    // Already built (by the warm-up below), so onLoaded won't fire.
+                    if (toggleDialogLoader.item)
+                        toggleDialogLoader.reveal();
+                } else if (toggleDialogLoader.item) {
+                    toggleDialogLoader.closing = true;
+                    toggleDialogLoader.item.show = false;
+                }
             }
+        }
+
+        onLoaded: if (toggleDialogLoader.shown) toggleDialogLoader.reveal();
+
+        function reveal(): void {
+            item.forceActiveFocus();
+            item.show = true;
+        }
+
+        // Building a dialog — a list of rows, each with its own icons and text —
+        // costs several frames' worth of work, and doing it in the frame the open
+        // animation starts ate the first frames of that animation: a cold open
+        // measured 3-4 frames over 18ms while every later one measured none.
+        // `asynchronous: true` was tried and is worse (one 50-60ms spike instead
+        // of a few small ones), so instead it is built once up front, while
+        // nothing is on screen, and thrown away again — after which every real
+        // open is a warm one.
+        property bool warmedUp: false
+
+        Timer {
+            interval: 4000 // Long after startup, so this never competes with it
+            running: !toggleDialogLoader.warmedUp
+            onTriggered: {
+                toggleDialogLoader.warmedUp = true;
+                if (toggleDialogLoader.shown)
+                    return;
+                toggleDialogLoader.warmingUp = true;
+                warmReleaseTimer.restart();
+            }
+        }
+
+        // Held for a moment rather than released with Qt.callLater, so the Loader
+        // is certain to have built the item before the flag drops again.
+        Timer {
+            id: warmReleaseTimer
+
+            interval: 200
+            onTriggered: toggleDialogLoader.warmingUp = false
         }
         Connections {
             target: toggleDialogLoader.item
@@ -174,8 +229,11 @@ Item {
                 toggleDialogLoader.item.show = false
                 root[toggleDialogLoader.shownPropertyString] = false;
             }
+            // Torn down once the exit animation has actually finished. Clearing the
+            // flag rather than assigning `active` keeps the binding above intact.
             function onVisibleChanged() {
-                if (!toggleDialogLoader.item.visible && !root[toggleDialogLoader.shownPropertyString]) toggleDialogLoader.active = false;
+                if (!toggleDialogLoader.item.visible && !toggleDialogLoader.shown)
+                    toggleDialogLoader.closing = false;
             }
         }
     }

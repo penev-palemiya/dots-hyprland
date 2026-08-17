@@ -23,6 +23,9 @@ Rectangle {
 
     required property Flickable target
     property bool atStart: true
+    // Lets a dialog fold the divider into its own reveal instead of having it
+    // pop in at full strength while the content around it is still arriving.
+    property real revealOpacity: 1
 
     Layout.fillWidth: true
     // Full-bleed to the dialog's edges, like the M3 spec's dialog dividers.
@@ -33,7 +36,7 @@ Rectangle {
 
     implicitHeight: 1
     color: Appearance.colors.colOutlineVariant
-    opacity: root.atStart ? (root.target.atYBeginning ? 0 : 1) : (root.target.atYEnd ? 0 : 1)
+    opacity: root.revealOpacity * (root.atStart ? (root.target.atYBeginning ? 0 : 1) : (root.target.atYEnd ? 0 : 1))
 
     Behavior on opacity {
         animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(root)

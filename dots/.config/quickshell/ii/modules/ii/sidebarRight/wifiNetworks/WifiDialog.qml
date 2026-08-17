@@ -52,6 +52,11 @@ WindowDialog {
     readonly property real listContentHeight: Math.min(root.maxListHeight, networkColumn.implicitHeight)
     onListContentHeightChanged: root.listHeight = Math.max(root.listHeight, root.listContentHeight)
 
+    // Cascade lives in WindowDialog; this dialog only declares its steps:
+    // header, connected, saved, other, footer.
+    staggerContent: true
+    revealSections: 5
+
     function resortNetworks(): void {
         root.networkOrder = Network.friendlyWifiNetworks.slice();
     }
@@ -70,8 +75,8 @@ WindowDialog {
         }
     }
 
-    // Not an `onShowChanged` handler: WindowDialog declares one of its own, and a
-    // handler in a derived type would take its place.
+    // Not an `onShowChanged` handler: WindowDialog declares one of its own (it
+    // drives the cascade), and a handler in a derived type would take its place.
     Connections {
         target: root
 
@@ -103,12 +108,18 @@ WindowDialog {
     WindowDialogHeader {
         id: header
 
+        opacity: root.sectionOpacity(0)
+        transform: Translate {
+            y: root.sectionOffset(0)
+        }
+
         title: Translation.tr("Wi-Fi")
         subtitle: Network.wifiScanning ? Translation.tr("Scanning…") : root.rest.length > 0 ? Translation.tr("%1 nearby").arg(root.rest.length) : Translation.tr("No networks found")
 
         DialogIconButton {
             iconName: "refresh"
             enabled: !Network.wifiScanning
+            spinning: Network.wifiScanning
             onClicked: {
                 // An explicit refresh is the one moment reordering is expected —
                 // the user asked for a fresh picture.
@@ -129,7 +140,8 @@ WindowDialog {
         Layout.leftMargin: -root.contentPadding
         Layout.rightMargin: -root.contentPadding
 
-        opacity: Network.wifiScanning ? 1 : 0
+        // Part of the header block as far as the cascade is concerned.
+        opacity: root.sectionOpacity(0) * (Network.wifiScanning ? 1 : 0)
         // No point animating a bar nobody can see.
         indeterminate: Network.wifiScanning
 
@@ -141,6 +153,7 @@ WindowDialog {
     ScrollDivider {
         target: flickable
         atStart: true
+        revealOpacity: root.sectionOpacity(1)
     }
 
     Item {
@@ -167,6 +180,11 @@ WindowDialog {
                     visible: root.connectedNetwork !== null
                     spacing: 6
 
+                    opacity: root.sectionOpacity(1)
+                    transform: Translate {
+                        y: root.sectionOffset(1)
+                    }
+
                     ListSectionLabel {
                         text: Translation.tr("Connected")
                     }
@@ -177,17 +195,20 @@ WindowDialog {
                         wifiNetwork: root.connectedNetwork
                         indexInSection: 0
                         sectionCount: 1
+                        staggered: root.revealing
                     }
                 }
 
                 NetworkSection {
                     label: Translation.tr("Saved networks")
                     networks: root.savedNetworks
+                    revealIndex: 2
                 }
 
                 NetworkSection {
                     label: Translation.tr("Other networks")
                     networks: root.otherNetworks
+                    revealIndex: 3
                 }
             }
         }
@@ -197,6 +218,7 @@ WindowDialog {
     ScrollDivider {
         target: flickable
         atStart: false
+        revealOpacity: root.sectionOpacity(3)
     }
 
     component NetworkSection: ColumnLayout {
@@ -204,10 +226,16 @@ WindowDialog {
 
         required property string label
         required property var networks
+        required property int revealIndex
 
         Layout.fillWidth: true
         visible: section.networks.length > 0
         spacing: 6
+
+        opacity: root.sectionOpacity(section.revealIndex)
+        transform: Translate {
+            y: root.sectionOffset(section.revealIndex)
+        }
 
         ListSectionLabel {
             text: section.label
@@ -230,6 +258,7 @@ WindowDialog {
                     wifiNetwork: modelData
                     indexInSection: index
                     sectionCount: section.networks.length
+                    staggered: root.revealing
                 }
             }
         }
@@ -237,6 +266,11 @@ WindowDialog {
 
     WindowDialogButtonRow {
         id: footer
+
+        opacity: root.sectionOpacity(4)
+        transform: Translate {
+            y: root.sectionOffset(4)
+        }
 
         DialogButton {
             buttonText: Translation.tr("Details")
