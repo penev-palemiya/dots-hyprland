@@ -871,6 +871,8 @@
   "Other networks": "Інші мережі",
   "Forget": "Забути",
   "Forget this network? Its saved password will be removed.": "Забути цю мережу? Збережений пароль буде видалено.",
+  "Forget this device? It will need to be paired again.": "Забути цей пристрій? Його потрібно буде створити пару знову.",
+  "Disconnecting…": "Відключення…",
   "%1 nearby": "%1 поруч",
   "%1 connected": "Підключено: %1",
   "Nothing connected": "Нічого не підключено"

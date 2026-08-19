@@ -141,6 +141,7 @@ WindowDialog {
                             device: modelData
                             indexInSection: index
                             sectionCount: section.devices.length
+                            staggered: root.revealing
                         }
                     }
                 }
