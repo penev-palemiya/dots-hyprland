@@ -31,6 +31,50 @@ WindowDialog {
     readonly property var savedDevices: BluetoothStatus.pairedButNotConnectedDevices
     readonly property var nearbyDevices: BluetoothStatus.unpairedDevices
 
+    // Pauses discovery for the duration of any pair/connect operation happening
+    // anywhere in this dialog, and restores it after - tracked here rather than on
+    // whichever row started the operation, since that row's delegate can be
+    // destroyed and recreated mid-operation (see BluetoothStatus.anyDevicePairingOrConnecting).
+    //
+    // The specific adapter instance that was paused is remembered (not just a
+    // boolean), and resumed on that same instance - never on whatever
+    // Bluetooth.defaultAdapter happens to resolve to when the operation ends, which
+    // could by then be a different physical adapter. QML object-type properties are
+    // reset to null automatically if the referenced QObject is destroyed (e.g. the
+    // adapter is unplugged before the operation ends), so this can't dereference a
+    // dangling adapter either.
+    property BluetoothAdapter pausedAdapter: null
+    Connections {
+        target: BluetoothStatus
+        function onAnyDevicePairingOrConnectingChanged() {
+            // `show` goes false the instant the dialog is dismissed, well before
+            // ToggleDialog's close animation finishes or this item is actually
+            // destroyed (it stays mounted through both - see onShowChanged below).
+            // Without this gate, an operation that outlives the close animation
+            // would find this watcher still alive and turn discovery back on for a
+            // dialog the user already left.
+            if (!root.show)
+                return;
+            if (BluetoothStatus.anyDevicePairingOrConnecting) {
+                const adapter = Bluetooth.defaultAdapter;
+                if (adapter && adapter.discovering && !root.pausedAdapter) {
+                    root.pausedAdapter = adapter;
+                    adapter.discovering = false;
+                }
+            } else if (root.pausedAdapter) {
+                const adapter = root.pausedAdapter;
+                root.pausedAdapter = null;
+                adapter.discovering = true;
+            }
+        }
+    }
+
+    // Dismissing the dialog permanently cancels any pending resume, rather than
+    // leaving it for a background operation to act on later. This is what makes the
+    // `!root.show` gate above airtight even if this property were somehow left set
+    // from before the dialog closed.
+    onShowChanged: if (!root.show) root.pausedAdapter = null;
+
     WindowDialogHeader {
         id: header
 
@@ -41,6 +85,12 @@ WindowDialog {
 
         title: Translation.tr("Bluetooth")
         subtitle: {
+            if (!Bluetooth.defaultAdapter)
+                return Translation.tr("No Bluetooth adapter found");
+            if (BluetoothStatus.blocked)
+                return Translation.tr("Blocked (airplane mode / rfkill)");
+            if (!BluetoothStatus.enabled)
+                return Translation.tr("Turned off");
             if (root.discovering)
                 return Translation.tr("Scanning…");
             const n = root.connectedDevices.length;
@@ -55,9 +105,11 @@ WindowDialog {
         DialogIconButton {
             iconName: "bluetooth_searching"
             toggledOn: root.discovering
+            enabled: BluetoothStatus.enabled
             onClicked: {
-                if (Bluetooth.defaultAdapter)
-                    Bluetooth.defaultAdapter.discovering = !Bluetooth.defaultAdapter.discovering;
+                const adapter = Bluetooth.defaultAdapter;
+                if (adapter)
+                    adapter.discovering = !adapter.discovering;
             }
         }
     }
