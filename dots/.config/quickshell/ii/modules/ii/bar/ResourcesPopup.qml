@@ -363,7 +363,9 @@ StyledPopup {
                     title: Translation.tr("GPU")
                     symbol: "monitor"
                     value: GpuUsage.statsAvailable
-                        ? `${Math.round(GpuUsage.usage * 100)}% • ${Math.round(GpuUsage.temp)}°C`
+                        ? (GpuUsage.tempAvailable
+                            ? `${Math.round(GpuUsage.usage * 100)}% • ${Math.round(GpuUsage.temp)}°C`
+                            : `${Math.round(GpuUsage.usage * 100)}%`)
                         : Translation.tr("Stats unavailable")
                     percentage: GpuUsage.statsAvailable ? GpuUsage.usage : -1
                     warning: GpuUsage.statsAvailable && GpuUsage.usage * 100 >= Config.options.bar.resources.gpuWarningThreshold
