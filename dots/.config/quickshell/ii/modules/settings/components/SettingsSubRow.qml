@@ -13,7 +13,9 @@ SettingsRow {
 
     property real indent: 34 + 16 // icon column + row spacing, matches SettingsRow
 
-    horizontalPadding: 20 + indent
+    // Only the left edge moves in - the trailing control stays flush with the
+    // right edge like every other row's.
+    leftPadding: 20 + indent
     minimumHeight: 52
     // Nested rows are usually details of the setting above, and surfacing them
     // as standalone search hits would be more noise than help.

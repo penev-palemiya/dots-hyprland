@@ -33,7 +33,12 @@ Rectangle {
     property bool clickable: false
     property bool registerInSearch: true
 
+    // Split so a sub-row can push its text in from the left (to line up under
+    // the row above) without also pushing its trailing control in from the
+    // right - the two edges have no reason to move together.
     property real horizontalPadding: 20
+    property real leftPadding: root.horizontalPadding
+    property real rightPadding: root.horizontalPadding
     property real verticalPadding: 14
     property real iconColumnWidth: 34
     property real minimumHeight: 60
@@ -57,7 +62,7 @@ Rectangle {
     clip: true
 
     Layout.fillWidth: true
-    implicitWidth: rowLayout.implicitWidth + root.horizontalPadding * 2
+    implicitWidth: rowLayout.implicitWidth + root.leftPadding + root.rightPadding
     implicitHeight: Math.max(root.minimumHeight, rowLayout.implicitHeight + root.verticalPadding * 2)
 
     // Pulsed by the search results list so a jumped-to setting is easy to spot.
@@ -119,8 +124,8 @@ Rectangle {
             left: parent.left
             right: parent.right
             verticalCenter: parent.verticalCenter
-            leftMargin: root.horizontalPadding
-            rightMargin: root.horizontalPadding
+            leftMargin: root.leftPadding
+            rightMargin: root.rightPadding
         }
         spacing: 16
 
