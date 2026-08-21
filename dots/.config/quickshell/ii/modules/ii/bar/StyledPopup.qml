@@ -13,8 +13,8 @@ import Quickshell.Wayland
  * (see IslandOverlay.qml and docs/design/motion.md):
  *
  * 1. The surface itself grows. `popupBackground` is a real Rectangle whose
- *    height (or width, on a vertical bar) animates from 0 — it is NOT a
- *    full-size rectangle revealed by a moving clip edge, which is what this
+ *    height animates from 0 — it is NOT a full-size rectangle revealed by a
+ *    moving clip edge, which is what this
  *    used to do. Two things were wrong with the clip: the rounded corners on
  *    the growing edge only appeared at the very end (until then the popup had
  *    a hard straight edge), and a spatial spring's overshoot was invisible,
@@ -92,10 +92,10 @@ LazyLoader {
 
         color: "transparent"
 
-        anchors.left: !Config.options.bar.vertical || (Config.options.bar.vertical && !Config.options.bar.bottom)
-        anchors.right: Config.options.bar.vertical && Config.options.bar.bottom
-        anchors.top: Config.options.bar.vertical || (!Config.options.bar.vertical && !Config.options.bar.bottom)
-        anchors.bottom: !Config.options.bar.vertical && Config.options.bar.bottom
+        anchors.left: true
+        anchors.right: false
+        anchors.top: !Config.options.bar.bottom
+        anchors.bottom: Config.options.bar.bottom
 
         implicitWidth: popupSurface.implicitWidth + Appearance.sizes.elevationMargin * 2 + root.popupBackgroundMargin
         implicitHeight: popupSurface.implicitHeight + Appearance.sizes.elevationMargin * 2 + root.popupBackgroundMargin
@@ -123,21 +123,11 @@ LazyLoader {
         exclusiveZone: 0
         margins {
             left: {
-                if (!Config.options.bar.vertical) {
-                    if (!root.QsWindow || !root.hoverTarget)
-                        return 0;
-                    return root.QsWindow.mapFromItem(root.hoverTarget, (root.hoverTarget.width - popupSurface.implicitWidth) / 2, 0).x;
-                }
-                return Appearance.sizes.verticalBarWidth;
-            }
-            top: {
-                if (!Config.options.bar.vertical)
-                    return Appearance.sizes.barHeight;
                 if (!root.QsWindow || !root.hoverTarget)
                     return 0;
-                return root.QsWindow.mapFromItem(root.hoverTarget, (root.hoverTarget.height - popupSurface.implicitHeight) / 2, 0).y;
+                return root.QsWindow.mapFromItem(root.hoverTarget, (root.hoverTarget.width - popupSurface.implicitWidth) / 2, 0).x;
             }
-            right: Appearance.sizes.verticalBarWidth
+            top: Appearance.sizes.barHeight
             bottom: Appearance.sizes.barHeight
         }
         WlrLayershell.namespace: "quickshell:popup"
@@ -260,13 +250,11 @@ LazyLoader {
 
                 // The growing edge is the one away from the bar, so the popup
                 // unfolds out of it instead of sliding as a whole.
-                width: Config.options.bar.vertical ? popupSurface.implicitWidth * popupSurface.motionProgress : popupSurface.implicitWidth
-                height: Config.options.bar.vertical ? popupSurface.implicitHeight : popupSurface.implicitHeight * popupSurface.motionProgress
+                width: popupSurface.implicitWidth
+                height: popupSurface.implicitHeight * popupSurface.motionProgress
 
-                anchors.left: Config.options.bar.vertical && popupWindow.anchors.left ? parent.left : undefined
-                anchors.right: Config.options.bar.vertical && popupWindow.anchors.right ? parent.right : undefined
-                anchors.top: !Config.options.bar.vertical && popupWindow.anchors.top ? parent.top : undefined
-                anchors.bottom: !Config.options.bar.vertical && popupWindow.anchors.bottom ? parent.bottom : undefined
+                anchors.top: popupWindow.anchors.top ? parent.top : undefined
+                anchors.bottom: popupWindow.anchors.bottom ? parent.bottom : undefined
 
                 color: Appearance.m3colors.m3surfaceContainer
                 radius: Appearance.rounding.small
@@ -285,12 +273,9 @@ LazyLoader {
 
                     // Pinned to whichever edge the surface grows out of, so the
                     // content doesn't drift while the shape expands.
-                    anchors.left: Config.options.bar.vertical && popupWindow.anchors.left ? parent.left : undefined
-                    anchors.right: Config.options.bar.vertical && popupWindow.anchors.right ? parent.right : undefined
-                    anchors.top: !Config.options.bar.vertical && popupWindow.anchors.top ? parent.top : undefined
-                    anchors.bottom: !Config.options.bar.vertical && popupWindow.anchors.bottom ? parent.bottom : undefined
-                    anchors.horizontalCenter: Config.options.bar.vertical ? undefined : parent.horizontalCenter
-                    anchors.verticalCenter: Config.options.bar.vertical ? parent.verticalCenter : undefined
+                    anchors.top: popupWindow.anchors.top ? parent.top : undefined
+                    anchors.bottom: popupWindow.anchors.bottom ? parent.bottom : undefined
+                    anchors.horizontalCenter: parent.horizontalCenter
                     anchors.margins: popupSurface.margin
 
                     children: [root.contentItem]

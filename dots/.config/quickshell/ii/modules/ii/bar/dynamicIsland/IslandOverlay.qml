@@ -48,10 +48,10 @@ LazyLoader {
         id: overlayWindow
         color: "transparent"
 
-        anchors.left: !Config.options.bar.vertical || (Config.options.bar.vertical && !Config.options.bar.bottom)
-        anchors.right: Config.options.bar.vertical && Config.options.bar.bottom
-        anchors.top: Config.options.bar.vertical || (!Config.options.bar.vertical && !Config.options.bar.bottom)
-        anchors.bottom: !Config.options.bar.vertical && Config.options.bar.bottom
+        anchors.left: true
+        anchors.right: false
+        anchors.top: !Config.options.bar.bottom
+        anchors.bottom: Config.options.bar.bottom
 
         // No elevation margin, no shadow: this panel isn't a floating card
         // in its own right, it's the pill's own shape continuing downward —

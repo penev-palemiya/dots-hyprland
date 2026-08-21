@@ -20,7 +20,6 @@ ButtonMouseArea {
         monitor: root.monitor
     }
 
-    property bool vertical: Config.options.bar.vertical
     property bool superPressAndHeld: false // Relevant modifications at bottom of file
 
     property real workspaceButtonWidth: 26
@@ -33,12 +32,12 @@ ButtonMouseArea {
     property int workspaceIndexInGroup: (monitor?.activeWorkspace?.id - 1) % wsModel.shownCount
     property real specialTextSize: workspaceButtonWidth * 0.5
 
-    Layout.alignment: vertical ? Qt.AlignHCenter : Qt.AlignVCenter
-    Layout.fillWidth: vertical
-    Layout.fillHeight: !vertical
-    readonly property real barThickness: vertical ? Appearance.sizes.verticalBarWidth : Appearance.sizes.barHeight
-    implicitWidth: vertical ? barThickness : occupiedIndicators.implicitWidth
-    implicitHeight: vertical ? occupiedIndicators.implicitHeight : barThickness
+    Layout.alignment: Qt.AlignVCenter
+    Layout.fillWidth: false
+    Layout.fillHeight: true
+    readonly property real barThickness: Appearance.sizes.barHeight
+    implicitWidth: occupiedIndicators.implicitWidth
+    implicitHeight: barThickness
 
     property real specialBlur: (wsModel.specialWorkspaceActive && !containsMouse) ? 1 : 0
     Behavior on specialBlur {
@@ -48,10 +47,7 @@ ButtonMouseArea {
     // Interactions
     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.BackButton
     hoverEnabled: true
-    property int hoverIndex: {
-        const position = root.vertical ? mouseY : mouseX;
-        return Math.floor(position / root.workspaceButtonWidth);
-    }
+    property int hoverIndex: Math.floor(mouseX / root.workspaceButtonWidth)
 
     // Pinned hover slot: only advances while hovering, so the hover indicator
     // freezes in place (instead of flying back to the active workspace) once
@@ -150,12 +146,11 @@ ButtonMouseArea {
                         property real undirectionalWidth: root.workspaceButtonWidth * wsBg.currentOccupied
                         property real undirectionalLength: root.workspaceButtonWidth * (1 + 0.5 * wsBg.previousOccupied + 0.5 * wsBg.nextOccupied) * currentOccupied
                         property real undirectionalOffset: (!wsBg.currentOccupied ? 0.5 : -0.5 * wsBg.previousOccupied) * root.workspaceButtonWidth
-                        anchors.verticalCenter: root.vertical ? undefined : parent.verticalCenter
-                        anchors.horizontalCenter: root.vertical ? parent.horizontalCenter : undefined
-                        x: root.vertical ? 0 : undirectionalOffset
-                        y: root.vertical ? undirectionalOffset : 0
-                        implicitWidth: root.vertical ? undirectionalWidth : undirectionalLength
-                        implicitHeight: root.vertical ? undirectionalLength : undirectionalWidth
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: undirectionalOffset
+                        y: 0
+                        implicitWidth: undirectionalLength
+                        implicitHeight: undirectionalWidth
 
                         Behavior on undirectionalWidth {
                             animation: Appearance.animation.elementMoveSmall.numberAnimation.createObject(this)
@@ -325,21 +320,16 @@ ButtonMouseArea {
         sourceComponent: Pill {
             anchors.centerIn: parent
             property real undirectionalWidth: root.activeWorkspaceSize
-            property real undirectionalLength: {
-                const base = root.workspaceButtonWidth * Math.min(1.35, wsModel.shownCount); // Who tf only configures only 2 workspaces shown anyway?
-                if (root.vertical)
-                    return base;
-                return specialWsText.implicitWidth + undirectionalWidth;
-            }
+            property real undirectionalLength: specialWsText.implicitWidth + undirectionalWidth
             color: Appearance.colors.colPrimary
 
-            implicitWidth: root.vertical ? undirectionalWidth : undirectionalLength
-            implicitHeight: root.vertical ? undirectionalLength : undirectionalWidth
+            implicitWidth: undirectionalLength
+            implicitHeight: undirectionalWidth
 
             StyledText {
                 id: specialWsText
                 anchors.centerIn: parent
-                text: (!root.vertical ? wsModel.specialWorkspaceName : "S")
+                text: wsModel.specialWorkspaceName
                 color: Appearance.colors.colOnPrimary
                 font.pixelSize: root.specialTextSize
             }
@@ -378,22 +368,19 @@ ButtonMouseArea {
 
     component WorkspaceLayout: Box {
         anchors {
-            top: !root.vertical ? parent.top : undefined
-            bottom: !root.vertical ? parent.bottom : undefined
-            left: root.vertical ? parent.left : undefined
-            right: root.vertical ? parent.right : undefined
+            top: parent.top
+            bottom: parent.bottom
         }
 
         rowSpacing: 0
         columnSpacing: 0
-        vertical: root.vertical
     }
 
     component WorkspaceItem: Item {
         required property int index
         readonly property int wsId: wsModel.getWorkspaceIdAt(index)
-        implicitWidth: root.vertical ? root.barThickness : root.workspaceButtonWidth
-        implicitHeight: root.vertical ? root.workspaceButtonWidth : root.barThickness
+        implicitWidth: root.workspaceButtonWidth
+        implicitHeight: root.barThickness
     }
 
     component NumberWorkspaceItem: WorkspaceItem {
@@ -451,10 +438,7 @@ ButtonMouseArea {
         StyledRectangle {
             id: indicatorRect
 
-            anchors {
-                verticalCenter: root.vertical ? undefined : parent.verticalCenter
-                horizontalCenter: root.vertical ? parent.horizontalCenter : undefined
-            }
+            anchors.verticalCenter: parent.verticalCenter
 
             property real indicatorPosition: Math.min(idxPair.idx1, idxPair.idx2) * root.workspaceButtonWidth + root.activeWorkspaceMargin
             property real indicatorLength: Math.abs(idxPair.idx1 - idxPair.idx2) * root.workspaceButtonWidth + root.activeWorkspaceSize
@@ -464,10 +448,9 @@ ButtonMouseArea {
             radius: indicatorThickness / 2
             color: Appearance.colors.colPrimary
 
-            x: root.vertical ? null : indicatorPosition
-            y: root.vertical ? indicatorPosition : null
-            implicitWidth: root.vertical ? indicatorThickness : indicatorLength
-            implicitHeight: root.vertical ? indicatorLength : indicatorThickness
+            x: indicatorPosition
+            implicitWidth: indicatorLength
+            implicitHeight: indicatorThickness
         }
     }
 }

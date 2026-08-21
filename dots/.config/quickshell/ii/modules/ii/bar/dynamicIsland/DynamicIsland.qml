@@ -77,7 +77,7 @@ Item {
     readonly property color pillSurfaceColor: Config.options?.bar.borderless ? "transparent" : Appearance.colors.colLayer1
     readonly property color expandedSurfaceColor: root.computeExpandedSurfaceColor()
     readonly property real overlayLeftMargin: root.computeOverlayLeftMargin()
-    readonly property real overlayRightMargin: root.computeOverlayRightMargin()
+    readonly property real overlayRightMargin: 0
     readonly property real overlayTopMargin: root.computeOverlayTopMargin()
     readonly property real overlayBottomMargin: root.computeOverlayBottomMargin()
 
@@ -90,27 +90,15 @@ Item {
     }
 
     function computeOverlayLeftMargin() {
-        if (!Config.options.bar.vertical)
-            return root.pillScreenX;
-        return Config.options.bar.bottom ? 0 : root.pillScreenX + root.pillScreenWidth;
-    }
-
-    function computeOverlayRightMargin() {
-        if (!Config.options.bar.vertical || !Config.options.bar.bottom)
-            return 0;
-        return Math.max(0, root.screenWidth - root.pillScreenX);
+        return root.pillScreenX;
     }
 
     function computeOverlayTopMargin() {
-        if (!Config.options.bar.vertical)
-            return Config.options.bar.bottom ? 0 : root.pillScreenY + root.pillScreenHeight;
-        return root.pillScreenY;
+        return Config.options.bar.bottom ? 0 : root.pillScreenY + root.pillScreenHeight;
     }
 
     function computeOverlayBottomMargin() {
-        if (Config.options.bar.vertical || !Config.options.bar.bottom)
-            return 0;
-        return Math.max(0, root.screenHeight - root.pillScreenY);
+        return Config.options.bar.bottom ? Math.max(0, root.screenHeight - root.pillScreenY) : 0;
     }
 
     function refreshScreenPosition() {
