@@ -256,7 +256,12 @@ LazyLoader {
                 anchors.top: popupWindow.anchors.top ? parent.top : undefined
                 anchors.bottom: popupWindow.anchors.bottom ? parent.bottom : undefined
 
-                color: Appearance.m3colors.m3surfaceContainer
+                // Own fill is transparent: the wallpaper backdrop + tint below
+                // are what paint the surface, so the wallpaper shows through
+                // where colTint's alpha allows it. This Rectangle only still
+                // exists for the shape - radius, border, and the clip that
+                // reveals wallpaperBackdrop/colTint during the grow animation.
+                color: "transparent"
                 radius: Appearance.rounding.small
                 border.width: 1
                 border.color: Appearance.colors.colLayer0Border
@@ -264,6 +269,60 @@ LazyLoader {
                 // over it is what reveals it. Rounded corners stay correct
                 // throughout because this is the real shape, not a clip mask.
                 clip: true
+
+                // "Transparency" here deliberately isn't real window alpha
+                // (which would reveal whatever app happens to be behind the
+                // popup - a maximized editor, a random wallpaper-less window,
+                // etc). Instead, same idea as the lock screen's wallpaper blur
+                // (Background.qml): a blurred crop of the actual wallpaper,
+                // positioned to align with where this popup sits on screen, so
+                // the panel's colour is influenced by the wallpaper specifically
+                // - not by whatever's incidentally underneath.
+                Loader {
+                    anchors.fill: parent
+                    active: Config.options.appearance.transparency.enable
+                    asynchronous: true
+
+                    sourceComponent: Item {
+                        anchors.fill: parent
+
+                        // Absolute position of this Rectangle's final (fully
+                        // open) bounds on the monitor. Deliberately computed
+                        // from the FINAL size, not the animating one - same
+                        // reasoning as contentHost below being full-size from
+                        // the start and simply revealed by the growing clip.
+                        readonly property real screenX: popupWindow.margins.left + Appearance.sizes.elevationMargin
+                        readonly property real screenY: popupWindow.anchors.top
+                            ? (popupWindow.margins.top + Appearance.sizes.elevationMargin)
+                            : (popupWindow.screen.height - popupWindow.margins.bottom - Appearance.sizes.elevationMargin - popupSurface.implicitHeight)
+
+                        Image {
+                            id: wallpaperBackdrop
+                            x: -parent.screenX
+                            y: -parent.screenY
+                            width: popupWindow.screen.width
+                            height: popupWindow.screen.height
+                            source: Config.options.background.wallpaperPath
+                            fillMode: Image.PreserveAspectCrop
+                            cache: true
+                            asynchronous: true
+                            visible: false // only used as the blur's source texture
+                        }
+
+                        StyledBlurEffect {
+                            anchors.fill: parent
+                            source: wallpaperBackdrop
+                        }
+                    }
+                }
+
+                Rectangle { // Tint over the blurred wallpaper (or, if transparency
+                    // is off, the sole background - its own alpha already
+                    // reflects that: see Appearance.qml's contentTransparency).
+                    id: colorTint
+                    anchors.fill: parent
+                    color: Appearance.colors.colSurfaceContainer
+                }
 
                 Item {
                     id: contentHost

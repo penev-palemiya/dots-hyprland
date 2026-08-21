@@ -21,6 +21,7 @@ SettingsPage {
 
     function contentForKey(key) {
         switch (key) {
+        case "system-displays": return displaysPage;
         case "system-sound": return soundPage;
         case "system-power-battery": return powerBatteryPage;
         case "system-notifications": return notificationsPage;
@@ -40,6 +41,11 @@ SettingsPage {
         case "about-legal": return legalPage;
         default: return placeholderPage;
         }
+    }
+
+    Component {
+        id: displaysPage
+        DisplaysConfig {}
     }
 
     SettingsGroup {

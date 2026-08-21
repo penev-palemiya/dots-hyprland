@@ -11,8 +11,7 @@ import "displays/MonitorRules.js" as MonitorRules
 
 /**
  * A temporary display transaction. This service deliberately owns no
- * persistent configuration: confirmation only disarms the external rollback
- * guard. Saving a confirmed rule is a later phase.
+ * Confirmation commits only after persistent config reload and verification.
  */
 Singleton {
     id: root
@@ -67,8 +66,9 @@ Singleton {
         if (!previewActive || previewState !== "active")
             return false;
         previewState = "confirming";
-        guardProc.purpose = "confirm";
-        guardProc.command = ["python3", guardPath, "confirm", "--directory", transactionDirectory];
+        guardProc.purpose = "commit";
+        guardProc.command = ["python3", guardPath, "commit", "--directory", transactionDirectory,
+            "--rules-json", JSON.stringify(pendingDraft.rules)];
         guardProc.running = true;
         return true;
     }
@@ -127,6 +127,10 @@ Singleton {
         startSnapshot("verify");
     }
 
+    function verifyCommitted() {
+        startSnapshot("commit-verify");
+    }
+
     Timer {
         interval: 250
         repeat: true
@@ -142,6 +146,13 @@ Singleton {
         }
     }
 
+    Timer {
+        id: commitSettle
+        interval: 500
+        repeat: false
+        onTriggered: root.verifyCommitted()
+    }
+
     Process {
         id: snapshotProc
         property string purpose: ""
@@ -152,8 +163,8 @@ Singleton {
         }
         onExited: (exitCode, exitStatus) => {
             if (exitCode !== 0) {
-                if (snapshotProc.purpose === "verify" && root.transactionDirectory)
-                    root.revertPreview("verification-query-failed");
+                if ((snapshotProc.purpose === "verify" || snapshotProc.purpose === "commit-verify") && root.transactionDirectory)
+                    root.revertPreview(snapshotProc.purpose === "commit-verify" ? "commit-verification-query-failed" : "verification-query-failed");
                 else
                     root.failBeforeApply("snapshot-failed", "Could not read current monitor state before preview.", { exitCode });
                 return;
@@ -164,8 +175,8 @@ Singleton {
                 if (!Array.isArray(raw))
                     throw new Error("monitor response is not an array");
             } catch (exception) {
-                if (snapshotProc.purpose === "verify" && root.transactionDirectory)
-                    root.revertPreview("verification-invalid-json");
+                if ((snapshotProc.purpose === "verify" || snapshotProc.purpose === "commit-verify") && root.transactionDirectory)
+                    root.revertPreview(snapshotProc.purpose === "commit-verify" ? "commit-verification-invalid-json" : "verification-invalid-json");
                 else
                     root.failBeforeApply("snapshot-invalid-json", "Current monitor state was not valid JSON.", String(exception));
                 return;
@@ -174,11 +185,18 @@ Singleton {
             DisplaysService.commitMonitorJson(snapshotProc.output);
             if (snapshotProc.purpose === "begin")
                 root.armGuard(snapshotProc.output);
-            else if (snapshotProc.purpose === "verify") {
+            else if (snapshotProc.purpose === "verify" || snapshotProc.purpose === "commit-verify") {
                 const comparison = MonitorRules.compareDraftToLive(root.pendingDraft, raw);
                 if (!comparison.matches) {
-                    root.previewError = root.error("apply-verification-failed", "Hyprland did not apply the requested display state.", comparison);
-                    root.revertPreview("verification-mismatch");
+                    root.previewError = root.error(snapshotProc.purpose === "commit-verify" ? "commit-verification-failed" : "apply-verification-failed",
+                        "Hyprland did not apply the requested display state.", comparison);
+                    root.revertPreview(snapshotProc.purpose === "commit-verify" ? "commit-verification-mismatch" : "verification-mismatch");
+                    return;
+                }
+                if (snapshotProc.purpose === "commit-verify") {
+                    guardProc.purpose = "confirm";
+                    guardProc.command = ["python3", guardPath, "confirm", "--directory", transactionDirectory];
+                    guardProc.running = true;
                     return;
                 }
                 root.previewActive = true;
@@ -230,6 +248,8 @@ Singleton {
             } else if (guardProc.purpose === "apply") {
                 root.lastApplyResult = response;
                 root.verifyApplied();
+            } else if (guardProc.purpose === "commit") {
+                commitSettle.restart();
             } else if (guardProc.purpose === "confirm") {
                 root.finishIdle();
             } else if (guardProc.purpose === "revert") {
