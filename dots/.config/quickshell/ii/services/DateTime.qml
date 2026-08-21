@@ -41,11 +41,11 @@ Singleton {
         // Build the formatted uptime string
         let formatted = "";
         if (days > 0)
-            formatted += `${days}d`;
+            formatted += `${days}${Translation.tr("d")}`;
         if (hours > 0)
-            formatted += `${formatted ? ", " : ""}${hours}h`;
+            formatted += `${formatted ? ", " : ""}${hours}${Translation.tr("h")}`;
         if (minutes > 0 || !formatted)
-            formatted += `${formatted ? ", " : ""}${minutes}m`;
+            formatted += `${formatted ? ", " : ""}${minutes}${Translation.tr("m")}`;
         uptime = formatted;
     }
 
