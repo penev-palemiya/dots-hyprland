@@ -88,8 +88,13 @@ StyledFlickable {
 
                         StyledText {
                             readonly property var context: SettingsSearch.resolveContext(modelData.target)
-                            text: context.section.length > 0 ?
-                                `${context.pageName} · ${context.section}` : context.pageName
+                            text: {
+                                const location = context.subPageTitle.length > 0
+                                    ? `${context.pageName} · ${context.subPageTitle}`
+                                    : context.pageName;
+                                return context.section.length > 0
+                                    ? `${location} · ${context.section}` : location;
+                            }
                             font.pixelSize: Appearance.font.pixelSize.smaller
                             color: Appearance.colors.colSubtext
                         }

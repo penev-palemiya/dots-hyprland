@@ -61,15 +61,27 @@ Singleton {
         return 0;
     }
 
-    // Walks up from a registered row to whatever page/group it sits in.
+    // Walks up from a registered row to whatever page/group/detail page it
+    // sits in. Done lazily because a top-level page only learns its own index
+    // after its Loader has finished loading it.
     // Done lazily rather than at registration time because a page only learns
     // its own index after its Loader has finished loading it.
     function resolveContext(target) {
-        const context = { "pageIndex": -1, "pageName": "", "section": "" };
+        const context = {
+            "pageIndex": -1,
+            "pageName": "",
+            "section": "",
+            "subPageKey": "",
+            "subPageTitle": ""
+        };
         let node = target;
         while (node) {
             if (context.section.length === 0 && node.settingsSectionTitle)
                 context.section = node.settingsSectionTitle;
+            if (context.subPageKey.length === 0 && node.settingsSubPageKey !== undefined) {
+                context.subPageKey = node.settingsSubPageKey;
+                context.subPageTitle = node.settingsSubPageTitle ?? "";
+            }
             if (node.settingsPageIndex !== undefined && node.settingsPageIndex >= 0) {
                 context.pageIndex = node.settingsPageIndex;
                 context.pageName = node.settingsPageName ?? "";

@@ -22,53 +22,203 @@ ApplicationWindow {
 
     property var pages: [
         {
-            name: Translation.tr("Quick"),
-            subtitle: Translation.tr("Wallpaper, colors, bar"),
-            icon: "instant_mix",
-            component: "modules/settings/QuickConfig.qml"
+            key: "system",
+            name: Translation.tr("System"),
+            subtitle: Translation.tr("Sound, battery, notifications"),
+            icon: "computer",
+            entries: [
+                { key: "system-displays", name: Translation.tr("Displays"), icon: "monitor" },
+                { key: "system-sound", name: Translation.tr("Sound"), icon: "volume_up" },
+                { key: "system-power-battery", name: Translation.tr("Power & Battery"), icon: "battery_full" },
+                { key: "system-notifications", name: Translation.tr("Notifications"), icon: "notifications" },
+                { key: "system-date-time", name: Translation.tr("Date & Time"), icon: "schedule" },
+                { key: "system-language-region", name: Translation.tr("Language & Region"), icon: "language" },
+                { key: "system-storage", name: Translation.tr("Storage"), icon: "hard_drive" },
+                { key: "system-info", name: Translation.tr("System Info"), icon: "info" }
+            ],
+            component: "modules/settings/SettingsCatalog.qml"
         },
         {
-            name: Translation.tr("General"),
-            subtitle: Translation.tr("Language, audio, battery, time"),
-            icon: "browse",
-            component: "modules/settings/GeneralConfig.qml"
+            key: "connectivity",
+            name: Translation.tr("Connectivity"),
+            subtitle: Translation.tr("Wi-Fi, Bluetooth, VPN"),
+            icon: "wifi",
+            entries: [
+                { key: "connectivity-wifi", name: Translation.tr("Wi-Fi"), icon: "wifi" },
+                { key: "connectivity-ethernet", name: Translation.tr("Ethernet"), icon: "lan" },
+                { key: "connectivity-bluetooth", name: Translation.tr("Bluetooth"), icon: "bluetooth" },
+                { key: "connectivity-vpn", name: Translation.tr("VPN"), icon: "vpn_key" },
+                { key: "connectivity-proxy", name: Translation.tr("Proxy"), icon: "settings_ethernet" },
+                { key: "connectivity-hotspot", name: Translation.tr("Hotspot"), icon: "wifi_tethering" }
+            ],
+            component: "modules/settings/SettingsCatalog.qml"
         },
         {
-            name: Translation.tr("Bar"),
-            subtitle: Translation.tr("Position, tray, workspaces"),
-            icon: "toast",
-            iconRotation: 180,
-            component: "modules/settings/BarConfig.qml"
+            key: "devices",
+            name: Translation.tr("Devices"),
+            subtitle: Translation.tr("Keyboard, mouse, printers"),
+            icon: "devices",
+            entries: [
+                { key: "devices-keyboard", name: Translation.tr("Keyboard"), icon: "keyboard" },
+                { key: "devices-mouse-touchpad", name: Translation.tr("Mouse & Touchpad"), icon: "mouse" },
+                { key: "devices-printers", name: Translation.tr("Printers"), icon: "print" },
+                { key: "devices-game-controllers", name: Translation.tr("Game Controllers"), icon: "sports_esports" },
+                { key: "devices-other", name: Translation.tr("Other Devices"), icon: "devices_other" }
+            ],
+            component: "modules/settings/SettingsCatalog.qml"
         },
         {
-            name: Translation.tr("Background"),
-            subtitle: Translation.tr("Clock, weather, parallax"),
-            icon: "texture",
-            component: "modules/settings/BackgroundConfig.qml"
+            key: "personalization",
+            name: Translation.tr("Personalization"),
+            subtitle: Translation.tr("Appearance, fonts, wallpaper"),
+            icon: "palette",
+            entries: [
+                { key: "personalization-appearance", name: Translation.tr("Appearance"), icon: "contrast" },
+                { key: "personalization-colors", name: Translation.tr("Colors"), icon: "colors" },
+                { key: "personalization-fonts", name: Translation.tr("Fonts"), icon: "font_download" },
+                { key: "personalization-wallpaper", name: Translation.tr("Wallpaper"), icon: "wallpaper" },
+                { key: "personalization-lock-screen", name: Translation.tr("Lock Screen"), icon: "lock" },
+                { key: "personalization-effects-animations", name: Translation.tr("Effects & Animations"), icon: "animation" }
+            ],
+            component: "modules/settings/SettingsCatalog.qml"
         },
         {
-            name: Translation.tr("Interface"),
-            subtitle: Translation.tr("Dock, lock screen, overlays"),
-            icon: "bottom_app_bar",
-            component: "modules/settings/InterfaceConfig.qml"
+            key: "desktop-shell",
+            name: Translation.tr("Desktop & Shell"),
+            subtitle: Translation.tr("Bar, workspaces, widgets"),
+            icon: "dashboard",
+            entries: [
+                { key: "desktop-shell-bar-tray", name: Translation.tr("Bar & Tray"), icon: "toast" },
+                { key: "desktop-shell-dock", name: Translation.tr("Dock"), icon: "bottom_app_bar" },
+                { key: "desktop-shell-workspaces", name: Translation.tr("Workspaces"), icon: "workspaces" },
+                { key: "desktop-shell-overview", name: Translation.tr("Overview"), icon: "overview" },
+                { key: "desktop-shell-desktop-widgets", name: Translation.tr("Desktop Widgets"), icon: "widgets" },
+                { key: "desktop-shell-sidebars", name: Translation.tr("Sidebars"), icon: "side_navigation" },
+                { key: "desktop-shell-quick-settings", name: Translation.tr("Quick Settings"), icon: "instant_mix" },
+                { key: "desktop-shell-hot-corners", name: Translation.tr("Hot Corners"), icon: "rounded_corner" },
+                { key: "desktop-shell-shortcuts", name: Translation.tr("Shortcuts"), icon: "keyboard_command_key" }
+            ],
+            component: "modules/settings/SettingsCatalog.qml"
         },
         {
-            name: Translation.tr("Services"),
-            subtitle: Translation.tr("Search, network, updates"),
-            icon: "settings",
-            component: "modules/settings/ServicesConfig.qml"
+            key: "apps",
+            name: Translation.tr("Apps"),
+            subtitle: Translation.tr("Defaults, startup, permissions"),
+            icon: "apps",
+            entries: [
+                { key: "apps-default", name: Translation.tr("Default Apps"), icon: "select_window" },
+                { key: "apps-startup", name: Translation.tr("Startup Apps"), icon: "rocket_launch" },
+                { key: "apps-installed", name: Translation.tr("Installed Apps"), icon: "deployed_code" },
+                { key: "apps-permissions", name: Translation.tr("App Permissions"), icon: "admin_panel_settings" },
+                { key: "apps-file-associations", name: Translation.tr("File Associations"), icon: "file_present" }
+            ],
+            component: "modules/settings/SettingsCatalog.qml"
         },
         {
+            key: "search-tools",
+            name: Translation.tr("Search & Tools"),
+            subtitle: Translation.tr("Search, clipboard, screenshots"),
+            icon: "search",
+            entries: [
+                { key: "search-tools-search", name: Translation.tr("Search"), icon: "search" },
+                { key: "search-tools-clipboard", name: Translation.tr("Clipboard"), icon: "content_paste" },
+                { key: "search-tools-screenshots", name: Translation.tr("Screenshots"), icon: "screenshot_monitor" },
+                { key: "search-tools-screen-recording", name: Translation.tr("Screen Recording"), icon: "videocam" },
+                { key: "search-tools-region-selection", name: Translation.tr("Region Selection"), icon: "select" },
+                { key: "search-tools-color-picker", name: Translation.tr("Color Picker"), icon: "colorize" },
+                { key: "search-tools-translator", name: Translation.tr("Translator"), icon: "translate" },
+                { key: "search-tools-other", name: Translation.tr("Other Tools"), icon: "construction" }
+            ],
+            component: "modules/settings/SettingsCatalog.qml"
+        },
+        {
+            key: "privacy-security",
+            name: Translation.tr("Privacy & Security"),
+            subtitle: Translation.tr("Lock, auth, privacy"),
+            icon: "shield_lock",
+            entries: [
+                { key: "privacy-security-screen-lock", name: Translation.tr("Screen Lock"), icon: "lock" },
+                { key: "privacy-security-authentication", name: Translation.tr("Authentication"), icon: "passkey" },
+                { key: "privacy-security-fingerprint", name: Translation.tr("Fingerprint"), icon: "fingerprint" },
+                { key: "privacy-security-keyring", name: Translation.tr("Keyring"), icon: "key" },
+                { key: "privacy-security-location", name: Translation.tr("Location"), icon: "location_on" },
+                { key: "privacy-security-camera", name: Translation.tr("Camera"), icon: "photo_camera" },
+                { key: "privacy-security-microphone", name: Translation.tr("Microphone"), icon: "mic" },
+                { key: "privacy-security-screen-capture", name: Translation.tr("Screen Capture"), icon: "capture" },
+                { key: "privacy-security-activity-history", name: Translation.tr("Activity & History"), icon: "history" },
+                { key: "privacy-security-privacy", name: Translation.tr("Privacy"), icon: "privacy_tip" }
+            ],
+            component: "modules/settings/SettingsCatalog.qml"
+        },
+        {
+            key: "accessibility",
+            name: Translation.tr("Accessibility"),
+            subtitle: Translation.tr("Vision, input, motion"),
+            icon: "accessibility_new",
+            entries: [
+                { key: "accessibility-vision", name: Translation.tr("Vision"), icon: "visibility" },
+                { key: "accessibility-hearing", name: Translation.tr("Hearing"), icon: "hearing" },
+                { key: "accessibility-keyboard", name: Translation.tr("Keyboard"), icon: "keyboard" },
+                { key: "accessibility-pointer", name: Translation.tr("Pointer"), icon: "ads_click" },
+                { key: "accessibility-text-scaling", name: Translation.tr("Text & Scaling"), icon: "format_size" },
+                { key: "accessibility-motion", name: Translation.tr("Motion"), icon: "animation" }
+            ],
+            component: "modules/settings/SettingsCatalog.qml"
+        },
+        {
+            key: "accounts",
+            name: Translation.tr("Accounts"),
+            subtitle: Translation.tr("User, profile, login"),
+            icon: "account_circle",
+            entries: [
+                { key: "accounts-user", name: Translation.tr("User Account"), icon: "person" },
+                { key: "accounts-profile", name: Translation.tr("Profile"), icon: "badge" },
+                { key: "accounts-password", name: Translation.tr("Password"), icon: "password" },
+                { key: "accounts-login", name: Translation.tr("Login"), icon: "login" }
+            ],
+            component: "modules/settings/SettingsCatalog.qml"
+        },
+        {
+            key: "updates",
+            name: Translation.tr("Updates"),
+            subtitle: Translation.tr("System update status"),
+            icon: "deployed_code_update",
+            entries: [
+                { key: "updates-system", name: Translation.tr("System Updates"), icon: "system_update" },
+                { key: "updates-settings", name: Translation.tr("Update Settings"), icon: "update" },
+                { key: "updates-history", name: Translation.tr("Update History"), icon: "history" }
+            ],
+            component: "modules/settings/SettingsCatalog.qml"
+        },
+        {
+            key: "advanced",
             name: Translation.tr("Advanced"),
-            subtitle: Translation.tr("Color generation internals"),
+            subtitle: Translation.tr("Performance, diagnostics, config"),
             icon: "construction",
-            component: "modules/settings/AdvancedConfig.qml"
+            entries: [
+                { key: "advanced-performance", name: Translation.tr("Performance"), icon: "speed" },
+                { key: "advanced-power-management", name: Translation.tr("Power Management"), icon: "power_settings_new" },
+                { key: "advanced-compatibility", name: Translation.tr("Compatibility"), icon: "extension" },
+                { key: "advanced-experimental", name: Translation.tr("Experimental"), icon: "experiment" },
+                { key: "advanced-developer", name: Translation.tr("Developer"), icon: "code" },
+                { key: "advanced-diagnostics", name: Translation.tr("Diagnostics"), icon: "troubleshoot" },
+                { key: "advanced-configuration", name: Translation.tr("Configuration"), icon: "settings_applications" }
+            ],
+            component: "modules/settings/SettingsCatalog.qml"
         },
         {
+            key: "about",
             name: Translation.tr("About"),
-            subtitle: Translation.tr("Distro and dotfiles info"),
+            subtitle: Translation.tr("Device, software, support"),
             icon: "info",
-            component: "modules/settings/About.qml"
+            entries: [
+                { key: "about-device", name: Translation.tr("Device"), icon: "devices" },
+                { key: "about-hardware", name: Translation.tr("Hardware"), icon: "memory" },
+                { key: "about-software", name: Translation.tr("Software"), icon: "deployed_code" },
+                { key: "about-support", name: Translation.tr("Support"), icon: "support_agent" },
+                { key: "about-legal", name: Translation.tr("Legal"), icon: "policy" }
+            ],
+            component: "modules/settings/SettingsCatalog.qml"
         }
     ]
     property int currentPage: 0
@@ -336,6 +486,12 @@ ApplicationWindow {
                                         item.settingsPageIndex = index;
                                     if (item.settingsPageName !== undefined)
                                         item.settingsPageName = modelData.name;
+                                    if (item.pageTitle !== undefined)
+                                        item.pageTitle = modelData.name;
+                                    if (item.pageKey !== undefined)
+                                        item.pageKey = modelData.key ?? "";
+                                    if (item.menuEntries !== undefined)
+                                        item.menuEntries = modelData.entries ?? [];
                                 }
                             }
                         }
