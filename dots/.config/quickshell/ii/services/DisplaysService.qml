@@ -23,6 +23,9 @@ Singleton {
     readonly property var disabledMonitors: monitors.filter(monitor => !monitor.enabled)
     readonly property int activeCount: activeMonitors.length
     readonly property bool hasMultipleDisplays: activeCount > 1
+    // Connected-output identity only; focus and configuration refreshes do not
+    // change it. Preview uses this to detect physical hotplug/removal.
+    readonly property string topologySignature: monitors.map(monitor => monitor.name).sort().join("\u001f")
 
     property bool loading: false
     property string lastError: ""

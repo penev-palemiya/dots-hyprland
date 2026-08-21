@@ -8,6 +8,8 @@ var MaxScale = 4.0;
 var ExtremeScaleLow = 0.75;
 var ExtremeScaleHigh = 2.5;
 var RefreshTolerance = 0.1;
+var PositionTolerance = 0.01;
+var ScaleTolerance = 0.001;
 
 function finiteNumber(value) {
     return typeof value === "number" && Number.isFinite(value);
@@ -323,4 +325,49 @@ function validateDraft(draft) {
     }
 
     return { valid: errors.length === 0, errors, warnings };
+}
+
+function liveMirrorName(monitor) {
+    return monitor.mirrorOf && monitor.mirrorOf !== "none" ? monitor.mirrorOf : "";
+}
+
+// Comparison is deliberately limited to properties phase 3 owns. VRR and
+// color/HDR fields are not compared or reset because their configured values
+// cannot be reconstructed from `monitors all`.
+function compareDraftToLive(draft, rawMonitors) {
+    var liveByOutput = {};
+    for (const monitor of rawMonitors ?? [])
+        liveByOutput[monitor.name] = monitor;
+
+    var differences = [];
+    for (const rule of draft?.rules ?? []) {
+        var live = liveByOutput[rule.output];
+        if (!live) {
+            differences.push({ output: rule.output, field: "output", expected: "present", actual: "missing" });
+            continue;
+        }
+        var enabled = !Boolean(live.disabled);
+        if (enabled !== Boolean(rule.enabled))
+            differences.push({ output: rule.output, field: "enabled", expected: Boolean(rule.enabled), actual: enabled });
+        if (!rule.enabled)
+            continue;
+        var checks = [
+            ["width", rule.mode?.width, live.width, 0],
+            ["height", rule.mode?.height, live.height, 0],
+            ["refreshRate", rule.mode?.refreshRate, live.refreshRate, RefreshTolerance],
+            ["x", rule.x, live.x, PositionTolerance],
+            ["y", rule.y, live.y, PositionTolerance],
+            ["scale", rule.scale, live.scale, ScaleTolerance],
+            ["transform", rule.transform, live.transform, 0],
+        ];
+        for (const check of checks) {
+            if (!finiteNumber(check[1]) || !finiteNumber(check[2]) || Math.abs(check[1] - check[2]) > check[3])
+                differences.push({ output: rule.output, field: check[0], expected: check[1], actual: check[2] });
+        }
+        var expectedMirror = rule.mirrorOf ?? "";
+        var actualMirror = liveMirrorName(live);
+        if (expectedMirror !== actualMirror)
+            differences.push({ output: rule.output, field: "mirrorOf", expected: expectedMirror, actual: actualMirror });
+    }
+    return { matches: differences.length === 0, differences };
 }
