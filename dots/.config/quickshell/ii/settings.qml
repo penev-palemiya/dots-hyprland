@@ -73,9 +73,24 @@ ApplicationWindow {
     ]
     property int currentPage: 0
 
-    visible: true
+    // Config and the real (wallpaper-derived) colors both load asynchronously.
+    // Appearance.m3colors starts out on a baked-in fallback palette, so a
+    // window shown before MaterialThemeLoader finishes paints with the wrong
+    // colors for a moment and then jumps to the right ones - visibly "two
+    // different designs". Waiting for both here means the window's first
+    // frame is already the final one. forceShow is a safety net: if either
+    // load hangs or fails in a way that never settles, the window still
+    // appears rather than staying invisible forever.
+    property bool forceShow: false
+    visible: (Config.ready && MaterialThemeLoader.themeApplied) || root.forceShow
     onClosing: Qt.quit()
     title: "illogical-impulse Settings"
+
+    Timer {
+        interval: 1500
+        running: true
+        onTriggered: root.forceShow = true
+    }
 
     Component.onCompleted: {
         MaterialThemeLoader.reapplyTheme();

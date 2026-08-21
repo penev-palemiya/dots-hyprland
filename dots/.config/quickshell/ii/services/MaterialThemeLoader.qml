@@ -14,6 +14,14 @@ import Quickshell.Hyprland
 Singleton {
     id: root
     property string filePath: Directories.generatedMaterialThemePath
+    // Flips true once the real (wallpaper-derived) colors have been applied at
+    // least once. Appearance.m3colors starts out holding a baked-in fallback
+    // snapshot, so a window that shows itself before this is true paints with
+    // the wrong palette for a moment and then jumps to the right one - this
+    // flag lets a window's `visible` binding wait out that jump instead of
+    // showing it. Standalone processes (e.g. the settings app, launched via
+    // `qs -p`) hit this every time since they don't share a warmed-up shell.
+    property bool themeApplied: false
 
     function reapplyTheme() {
         themeFileView.reload()
@@ -29,8 +37,9 @@ Singleton {
                 Appearance.m3colors[m3Key] = json[key]
             }
         }
-        
+
         Appearance.m3colors.darkmode = (Appearance.m3colors.m3background.hslLightness < 0.5)
+        root.themeApplied = true
     }
 
     function resetFilePathNextTime() {
@@ -70,7 +79,14 @@ Singleton {
             const fileContent = themeFileView.text()
             root.applyColors(fileContent)
         }
-        onLoadFailed: root.resetFilePathNextTime();
+        onLoadFailed: {
+            root.resetFilePathNextTime();
+            // No real theme to apply, but a window waiting on themeApplied
+            // (to avoid painting with fallback colors before flipping to the
+            // real ones) still needs to know "the attempt is over" - the
+            // fallback colors are what it gets.
+            root.themeApplied = true;
+        }
     }
 
     function toggleLightDark() {
