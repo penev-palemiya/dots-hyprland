@@ -19,17 +19,9 @@ Item { // Bar content region
     readonly property int centerSideModuleWidth: (useShortenedForm == 2) ? Appearance.sizes.barCenterSideModuleWidthHellaShortened : (useShortenedForm == 1) ? Appearance.sizes.barCenterSideModuleWidthShortened : Appearance.sizes.barCenterSideModuleWidth
     readonly property int dynamicIslandWidth: Math.round(root.centerSideModuleWidth * 1.15)
 
-    component VerticalBarSeparator: Rectangle {
-        Layout.topMargin: Appearance.sizes.baseBarHeight / 3
-        Layout.bottomMargin: Appearance.sizes.baseBarHeight / 3
-        Layout.fillHeight: true
-        implicitWidth: 1
-        color: Appearance.colors.colOutlineVariant
-    }
-
     // Background shadow
     Loader {
-        active: Config.options.bar.showBackground && Config.options.bar.cornerStyle === 1 && Config.options.bar.floatStyleShadow
+        active: Config.options.bar.showBackground && Config.options.bar.floatStyleShadow
         anchors.fill: barBackground
         sourceComponent: StyledRectangularShadow {
             anchors.fill: undefined // The loader's anchors act on this, and this should not have any anchor
@@ -41,11 +33,11 @@ Item { // Bar content region
         id: barBackground
         anchors {
             fill: parent
-            margins: Config.options.bar.cornerStyle === 1 ? (Appearance.sizes.hyprlandGapsOut) : 0 // idk why but +1 is needed
+            margins: Appearance.sizes.hyprlandGapsOut // idk why but +1 is needed
         }
         color: Config.options.bar.showBackground ? Appearance.colors.colLayer0 : "transparent"
-        radius: Config.options.bar.cornerStyle === 1 ? Appearance.rounding.windowRounding : 0
-        border.width: Config.options.bar.cornerStyle === 1 ? 1 : 0
+        radius: Appearance.rounding.windowRounding
+        border.width: 1
         border.color: Appearance.colors.colLayer0Border
     }
 
@@ -133,44 +125,22 @@ Item { // Bar content region
         }
     }
 
-    VerticalBarSeparator {
-        id: leftSeparator
-        visible: Config.options?.bar.borderless
-        height: Appearance.sizes.baseBarHeight / 3
-        anchors {
-            verticalCenter: middleCenterGroup.verticalCenter
-            right: middleCenterGroup.left
-            rightMargin: root.middleSectionSpacing
-        }
-    }
-
     DynamicIsland {
         id: leftCenterGroup
         visible: root.useShortenedForm < 2
         anchors {
             verticalCenter: middleCenterGroup.verticalCenter
-            right: leftSeparator.visible ? leftSeparator.left : middleCenterGroup.left
+            right: middleCenterGroup.left
             rightMargin: root.middleSectionSpacing
         }
         implicitWidth: root.dynamicIslandWidth
-    }
-
-    VerticalBarSeparator {
-        id: rightSeparator
-        visible: Config.options?.bar.borderless
-        height: Appearance.sizes.baseBarHeight / 3
-        anchors {
-            verticalCenter: middleCenterGroup.verticalCenter
-            left: middleCenterGroup.right
-            leftMargin: root.middleSectionSpacing
-        }
     }
 
     MouseArea {
         id: rightCenterGroup
         anchors {
             verticalCenter: middleCenterGroup.verticalCenter
-            left: rightSeparator.visible ? rightSeparator.right : middleCenterGroup.right
+            left: middleCenterGroup.right
             leftMargin: root.middleSectionSpacing
         }
         // Content-driven on purpose — see note above, this cluster just takes

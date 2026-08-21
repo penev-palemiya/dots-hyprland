@@ -74,7 +74,7 @@ Item {
     property real pillScreenWidth: 0
     property real pillScreenHeight: 0
 
-    readonly property color pillSurfaceColor: Config.options?.bar.borderless ? "transparent" : Appearance.colors.colLayer1
+    readonly property color pillSurfaceColor: Appearance.colors.colLayer1
     readonly property color expandedSurfaceColor: root.computeExpandedSurfaceColor()
     readonly property real overlayLeftMargin: root.computeOverlayLeftMargin()
     readonly property real overlayRightMargin: 0
@@ -82,8 +82,6 @@ Item {
     readonly property real overlayBottomMargin: root.computeOverlayBottomMargin()
 
     function computeExpandedSurfaceColor() {
-        if (Config.options?.bar.borderless)
-            return "transparent";
         if (!Config.options.bar.showBackground)
             return root.pillSurfaceColor;
         return ColorUtils.compositeOver(root.pillSurfaceColor, Appearance.colors.colLayer0);
