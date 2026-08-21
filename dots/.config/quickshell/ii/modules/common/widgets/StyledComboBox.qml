@@ -60,7 +60,9 @@ ComboBox {
 
             Loader {
                 Layout.alignment: Qt.AlignVCenter
-                active: root.buttonIcon.length > 0 || (root.currentIndex >= 0 && typeof root.model[root.currentIndex] === 'object' && root.model[root.currentIndex]?.icon)
+                // Coerced to bool: the icon lookup yields undefined for models
+                // whose entries have no icon, which isn't assignable to active.
+                active: !!(root.buttonIcon.length > 0 || (root.currentIndex >= 0 && typeof root.model[root.currentIndex] === 'object' && root.model[root.currentIndex]?.icon))
                 visible: active
                 sourceComponent: MaterialSymbol {
                     text: {

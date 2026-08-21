@@ -5,134 +5,134 @@ import qs.services
 import qs.modules.common
 import qs.modules.common.functions
 import qs.modules.common.widgets
+import qs.modules.settings.components
 
-ContentPage {
-    forceWidth: true
+SettingsPage {
+    pageTitle: Translation.tr("General")
 
-    ContentSection {
-        icon: "volume_up"
+    SettingsGroup {
         title: Translation.tr("Audio")
 
-        ConfigSwitch {
-            buttonIcon: "hearing"
-            text: Translation.tr("Earbang protection")
+        SettingsToggleRow {
+            icon: "hearing"
+            title: Translation.tr("Earbang protection")
+            description: Translation.tr("Blocks sudden volume jumps and caps how loud the output can go.")
+            keywords: "volume loud hearing"
             checked: Config.options.audio.protection.enable
-            onCheckedChanged: {
-                Config.options.audio.protection.enable = checked;
-            }
-            StyledToolTip {
-                text: Translation.tr("Prevents abrupt increments and restricts volume limit")
-            }
+            onToggled: checked => Config.options.audio.protection.enable = checked
         }
-        ConfigRow {
+
+        SettingsSubRow {
+            title: Translation.tr("Max allowed increase")
+            description: Translation.tr("The largest single volume step a shortcut or scroll can apply.")
             enabled: Config.options.audio.protection.enable
-            ConfigSpinBox {
-                icon: "arrow_warm_up"
-                text: Translation.tr("Max allowed increase")
+
+            StyledSpinBox {
                 value: Config.options.audio.protection.maxAllowedIncrease
                 from: 0
                 to: 100
                 stepSize: 2
-                onValueChanged: {
-                    Config.options.audio.protection.maxAllowedIncrease = value;
-                }
+                onValueChanged: Config.options.audio.protection.maxAllowedIncrease = value
             }
-            ConfigSpinBox {
-                icon: "vertical_align_top"
-                text: Translation.tr("Volume limit")
+        }
+
+        SettingsSubRow {
+            title: Translation.tr("Volume limit")
+            description: Translation.tr("Hard ceiling for output volume, in percent.")
+            enabled: Config.options.audio.protection.enable
+
+            StyledSpinBox {
                 value: Config.options.audio.protection.maxAllowed
                 from: 0
                 to: 154 // pavucontrol allows up to 153%
                 stepSize: 2
-                onValueChanged: {
-                    Config.options.audio.protection.maxAllowed = value;
-                }
+                onValueChanged: Config.options.audio.protection.maxAllowed = value
             }
         }
     }
 
-    ContentSection {
-        icon: "battery_android_full"
+    SettingsGroup {
         title: Translation.tr("Battery")
 
-        ConfigRow {
-            uniform: true
-            ConfigSpinBox {
-                icon: "warning"
-                text: Translation.tr("Low warning")
+        SettingsRow {
+            icon: "warning"
+            title: Translation.tr("Low warning")
+            description: Translation.tr("Battery percentage at which the first warning appears.")
+            keywords: "battery percent"
+
+            StyledSpinBox {
                 value: Config.options.battery.low
                 from: 0
                 to: 100
                 stepSize: 5
-                onValueChanged: {
-                    Config.options.battery.low = value;
-                }
+                onValueChanged: Config.options.battery.low = value
             }
-            ConfigSpinBox {
-                icon: "dangerous"
-                text: Translation.tr("Critical warning")
+        }
+
+        SettingsRow {
+            icon: "dangerous"
+            title: Translation.tr("Critical warning")
+            description: Translation.tr("Battery percentage at which an urgent warning appears.")
+            keywords: "battery percent"
+
+            StyledSpinBox {
                 value: Config.options.battery.critical
                 from: 0
                 to: 100
                 stepSize: 5
-                onValueChanged: {
-                    Config.options.battery.critical = value;
-                }
+                onValueChanged: Config.options.battery.critical = value
             }
         }
-        ConfigRow {
-            uniform: false
-            Layout.fillWidth: false
-            ConfigSwitch {
-                buttonIcon: "pause"
-                text: Translation.tr("Automatic suspend")
-                checked: Config.options.battery.automaticSuspend
-                onCheckedChanged: {
-                    Config.options.battery.automaticSuspend = checked;
-                }
-                StyledToolTip {
-                    text: Translation.tr("Automatically suspends the system when battery is low")
-                }
-            }
-            ConfigSpinBox {
-                enabled: Config.options.battery.automaticSuspend
-                text: Translation.tr("at")
-                value: Config.options.battery.suspend
-                from: 0
-                to: 100
-                stepSize: 5
-                onValueChanged: {
-                    Config.options.battery.suspend = value;
-                }
-            }
-        }
-        ConfigRow {
-            uniform: true
-            ConfigSpinBox {
-                icon: "charger"
-                text: Translation.tr("Full warning")
+
+        SettingsRow {
+            icon: "charger"
+            title: Translation.tr("Full warning")
+            description: Translation.tr("Tells you when the battery reaches this level, so you can unplug.")
+            keywords: "battery percent charge"
+
+            StyledSpinBox {
                 value: Config.options.battery.full
                 from: 0
                 to: 101
                 stepSize: 5
-                onValueChanged: {
-                    Config.options.battery.full = value;
-                }
+                onValueChanged: Config.options.battery.full = value
+            }
+        }
+
+        SettingsToggleRow {
+            icon: "pause"
+            title: Translation.tr("Automatic suspend")
+            description: Translation.tr("Suspends the system on its own once the battery gets critically low.")
+            keywords: "sleep power"
+            checked: Config.options.battery.automaticSuspend
+            onToggled: checked => Config.options.battery.automaticSuspend = checked
+        }
+
+        SettingsSubRow {
+            title: Translation.tr("Suspend at")
+            description: Translation.tr("Battery percentage that triggers the automatic suspend.")
+            enabled: Config.options.battery.automaticSuspend
+
+            StyledSpinBox {
+                value: Config.options.battery.suspend
+                from: 0
+                to: 100
+                stepSize: 5
+                onValueChanged: Config.options.battery.suspend = value
             }
         }
     }
 
-    ContentSection {
-        icon: "language"
+    SettingsGroup {
         title: Translation.tr("Language")
 
-        ContentSubsection {
-            title: Translation.tr("Interface Language")
-            tooltip: Translation.tr("Select the language for the user interface.\n\"Auto\" will use your system's locale.")
+        SettingsRow {
+            icon: "language"
+            title: Translation.tr("Interface language")
+            description: Translation.tr("Language used across the shell. \"Auto\" follows your system locale.")
+            keywords: "locale translation"
 
             StyledComboBox {
-                id: languageSelector
-                buttonIcon: "language"
                 textRole: "displayName"
 
                 model: [
@@ -152,68 +152,62 @@ ContentPage {
                     return index !== -1 ? index : 0;
                 }
 
-                onActivated: index => {
-                    Config.options.language.ui = model[index].value;
-                }
+                onActivated: index => Config.options.language.ui = model[index].value
             }
         }
     }
 
-    ContentSection {
-        icon: "notification_sound"
+    SettingsGroup {
         title: Translation.tr("Sounds")
-        ConfigRow {
-            uniform: true
-            ConfigSwitch {
-                buttonIcon: "battery_android_full"
-                text: Translation.tr("Battery")
-                checked: Config.options.sounds.battery
-                onCheckedChanged: {
-                    Config.options.sounds.battery = checked;
-                }
-            }
-            ConfigSwitch {
-                buttonIcon: "av_timer"
-                text: Translation.tr("Pomodoro")
-                checked: Config.options.sounds.pomodoro
-                onCheckedChanged: {
-                    Config.options.sounds.pomodoro = checked;
-                }
-            }
-            ConfigSwitch {
-                buttonIcon: "hourglass_bottom"
-                text: Translation.tr("Countdown timer")
-                checked: Config.options.sounds.countdownTimer
-                onCheckedChanged: {
-                    Config.options.sounds.countdownTimer = checked;
-                }
-            }
+
+        SettingsToggleRow {
+            icon: "battery_android_full"
+            title: Translation.tr("Battery sounds")
+            description: Translation.tr("Play a sound for battery warnings.")
+            checked: Config.options.sounds.battery
+            onToggled: checked => Config.options.sounds.battery = checked
+        }
+
+        SettingsToggleRow {
+            icon: "av_timer"
+            title: Translation.tr("Pomodoro sounds")
+            description: Translation.tr("Play a sound when a Pomodoro interval ends.")
+            checked: Config.options.sounds.pomodoro
+            onToggled: checked => Config.options.sounds.pomodoro = checked
+        }
+
+        SettingsToggleRow {
+            icon: "hourglass_bottom"
+            title: Translation.tr("Countdown timer sounds")
+            description: Translation.tr("Play a sound when a countdown timer finishes.")
+            checked: Config.options.sounds.countdownTimer
+            onToggled: checked => Config.options.sounds.countdownTimer = checked
         }
     }
 
-    ContentSection {
-        icon: "nest_clock_farsight_analog"
+    SettingsGroup {
         title: Translation.tr("Time")
 
-        ConfigSwitch {
-            buttonIcon: "pace"
-            text: Translation.tr("Second precision")
+        SettingsToggleRow {
+            icon: "pace"
+            title: Translation.tr("Second precision")
+            description: Translation.tr("Show seconds on clocks and update them every second.")
+            keywords: "clock seconds"
             checked: Config.options.time.secondPrecision
-            onCheckedChanged: {
-                Config.options.time.secondPrecision = checked;
-            }
-            StyledToolTip {
-                text: Translation.tr("Enable if you want clocks to show seconds accurately")
-            }
+            onToggled: checked => Config.options.time.secondPrecision = checked
         }
 
-        ContentSubsection {
-            title: Translation.tr("Format")
-            tooltip: ""
+        SettingsRow {
+            icon: "schedule"
+            title: Translation.tr("Time format")
+            description: Translation.tr("How the time is written across the shell and lock screen.")
+            keywords: "24h 12h am pm clock"
 
             ConfigSelectionArray {
                 currentValue: Config.options.time.format
                 onSelected: newValue => {
+                    // The lock screen reads its format from hyprlock.conf, so keep
+                    // that file in step with the choice made here.
                     if (newValue === "hh:mm") {
                         Quickshell.execDetached(["bash", "-c", `sed -i 's/\\TIME12\\b/TIME/' '${FileUtils.trimFileProtocol(Directories.config)}/hypr/hyprlock.conf'`]);
                     } else {
@@ -240,17 +234,16 @@ ContentPage {
         }
     }
 
-    ContentSection {
-        icon: "work_alert"
+    SettingsGroup {
         title: Translation.tr("Work safety")
 
-        ConfigSwitch {
-            buttonIcon: "assignment"
-            text: Translation.tr("Hide clipboard images copied from sussy sources")
+        SettingsToggleRow {
+            icon: "assignment"
+            title: Translation.tr("Hide clipboard images copied from sussy sources")
+            description: Translation.tr("Blurs clipboard image previews that came from flagged sites, but only while you're on a public network.")
+            keywords: "nsfw privacy clipboard"
             checked: Config.options.workSafety.enable.clipboard
-            onCheckedChanged: {
-                Config.options.workSafety.enable.clipboard = checked;
-            }
+            onToggled: checked => Config.options.workSafety.enable.clipboard = checked
         }
     }
 }
