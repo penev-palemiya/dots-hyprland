@@ -25,13 +25,19 @@ Item {
     Layout.fillWidth: true
     implicitHeight: contentColumn.implicitHeight
 
-    // Re-run whenever a row's visibility changes, not just when rows are
-    // added/removed - a hidden row must not claim the outer radius.
     function updateCorners() {
+        // Matched by property existence only - not by `visible`. A row's own
+        // `visible` isn't reliably settled yet the first time this runs (it's
+        // driven here by ancestor bindings, e.g. the page host's `currentPage
+        // === index`, which haven't necessarily resolved by the time this
+        // object's Component.onCompleted fires), so filtering on it here just
+        // discarded every row and left them all on the default inner radius.
+        // Nothing today hides an individual row within an otherwise-visible
+        // group, so this is safe without that guard.
         const rows = [];
         for (let i = 0; i < contentColumn.children.length; i++) {
             const child = contentColumn.children[i];
-            if (child.topLeftRadius === undefined || !child.visible)
+            if (child.topLeftRadius === undefined)
                 continue;
             rows.push(child);
         }
