@@ -391,17 +391,6 @@ ContentPage {
                         Config.options.regionSelector.targetRegions.layers = checked;
                     }
                 }
-                ConfigSwitch {
-                    buttonIcon: "nearby"
-                    text: Translation.tr('Content')
-                    checked: Config.options.regionSelector.targetRegions.content
-                    onCheckedChanged: {
-                        Config.options.regionSelector.targetRegions.content = checked;
-                    }
-                    StyledToolTip {
-                        text: Translation.tr("Could be images or parts of the screen that have some containment.\nMight not always be accurate.\nThis is done with an image processing algorithm run locally and no AI is used.")
-                    }
-                }
             }
         }
         

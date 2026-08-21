@@ -24,31 +24,17 @@ Singleton {
         return unionArea > 0 ? interArea / unionArea : 0;
     }
 
-    function filterOverlappingImageRegions(regions) {
-        let keep = [];
-        let removed = new Set();
-        for (let i = 0; i < regions.length; ++i) {
-            if (removed.has(i)) continue;
-            let regionA = regions[i];
-            for (let j = i + 1; j < regions.length; ++j) {
-                if (removed.has(j)) continue;
-                let regionB = regions[j];
-                if (intersectionOverUnion(regionA, regionB) > 0) {
-                    // Compare areas
-                    let areaA = regionA.size[0] * regionA.size[1];
-                    let areaB = regionB.size[0] * regionB.size[1];
-                    if (areaA <= areaB) {
-                        removed.add(j);
-                    } else {
-                        removed.add(i);
-                    }
-                }
-            }
-        }
-        for (let i = 0; i < regions.length; ++i) {
-            if (!removed.has(i)) keep.push(regions[i]);
-        }
-        return keep;
+    function regionArea(region) {
+        return region.size[0] * region.size[1];
+    }
+
+    function isValidRegion(region) {
+        return !!region && region.size[0] > 0 && region.size[1] > 0;
+    }
+
+    function regionContainsPoint(region, x, y) {
+        return region.at[0] <= x && x <= region.at[0] + region.size[0]
+            && region.at[1] <= y && y <= region.at[1] + region.size[1];
     }
 
     function filterWindowRegionsByLayers(windowRegions, layerRegions) {
@@ -61,16 +47,43 @@ Singleton {
         });
     }
 
-    function filterImageRegions(regions, windowRegions, threshold = 0.1) {
-        // Remove image regions that overlap too much with any window region
-        let filtered = regions.filter(region => {
-            for (let i = 0; i < windowRegions.length; ++i) {
-                if (intersectionOverUnion(region, windowRegions[i]) > threshold)
-                    return false;
-            }
-            return true;
-        });
-        // Remove overlapping image regions, keep only the smaller one
-        return filterOverlappingImageRegions(filtered);
+    // Collects every candidate (from both sources) that contains the given
+    // point, tagged with where it came from. Degenerate candidates are
+    // rejected here so callers never have to think about them again.
+    function collectCandidatesAt(x, y, layerRegions, windowRegions) {
+        const candidates = [];
+        for (const region of layerRegions) {
+            if (isValidRegion(region) && regionContainsPoint(region, x, y))
+                candidates.push({ source: "layer", region });
+        }
+        for (const region of windowRegions) {
+            if (isValidRegion(region) && regionContainsPoint(region, x, y))
+                candidates.push({ source: "window", region });
+        }
+        return candidates;
+    }
+
+    // Deterministically picks a single winning candidate for the cursor
+    // position (x, y).
+    //
+    //  1. A layer/popup candidate always wins over a window: it's exact
+    //     compositor geometry. If several layers overlap (nested popups),
+    //     the smallest (most specific) one wins.
+    //  2. Otherwise, the window under the cursor wins. Among overlapping
+    //     windows, the smallest wins as a heuristic for "topmost"/foreground.
+    //  3. If nothing qualifies, there is no target.
+    function selectTargetCandidate(x, y, layerRegions, windowRegions) {
+        const candidates = collectCandidatesAt(x, y, layerRegions, windowRegions);
+
+        const smallest = list => list.reduce((best, c) =>
+            (!best || regionArea(c.region) < regionArea(best.region)) ? c : best, null);
+
+        const layers = candidates.filter(c => c.source === "layer");
+        if (layers.length > 0) return { winner: smallest(layers), candidates };
+
+        const windows = candidates.filter(c => c.source === "window");
+        if (windows.length > 0) return { winner: smallest(windows), candidates };
+
+        return { winner: null, candidates };
     }
 }

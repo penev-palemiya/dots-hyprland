@@ -42,16 +42,12 @@ PanelWindow {
     property color overlayColor: ColorUtils.transparentize("#000000", 0.4)
     property color brightText: Appearance.m3colors.darkmode ? Appearance.colors.colOnLayer0 : Appearance.colors.colLayer0
     property color brightSecondary: Appearance.m3colors.darkmode ? Appearance.colors.colSecondary : Appearance.colors.colOnSecondary
-    property color brightTertiary: Appearance.m3colors.darkmode ? Appearance.colors.colTertiary : Qt.lighter(Appearance.colors.colPrimary)
     property color selectionBorderColor: ColorUtils.mix(brightText, brightSecondary, 0.5)
     property color selectionFillColor: "#33ffffff"
     property color windowBorderColor: brightSecondary
     property color windowFillColor: ColorUtils.transparentize(windowBorderColor, 0.85)
-    property color imageBorderColor: brightTertiary
-    property color imageFillColor: ColorUtils.transparentize(imageBorderColor, 0.85)
     property color onBorderColor: "#ff000000"
     property real targetRegionOpacity: Config.options.regionSelector.targetRegions.opacity
-    property bool contentRegionOpacity: Config.options.regionSelector.targetRegions.contentRegionOpacity
 
     // Vars for indicators
     readonly property var windows: [...HyprlandData.windowList].sort((a, b) => {
@@ -60,7 +56,6 @@ PanelWindow {
         return a.floating ? -1 : 1;
     })
     readonly property var layers: HyprlandData.layers
-    readonly property real falsePositivePreventionRatio: 0.5
 
     // Screen & interaction vars
     readonly property HyprlandMonitor hyprlandMonitor: Hyprland.monitorFor(screen)
@@ -79,7 +74,6 @@ PanelWindow {
     property bool dragging: false
     property list<point> points: []
     property var mouseButton: null
-    property var imageRegions: []
     readonly property list<var> windowRegions: RegionFunctions.filterWindowRegionsByLayers(
         root.windows.filter(w => w.workspace.id === root.activeWorkspaceId),
         root.layerRegions
@@ -118,7 +112,6 @@ PanelWindow {
     property bool isCircleSelection: (root.selectionMode === RegionSelection.SelectionMode.Circle)
     property bool enableWindowRegions: Config.options.regionSelector.targetRegions.windows && !isCircleSelection
     property bool enableLayerRegions: Config.options.regionSelector.targetRegions.layers && !isCircleSelection
-    property bool enableContentRegions: Config.options.regionSelector.targetRegions.content
 
     // Target
     property real targetedRegionX: -1
@@ -136,40 +129,38 @@ PanelWindow {
         root.regionHeight = root.targetedRegionHeight + padding * 2;
     }
 
+    // Debug/diagnostics: set QS_REGION_DEBUG=1 in the environment to enable
+    // verbose targeting logging.
+    readonly property bool debugMode: Quickshell.env("QS_REGION_DEBUG") === "1"
+
+    // Minimal hysteresis: skip re-running target selection on sub-pixel-ish
+    // jitter so the winner doesn't flicker between near-identical candidates
+    // on tiny pointer movement. Not a state machine - just a movement gate.
+    property real lastTargetUpdateX: -999999
+    property real lastTargetUpdateY: -999999
+    readonly property real targetHysteresisPx: 3
+
     function updateTargetedRegion(x, y) {
-        // Image regions
-        const clickedRegion = root.imageRegions.find(region => {
-            return region.at[0] <= x && x <= region.at[0] + region.size[0] && region.at[1] <= y && y <= region.at[1] + region.size[1];
-        });
-        if (clickedRegion) {
-            root.targetedRegionX = clickedRegion.at[0];
-            root.targetedRegionY = clickedRegion.at[1];
-            root.targetedRegionWidth = clickedRegion.size[0];
-            root.targetedRegionHeight = clickedRegion.size[1];
-            return;
+        const dx = x - root.lastTargetUpdateX;
+        const dy = y - root.lastTargetUpdateY;
+        if (dx * dx + dy * dy < root.targetHysteresisPx * root.targetHysteresisPx) return;
+        root.lastTargetUpdateX = x;
+        root.lastTargetUpdateY = y;
+
+        const result = RegionFunctions.selectTargetCandidate(x, y, root.layerRegions, root.windowRegions);
+        const winner = result.winner;
+
+        if (root.debugMode) {
+            console.log(`[RegionSelector] cursor (${x}, ${y}): ${result.candidates.length} candidates - `
+                + result.candidates.map(c => `${c.source}@${c.region.at[0]},${c.region.at[1]} ${c.region.size[0]}x${c.region.size[1]} (area ${RegionFunctions.regionArea(c.region)})`).join("; ")
+                + ` -> winner: ${winner ? `${winner.source}@${winner.region.at[0]},${winner.region.at[1]} ${winner.region.size[0]}x${winner.region.size[1]}` : "none"}`);
         }
 
-        // Layer regions
-        const clickedLayer = root.layerRegions.find(region => {
-            return region.at[0] <= x && x <= region.at[0] + region.size[0] && region.at[1] <= y && y <= region.at[1] + region.size[1];
-        });
-        if (clickedLayer) {
-            root.targetedRegionX = clickedLayer.at[0];
-            root.targetedRegionY = clickedLayer.at[1];
-            root.targetedRegionWidth = clickedLayer.size[0];
-            root.targetedRegionHeight = clickedLayer.size[1];
-            return;
-        }
-
-        // Window regions
-        const clickedWindow = root.windowRegions.find(region => {
-            return region.at[0] <= x && x <= region.at[0] + region.size[0] && region.at[1] <= y && y <= region.at[1] + region.size[1];
-        });
-        if (clickedWindow) {
-            root.targetedRegionX = clickedWindow.at[0];
-            root.targetedRegionY = clickedWindow.at[1];
-            root.targetedRegionWidth = clickedWindow.size[0];
-            root.targetedRegionHeight = clickedWindow.size[1];
+        if (winner) {
+            root.targetedRegionX = winner.region.at[0];
+            root.targetedRegionY = winner.region.at[1];
+            root.targetedRegionWidth = winner.region.size[0];
+            root.targetedRegionHeight = winner.region.size[1];
             return;
         }
 
@@ -192,7 +183,6 @@ PanelWindow {
         screenshotDir: root.screenshotDir
         screenshotPath: root.screenshotPath
         onExited: (exitCode, exitStatus) => {
-            if (root.enableContentRegions) imageDetectionProcess.running = true;
             root.preparationDone = !checkRecordingProc.running;
         }
     }
@@ -216,24 +206,6 @@ PanelWindow {
             return;
         }
         root.visible = true;
-    }
-
-    Process {
-        id: imageDetectionProcess
-        command: ["bash", "-c", `${Directories.scriptPath}/images/find-regions-venv.sh ` 
-            + `--hyprctl ` 
-            + `--image '${StringUtils.shellSingleQuoteEscape(root.screenshotPath)}' ` 
-            + `--max-width ${Math.round(root.screen.width * root.falsePositivePreventionRatio)} ` 
-            + `--max-height ${Math.round(root.screen.height * root.falsePositivePreventionRatio)} `]
-        stdout: StdioCollector {
-            id: imageDimensionCollector
-            onStreamFinished: {
-                imageRegions = RegionFunctions.filterImageRegions(
-                    JSON.parse(imageDimensionCollector.text),
-                    root.windowRegions
-                );
-            }
-        }
     }
 
     function getScreenshotAction() {
@@ -461,34 +433,6 @@ PanelWindow {
                 fillColor: targeted ? root.windowFillColor : "transparent"
                 text: `${modelData.namespace}`
                 radius: Appearance.rounding.windowRounding
-            }
-        }
-
-        // Content regions
-        Repeater {
-            model: ScriptModel {
-                values: {
-                    if (root.phase === RegionSelection.Phase.Select && root.enableContentRegions) {
-                        return root.imageRegions
-                    } else {
-                        return []
-                    }
-                }
-            }
-            delegate: TargetRegion {
-                z: 4
-                required property var modelData
-                clientDimensions: modelData
-                targeted: !root.draggedAway &&
-                    (root.targetedRegionX === modelData.at[0] 
-                    && root.targetedRegionY === modelData.at[1]
-                    && root.targetedRegionWidth === modelData.size[0]
-                    && root.targetedRegionHeight === modelData.size[1])
-
-                opacity: root.draggedAway ? 0 : root.contentRegionOpacity
-                borderColor: root.imageBorderColor
-                fillColor: targeted ? root.imageFillColor : "transparent"
-                text: Translation.tr("Content region")
             }
         }
 

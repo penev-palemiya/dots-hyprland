@@ -415,10 +415,8 @@ Singleton {
                 property JsonObject targetRegions: JsonObject {
                     property bool windows: true
                     property bool layers: false
-                    property bool content: true
                     property bool showLabel: false
                     property real opacity: 0.3
-                    property real contentRegionOpacity: 0.8
                     property int selectionPadding: 5
                 }
                 property JsonObject rect: JsonObject {
