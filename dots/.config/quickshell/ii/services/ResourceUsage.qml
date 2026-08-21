@@ -59,9 +59,13 @@ Singleton {
         return (kb / (1024 * 1024)).toFixed(1) + " GB";
     }
 
-    // Committed once per real CPU sample (see fileStat.onLoaded), which keeps
-    // all three series aligned on one shared index without a separate
-    // rendezvous between the meminfo and stat reads.
+    // Committed once per real CPU sample (see fileStat.onLoaded). meminfo and
+    // stat are independent FileViews reloaded together each tick but resolved
+    // by the thread pool independently, so on rare thread-scheduling jitter
+    // this can append this tick's CPU sample alongside the previous tick's
+    // memory/swap percentage - a single history point off by one ~3s sample,
+    // self-correcting next tick. Not worth a rendezvous between the two reads
+    // for a sub-pixel, single-point wobble in a 60-point graph.
     function updateHistories() {
         cpuUsageHistory = [...cpuUsageHistory, cpuUsage]
         if (cpuUsageHistory.length > historyLength) cpuUsageHistory.shift()
