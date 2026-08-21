@@ -15,7 +15,7 @@ StyledFlickable {
     property string pageTitle: ""
     property int settingsPageIndex: -1
     property string settingsPageName: root.pageTitle
-    property real maxContentWidth: 780
+    property real sidePadding: 24
     property real bottomPadding: 60
 
     default property alias pageContent: contentColumn.data
@@ -35,11 +35,13 @@ StyledFlickable {
 
     ColumnLayout {
         id: contentColumn
-        width: Math.min(root.width - 48, root.maxContentWidth)
         anchors {
             top: parent.top
+            left: parent.left
+            right: parent.right
             topMargin: 28
-            horizontalCenter: parent.horizontalCenter
+            leftMargin: root.sidePadding
+            rightMargin: root.sidePadding
         }
         spacing: 28
 

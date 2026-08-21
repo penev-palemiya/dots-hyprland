@@ -3,41 +3,45 @@ import QtQuick.Layouts
 import qs.modules.common
 
 /**
- * Rounded surface holding a stack of SettingsRows, with dividers drawn between
- * consecutive visible rows.
+ * Container for one section's rows, styled like the Wi-Fi/Bluetooth popup
+ * lists: each row is its own small rounded block (see SettingsRow), gapped
+ * 4px apart, with the first and last row getting the large outer radius so
+ * the whole section still reads as one shape. A lone row gets outer radius
+ * on all four corners - a single-item group is a full rounded card, not a
+ * clipped fragment.
  *
- * Dividers are assigned by the card rather than each row deciding for itself,
- * because "am I the first visible row?" is not something a row can answer
- * reliably on its own. If a page toggles a row's visibility at runtime, call
- * updateDividers() so the top divider lands on the right row.
+ * Purely a layout wrapper - it draws nothing itself, since each row paints
+ * its own background.
  */
-Rectangle {
+Item {
     id: root
 
     default property alias contentData: contentColumn.data
 
+    readonly property real innerRadius: 4
+    readonly property real outerRadius: 16
+    readonly property real rowSpacing: 4
+
     Layout.fillWidth: true
     implicitHeight: contentColumn.implicitHeight
-    color: Appearance.colors.colSurfaceContainerLow
-    radius: Appearance.rounding.normal
-    clip: true
 
-    function updateDividers() {
-        let seenVisibleRow = false;
+    // Re-run whenever a row's visibility changes, not just when rows are
+    // added/removed - a hidden row must not claim the outer radius.
+    function updateCorners() {
+        const rows = [];
         for (let i = 0; i < contentColumn.children.length; i++) {
             const child = contentColumn.children[i];
-            if (child.showTopDivider === undefined)
+            if (child.topLeftRadius === undefined || !child.visible)
                 continue;
-            if (!child.visible)
-                continue;
-            // Sub-rows always keep their divider: it separates them from the
-            // row they belong to, so it's never the card's top edge.
-            if (child.dividerInset > 0) {
-                seenVisibleRow = true;
-                continue;
-            }
-            child.showTopDivider = seenVisibleRow;
-            seenVisibleRow = true;
+            rows.push(child);
+        }
+        for (let i = 0; i < rows.length; i++) {
+            const isFirst = i === 0;
+            const isLast = i === rows.length - 1;
+            rows[i].topLeftRadius = isFirst ? root.outerRadius : root.innerRadius;
+            rows[i].topRightRadius = isFirst ? root.outerRadius : root.innerRadius;
+            rows[i].bottomLeftRadius = isLast ? root.outerRadius : root.innerRadius;
+            rows[i].bottomRightRadius = isLast ? root.outerRadius : root.innerRadius;
         }
     }
 
@@ -48,10 +52,10 @@ Rectangle {
             right: parent.right
             top: parent.top
         }
-        spacing: 0
+        spacing: root.rowSpacing
 
-        onChildrenChanged: Qt.callLater(root.updateDividers)
+        onChildrenChanged: Qt.callLater(root.updateCorners)
     }
 
-    Component.onCompleted: root.updateDividers()
+    Component.onCompleted: root.updateCorners()
 }

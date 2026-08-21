@@ -9,7 +9,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Window
 import Quickshell
 import qs.services
 import qs.modules.common
@@ -173,55 +172,23 @@ ApplicationWindow {
                 }
             }
 
-            RowLayout { // Window controls
+            RippleButton { // Window controls: close only
                 visible: Config.options?.windows.showTitlebar ?? true
                 anchors {
                     right: parent.right
                     rightMargin: 16
                     verticalCenter: parent.verticalCenter
                 }
-                spacing: 2
-
-                RippleButton {
-                    buttonRadius: Appearance.rounding.full
-                    implicitWidth: 38
-                    implicitHeight: 38
-                    onClicked: root.showMinimized()
-                    contentItem: MaterialSymbol {
-                        anchors.centerIn: parent
-                        horizontalAlignment: Text.AlignHCenter
-                        text: "remove"
-                        iconSize: Appearance.font.pixelSize.large
-                        color: Appearance.colors.colOnSurfaceVariant
-                    }
-                }
-
-                RippleButton {
-                    buttonRadius: Appearance.rounding.full
-                    implicitWidth: 38
-                    implicitHeight: 38
-                    onClicked: root.visibility === Window.Maximized ? root.showNormal() : root.showMaximized()
-                    contentItem: MaterialSymbol {
-                        anchors.centerIn: parent
-                        horizontalAlignment: Text.AlignHCenter
-                        text: root.visibility === Window.Maximized ? "close_fullscreen" : "crop_square"
-                        iconSize: Appearance.font.pixelSize.small
-                        color: Appearance.colors.colOnSurfaceVariant
-                    }
-                }
-
-                RippleButton {
-                    buttonRadius: Appearance.rounding.full
-                    implicitWidth: 38
-                    implicitHeight: 38
-                    onClicked: root.close()
-                    contentItem: MaterialSymbol {
-                        anchors.centerIn: parent
-                        horizontalAlignment: Text.AlignHCenter
-                        text: "close"
-                        iconSize: Appearance.font.pixelSize.large
-                        color: Appearance.colors.colOnSurfaceVariant
-                    }
+                buttonRadius: Appearance.rounding.full
+                implicitWidth: 38
+                implicitHeight: 38
+                onClicked: root.close()
+                contentItem: MaterialSymbol {
+                    anchors.centerIn: parent
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "close"
+                    iconSize: Appearance.font.pixelSize.large
+                    color: Appearance.colors.colOnSurfaceVariant
                 }
             }
         }

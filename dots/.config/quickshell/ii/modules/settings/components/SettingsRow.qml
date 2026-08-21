@@ -7,6 +7,12 @@ import qs.modules.settings
 /**
  * One setting: leading icon, title, optional description, trailing control.
  *
+ * Shaped like a row of the Wi-Fi/Bluetooth popup lists (GroupedListCard): its
+ * own small rounded block, gapped from its neighbours, with the group's first
+ * and last row getting the large outer radius so the section still reads as
+ * one shape. SettingsCard assigns the corner radii from each row's position -
+ * this component just exposes them.
+ *
  * The trailing control goes in the default slot, so any existing widget
  * (StyledSwitch, StyledComboBox, ConfigSpinBox, a button...) can be dropped in
  * without this component needing to know about it.
@@ -14,7 +20,7 @@ import qs.modules.settings
  * Rows self-register into SettingsSearch, which is what makes settings
  * searchable without maintaining a separate index by hand.
  */
-Item {
+Rectangle {
     id: root
 
     property string icon: ""
@@ -25,10 +31,6 @@ Item {
     property string keywords: ""
 
     property bool clickable: false
-    property bool showTopDivider: false
-    // Sub-rows inset their divider so it lines up with the text column instead
-    // of running the full width of the card.
-    property real dividerInset: 0
     property bool registerInSearch: true
 
     property real horizontalPadding: 20
@@ -40,6 +42,19 @@ Item {
     default property alias trailingContent: trailingContainer.data
 
     signal clicked()
+
+    // Same radius scale as GroupedListCard/GroupedGrid (4 inside, 16 outside).
+    // SettingsCard overwrites these once it knows the row's position; the
+    // defaults just avoid a corner-radius pop on the first paint.
+    readonly property real innerRadius: 4
+    readonly property real outerRadius: 16
+    topLeftRadius: root.innerRadius
+    topRightRadius: root.innerRadius
+    bottomLeftRadius: root.innerRadius
+    bottomRightRadius: root.innerRadius
+
+    color: Appearance.colors.colSurfaceContainerHighest
+    clip: true
 
     Layout.fillWidth: true
     implicitWidth: rowLayout.implicitWidth + root.horizontalPadding * 2
@@ -55,7 +70,6 @@ Item {
         anchors.fill: parent
         color: Appearance.colors.colPrimaryContainer
         opacity: 0
-        radius: Appearance.rounding.small
 
         SequentialAnimation {
             id: highlightAnim
@@ -77,10 +91,11 @@ Item {
         }
     }
 
+    // M3 state layer rather than a ripple, matching GroupedListCard: a ripple
+    // spreading across a 16px-cornered group edge looks wrong.
     Rectangle { // Hover/press state layer
         anchors.fill: parent
         color: Appearance.colors.colOnSurface
-        radius: Appearance.rounding.small
         visible: root.clickable && root.enabled
         opacity: rowMouseArea.containsMouse ? (rowMouseArea.pressed ? 0.1 : 0.06) : 0
 
@@ -96,18 +111,6 @@ Item {
         enabled: root.clickable && root.enabled
         cursorShape: root.clickable ? Qt.PointingHandCursor : Qt.ArrowCursor
         onClicked: root.clicked()
-    }
-
-    Rectangle { // Separator from the row above
-        anchors {
-            top: parent.top
-            left: parent.left
-            right: parent.right
-            leftMargin: root.dividerInset
-        }
-        height: 1
-        visible: root.showTopDivider
-        color: Appearance.colors.colOutlineVariant
     }
 
     RowLayout {
@@ -157,7 +160,7 @@ Item {
                 visible: root.description.length > 0
                 text: root.description
                 font.pixelSize: Appearance.font.pixelSize.smaller
-                color: Appearance.colors.colSubtext
+                color: Appearance.colors.colOnSurfaceVariant
                 opacity: root.enabled ? 1 : 0.4
                 wrapMode: Text.WordWrap
             }

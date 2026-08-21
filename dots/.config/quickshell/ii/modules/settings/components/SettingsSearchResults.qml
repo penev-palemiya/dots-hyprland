@@ -12,7 +12,7 @@ import qs.modules.settings
 StyledFlickable {
     id: root
 
-    property real maxContentWidth: 780
+    property real sidePadding: 24
 
     signal resultActivated(var entry)
 
@@ -21,11 +21,13 @@ StyledFlickable {
 
     ColumnLayout {
         id: contentColumn
-        width: Math.min(root.width - 48, root.maxContentWidth)
         anchors {
             top: parent.top
+            left: parent.left
+            right: parent.right
             topMargin: 28
-            horizontalCenter: parent.horizontalCenter
+            leftMargin: root.sidePadding
+            rightMargin: root.sidePadding
         }
         spacing: 18
 
@@ -76,7 +78,6 @@ StyledFlickable {
                     title: modelData.title
                     description: modelData.description
                     clickable: true
-                    showTopDivider: index > 0
                     // These are views onto settings that are already indexed;
                     // registering them again would duplicate every hit.
                     registerInSearch: false
