@@ -75,6 +75,19 @@ Singleton {
         }
     }
 
+    // Maps a locale code (e.g. "uk_UA") to its native display name (e.g.
+    // "Українська") using Qt's own locale data, so the language picker
+    // doesn't have to show raw codes. Falls back to the code itself for
+    // anything Qt can't resolve to a real locale.
+    function friendlyLanguageName(code) {
+        if (!code) return code;
+        const locale = Qt.locale(code);
+        if (!locale || locale.name === "C" || locale.nativeLanguageName.length === 0)
+            return code;
+        const name = locale.nativeLanguageName;
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    }
+
     function tr(text) {
         // Special cases
         if (!text) return "";
