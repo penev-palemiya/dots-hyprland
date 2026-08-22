@@ -20,6 +20,8 @@ Singleton {
     readonly property string activeInterface: "org.freedesktop.NetworkManager.Connection.Active"
     readonly property string settingsInterface: "org.freedesktop.NetworkManager.Settings"
     readonly property string settingsConnectionInterface: "org.freedesktop.NetworkManager.Settings.Connection"
+    readonly property string hotspotMarker: "ii-hotspot-v1"
+    readonly property string hotspotProfileName: "ii Hotspot"
 
     property bool wifi: true
     property bool ethernet: false
@@ -32,6 +34,25 @@ Singleton {
     property list<var> savedWifiProfilesList: []
     property list<var> ethernetDevices: []
     property list<var> ethernetProfilesList: []
+    property list<var> vpnProfiles: []
+    property list<var> activeVpnConnections: []
+    property list<var> hotspotDevices: []
+    property var hotspotProfile: null
+    property string hotspotProfileUuid: ""
+    property bool hotspotActive: false
+    property bool hotspotStarting: false
+    property bool hotspotStopping: false
+    property string hotspotStatus: "off"
+    property string hotspotError: ""
+    property string hotspotSsid: ""
+    property string hotspotBand: ""
+    property string hotspotInterface: ""
+    property bool hotspotHasUpstream: false
+    property bool hotspotMayInterruptWifi: false
+    property bool hotspotCapabilitiesReady: false
+    property bool hotspotHas24Ghz: false
+    property bool hotspotHas5Ghz: false
+    property bool hotspotHas6Ghz: false
     property var savedWifiProfiles: ({})
     property var currentDetails: ({ ssid: "", band: "", signal: 0, ipv4: "", ipv6: "", gateway: "", dns: "", activePath: "" })
     property string activeWifiName: ""
@@ -114,6 +135,117 @@ Singleton {
         if (speed <= 0) return "";
         if (speed >= 1000) return `${speed % 1000 === 0 ? speed / 1000 : (speed / 1000).toFixed(1)} Gbps`;
         return `${speed} Mbps`;
+    }
+
+    function utf8Length(value) {
+        try { return encodeURIComponent(String(value)).replace(/%[0-9A-F]{2}|./g, "x").length; }
+        catch (exception) { return String(value).length; }
+    }
+
+    function validHotspotSsid(ssid) {
+        return String(ssid || "").length > 0 && utf8Length(ssid) <= 32;
+    }
+
+    function validHotspotPassword(password) {
+        const value = String(password || "");
+        return /^[\x20-\x7e]{8,63}$/.test(value) || /^[0-9a-fA-F]{64}$/.test(value);
+    }
+
+    readonly property bool hotspotSupported: root.hotspotDevices.length > 0;
+    readonly property list<var> hotspotBands: [
+        { label: "Automatic", value: "" },
+        ...(root.hotspotHas24Ghz ? [{ label: "2.4 GHz", value: "bg" }] : []),
+        ...(root.hotspotHas5Ghz ? [{ label: "5 GHz", value: "a" }] : [])
+    ];
+
+    function updateHotspotState() {
+        const profile = root.hotspotProfile;
+        const device = root.hotspotDevices[0] || null;
+        root.hotspotInterface = device?.interfaceName || "";
+        root.hotspotSsid = profile?.ssid || "";
+        root.hotspotBand = profile?.band || "";
+        root.hotspotActive = Boolean(profile && root.activeProfilePath === profile.path);
+        root.hotspotStatus = root.hotspotStarting ? "starting" : root.hotspotStopping ? "stopping" : root.hotspotActive ? "on" : root.hotspotError.length > 0 ? "failed" : "off";
+        // A Wi-Fi client connection on the same radio is not a reliable
+        // upstream once AP mode is activated. Only a separate wired uplink
+        // is advertised as available in v1.
+        root.hotspotHasUpstream = Boolean(root.ethernetDevices.some(item => item.connected));
+        root.hotspotMayInterruptWifi = Boolean(root.wifiStatus === "connected" && !root.hotspotActive && device && root.activeProfilePath !== profile?.path);
+    }
+
+    function startHotspot(ssid, password, band = "", confirmed = false) {
+        const device = root.hotspotDevices[0];
+        if (!device || root.hotspotStarting || root.hotspotStopping) return false;
+        if (!root.validHotspotSsid(ssid)) { root.hotspotError = "Enter a network name up to 32 bytes."; return false; }
+        if (!root.validHotspotPassword(password) && !root.hotspotProfile) { root.hotspotError = "Use 8–63 printable characters for the password."; return false; }
+        if (root.hotspotMayInterruptWifi && !confirmed) return "confirm";
+        root.hotspotError = "";
+        root.hotspotStarting = true;
+        root.hotspotStatus = "starting";
+        hotspotActionProc.environment = ({ LANG: "C", LC_ALL: "C", HOTSPOT_IFACE: device.interfaceName, HOTSPOT_NAME: root.hotspotProfileName, HOTSPOT_SSID: String(ssid), HOTSPOT_BAND: String(band || ""), HOTSPOT_PASSWORD: String(password || "") });
+        const script = [
+            "set -e",
+            "find_hotspot() {",
+            "  while IFS=: read -r id type; do",
+            "    [ \"$type\" = 802-11-wireless ] || continue",
+            "    mode=$(nmcli -g 802-11-wireless.mode connection show uuid \"$id\")",
+            "    marker=$(nmcli -g connection.stable-id connection show uuid \"$id\")",
+            "    if [ \"$mode\" = ap ] && [ \"$marker\" = ii-hotspot-v1 ]; then echo \"$id\"; return 0; fi",
+            "  done < <(nmcli -t -f UUID,TYPE connection show)",
+            "}",
+            "UUID=$(find_hotspot || true)",
+            "if [ -n \"$UUID\" ]; then",
+            "  nmcli connection modify uuid \"$UUID\" connection.interface-name \"$HOTSPOT_IFACE\" 802-11-wireless.ssid \"$HOTSPOT_SSID\" ipv4.method shared ipv6.method disabled connection.autoconnect no",
+            "  if [ -n \"$HOTSPOT_BAND\" ]; then nmcli connection modify uuid \"$UUID\" 802-11-wireless.band \"$HOTSPOT_BAND\"; else nmcli connection modify uuid \"$UUID\" 802-11-wireless.band \"\"; fi",
+            "  if [ -n \"$HOTSPOT_PASSWORD\" ]; then nmcli connection modify uuid \"$UUID\" 802-11-wireless-security.key-mgmt wpa-psk 802-11-wireless-security.psk \"$HOTSPOT_PASSWORD\"; fi",
+            "else",
+            "  nmcli connection add type wifi ifname \"$HOTSPOT_IFACE\" con-name \"$HOTSPOT_NAME\" ssid \"$HOTSPOT_SSID\" wifi.mode ap ipv4.method shared ipv6.method disabled connection.autoconnect no",
+            "  UUID=$(nmcli -t -f UUID,NAME connection show | awk -F: -v n=\"$HOTSPOT_NAME\" '$2 == n { print $1; exit }')",
+            "  nmcli connection modify uuid \"$UUID\" connection.stable-id ii-hotspot-v1 802-11-wireless-security.key-mgmt wpa-psk 802-11-wireless-security.psk \"$HOTSPOT_PASSWORD\"",
+            "  if [ -n \"$HOTSPOT_BAND\" ]; then nmcli connection modify uuid \"$UUID\" 802-11-wireless.band \"$HOTSPOT_BAND\"; fi",
+            "fi",
+            "nmcli connection up uuid \"$UUID\" ifname \"$HOTSPOT_IFACE\""
+        ].join("\n");
+        hotspotActionProc.command = ["bash", "-c", script];
+        hotspotActionProc.running = true;
+        return true;
+    }
+
+    function stopHotspot() {
+        if (!root.hotspotActive || root.hotspotStopping) return false;
+        root.hotspotError = "";
+        root.hotspotStopping = true;
+        root.hotspotStatus = "stopping";
+        hotspotActionProc.environment = ({ LANG: "C", LC_ALL: "C" });
+        hotspotActionProc.command = ["busctl", "--system", "call", root.service, root.rootPath, root.managerInterface, "DeactivateConnection", "o", root.currentDetails.activePath];
+        hotspotActionProc.running = true;
+        return true;
+    }
+
+    function vpnTypeLabel(connectionType, serviceType) {
+        if (connectionType === "wireguard") return "WireGuard";
+        const service = String(serviceType || "").toLowerCase();
+        if (service.includes("openvpn")) return "OpenVPN";
+        if (service.includes("openconnect")) return "OpenConnect";
+        if (service.includes("l2tp")) return "L2TP";
+        if (service.includes("pptp")) return "PPTP";
+        if (service.includes("strongswan") || service.includes("libreswan") || service.includes("openswan") || service.includes("ipsec")) return "IPsec";
+        return "VPN";
+    }
+
+    function vpnState(vpnStateCode, activeStateCode, isClassicVpn) {
+        const state = Number(isClassicVpn ? vpnStateCode : activeStateCode);
+        if (isClassicVpn) {
+            if (state === 2) return "Authentication required";
+            if ([1, 3, 4].includes(state)) return "Connecting";
+            if (state === 5) return "Connected";
+            if (state === 6) return "Failed";
+            return "Disconnected";
+        }
+        if (state === 1) return "Connecting";
+        if (state === 2) return "Connected";
+        if (state === 3 || state === 4) return "Disconnected";
+        return state > 0 ? "Failed" : "Disconnected";
     }
 
     function preferredProfile(ssid) {
@@ -224,6 +356,24 @@ Singleton {
         return true;
     }
 
+    function connectVpnProfile(profile) {
+        if (!profile?.path || actionProc.running || profile.available === false) return false;
+        actionProc.environment = ({ LANG: "C", LC_ALL: "C" });
+        actionProc.command = ["busctl", "--system", "call", root.service, root.rootPath,
+            root.managerInterface, "ActivateConnection", "ooo", profile.path, "/", "/"];
+        actionProc.running = true;
+        return true;
+    }
+
+    function disconnectVpn(connection) {
+        if (!connection?.activePath || actionProc.running) return false;
+        actionProc.environment = ({ LANG: "C", LC_ALL: "C" });
+        actionProc.command = ["busctl", "--system", "call", root.service, root.rootPath,
+            root.managerInterface, "DeactivateConnection", "o", connection.activePath];
+        actionProc.running = true;
+        return true;
+    }
+
     function forgetWifiProfile(profile) {
         if (!profile?.path || actionProc.running) return false;
         actionProc.command = ["busctl", "--system", "call", root.service, profile.path,
@@ -248,6 +398,10 @@ Singleton {
         const activeConnections = {};
         const ipConfigs = {};
         const ethernetCandidates = [];
+        const deviceInfo = {};
+        root.hotspotHas24Ghz = false;
+        root.hotspotHas5Ghz = false;
+        root.hotspotHas6Ghz = false;
 
         for (const path of Object.keys(objects)) {
             const interfaces = objects[path] || {};
@@ -258,15 +412,27 @@ Singleton {
             const ip4 = interfaces["org.freedesktop.NetworkManager.IP4Config"];
             const ip6 = interfaces["org.freedesktop.NetworkManager.IP6Config"];
             if (ap) accessPoints[path] = { path, data: ap };
-            if (active) activeConnections[path] = { path, data: active };
+            if (active) activeConnections[path] = { path, data: active, vpn: interfaces["org.freedesktop.NetworkManager.VpnConnection"] || null };
             if (ip4 || ip6) ipConfigs[path] = { path, ip4, ip6 };
             if (!device) continue;
+            deviceInfo[path] = {
+                path,
+                interfaceName: root.value(device, "Interface", ""),
+                state: Number(root.value(device, "State", 0)),
+                ip4Path: root.value(device, "Ip4Config", "/"),
+                ip6Path: root.value(device, "Ip6Config", "/")
+            };
             const type = Number(root.value(device, "DeviceType", 0));
             if (type === 2) {
+                const wirelessCapabilities = Number(root.value(wireless, "WirelessCapabilities", 0));
+                root.hotspotHas24Ghz = root.hotspotHas24Ghz || Boolean(wirelessCapabilities & 0x200);
+                root.hotspotHas5Ghz = root.hotspotHas5Ghz || Boolean(wirelessCapabilities & 0x400);
+                root.hotspotHas6Ghz = root.hotspotHas6Ghz || Boolean(wirelessCapabilities & 0x800);
                 devices.push({
                     path,
                     interfaceName: root.value(device, "Interface", ""),
                     state: Number(root.value(device, "State", 0)),
+                    apSupported: Boolean(wirelessCapabilities & 0x40),
                     activePath: root.value(device, "ActiveConnection", "/"),
                     accessPoints: root.value(wireless, "AccessPoints", []),
                     activeAccessPoint: root.value(wireless, "ActiveAccessPoint", "/"),
@@ -298,6 +464,13 @@ Singleton {
             }
         }
         root.wifiDevices = devices;
+        root.hotspotDevices = devices.filter(device => device.apSupported).map(device => Object.assign({}, device, {
+            apSupported: true,
+            interfaceName: device.interfaceName
+        }));
+        root.hotspotCapabilitiesReady = true;
+        root.deviceInfo = deviceInfo;
+        root.activeConnectionRecords = Object.values(activeConnections);
         const ethernetDevices = ethernetCandidates.map(candidate => {
             const activeConnection = activeConnections[candidate.activeConnection];
             const details = root.detailsFor(candidate, activeConnection, ipConfigs);
@@ -322,6 +495,7 @@ Singleton {
         root.currentDetails = root.detailsFor(activeDevice, activeConnection, ipConfigs);
         root.wifiStatus = !root.wifiEnabled ? "disabled" : !activeDevice ? "disconnected" : activeDevice.state >= 100 ? "connected" : activeDevice.state >= 50 ? "connecting" : "disconnected";
         root.networkName = activeId;
+        root.updateHotspotState();
 
         const grouped = new Map();
         for (const device of devices) {
@@ -415,7 +589,60 @@ Singleton {
 
     function currentAccessPointData(path) { return snapshotObjects[path]?.[root.accessPointInterface] || {}; }
 
+    function vpnDetails(activeData) {
+        const ip4Path = root.value(activeData, "Ip4Config", "/");
+        const ip6Path = root.value(activeData, "Ip6Config", "/");
+        const ip4 = root.snapshotObjects[ip4Path]?.["org.freedesktop.NetworkManager.IP4Config"] || {};
+        const ip6 = root.snapshotObjects[ip6Path]?.["org.freedesktop.NetworkManager.IP6Config"] || {};
+        const addresses4 = root.value(ip4, "AddressData", []).map(entry => entry.address?.data || entry.address || "").filter(Boolean);
+        const addresses6 = root.value(ip6, "AddressData", []).map(entry => entry.address?.data || entry.address || "").filter(value => value && !value.startsWith("fe80:"));
+        const dns4 = root.value(ip4, "NameserverData", []).map(entry => entry.address?.data || entry.address || "").filter(Boolean);
+        const dns6 = root.value(ip6, "NameserverData", []).map(entry => entry.address?.data || entry.address || "").filter(value => value && !value.startsWith("fe80:"));
+        return {
+            ipv4: addresses4,
+            ipv6: addresses6,
+            gateway4: root.value(ip4, "Gateway", ""),
+            gateway6: root.value(ip6, "Gateway", ""),
+            dns4,
+            dns6
+        };
+    }
+
+    function rebuildVpnState(profiles) {
+        const vpnProfiles = profiles.filter(profile => profile.kind === "vpn");
+        const active = [];
+        for (const record of root.activeConnectionRecords) {
+            const activeData = record.data;
+            const profilePath = root.value(activeData, "Connection", "/");
+            const profile = vpnProfiles.find(item => item.path === profilePath);
+            if (!profile) continue;
+            const isClassicVpn = Boolean(record.vpn);
+            const vpnData = record.vpn || {};
+            const devices = root.value(activeData, "Devices", []);
+            const firstDevice = devices.length > 0 ? root.deviceInfo[devices[0]] : null;
+            const details = root.vpnDetails(activeData);
+            active.push(Object.assign({}, details, {
+                id: profile.id,
+                uuid: profile.uuid,
+                profile: profile.id,
+                profilePath,
+                activePath: record.path,
+                type: profile.displayType,
+                connectionType: profile.connectionType,
+                state: root.vpnState(root.value(vpnData, "VpnState", 0), root.value(activeData, "State", 0), isClassicVpn),
+                interfaceName: firstDevice?.interfaceName || root.value(activeData, "VpnTunnel", "")
+            }));
+        }
+        root.vpnProfiles = vpnProfiles.map(profile => Object.assign({}, profile, {
+            dbusPath: profile.path,
+            active: active.some(connection => connection.profilePath === profile.path)
+        }));
+        root.activeVpnConnections = active;
+    }
+
     property var snapshotObjects: ({})
+    property var deviceInfo: ({})
+    property var activeConnectionRecords: []
 
     function beginProfiles(objects) {
         root.snapshotObjects = objects;
@@ -428,10 +655,15 @@ Singleton {
 
     function readNextProfile() {
         if (profileIndex >= profilePaths.length) {
-            const profiles = profileRecords.filter(profile => profile.ssid);
-            const wifiProfiles = profiles.filter(profile => profile.kind === "wifi");
+            const profiles = profileRecords.filter(profile => profile.ssid || profile.kind === "ethernet");
+            const allWifiProfiles = profiles.filter(profile => profile.kind === "wifi");
+            const managedHotspots = allWifiProfiles.filter(profile => profile.mode === "ap" && profile.stableId === root.hotspotMarker);
+            const wifiProfiles = allWifiProfiles.filter(profile => profile.mode !== "ap");
             const ethernetProfiles = profiles.filter(profile => profile.kind === "ethernet");
             root.savedWifiProfilesList = wifiProfiles;
+            root.hotspotProfile = managedHotspots[0] || null;
+            root.hotspotProfileUuid = root.hotspotProfile?.uuid || "";
+            root.updateHotspotState();
             root.ethernetProfilesList = ethernetProfiles;
             const bySsid = {};
             wifiProfiles.forEach(profile => { if (!bySsid[profile.ssid]) bySsid[profile.ssid] = profile; });
@@ -446,6 +678,7 @@ Singleton {
                 dbusPath: profile.path,
                 active: root.ethernetDevices.some(device => device.activeProfilePath === profile.path)
             }));
+            root.rebuildVpnState(profiles);
             root.wifiNetworksChanged();
             return;
         }
@@ -463,10 +696,17 @@ Singleton {
         const connection = settings.connection || {};
         const wireless = settings["802-11-wireless"] || {};
         const security = settings["802-11-wireless-security"] || {};
+        const vpn = settings.vpn || {};
         const get = (section, key, fallback) => root.value(section, key, fallback);
         const type = get(connection, "type", "");
         if (type === "802-11-wireless") {
-                profileRecords.push({ path, dbusPath: path, kind: "wifi", id: get(connection, "id", ""), uuid: get(connection, "uuid", ""), ssid: root.bytes(get(wireless, "ssid", [])), keyManagement: get(security, "key-mgmt", ""), interfaceName: get(connection, "interface-name", "") });
+                profileRecords.push({
+                    path, dbusPath: path, kind: "wifi", id: get(connection, "id", ""), uuid: get(connection, "uuid", ""),
+                    ssid: root.bytes(get(wireless, "ssid", [])), mode: get(wireless, "mode", "infrastructure"),
+                    band: get(wireless, "band", ""), keyManagement: get(security, "key-mgmt", ""),
+                    ipv4Method: get(settings.ipv4 || {}, "method", ""), stableId: get(connection, "stable-id", ""),
+                    autoconnect: Boolean(get(connection, "autoconnect", true)), interfaceName: get(connection, "interface-name", "")
+                });
         } else if (type === "802-3-ethernet") {
             // A profile enslaved to a bridge/bond is not a standalone user-facing
             // Ethernet connection. Keep generic and directly-bound wired profiles.
@@ -474,6 +714,23 @@ Singleton {
             const slaveType = get(connection, "slave-type", "");
             if (!master && !slaveType)
                 profileRecords.push({ path, dbusPath: path, kind: "ethernet", id: get(connection, "id", ""), uuid: get(connection, "uuid", ""), ssid: get(connection, "id", ""), interfaceName: get(connection, "interface-name", "") });
+        } else if (type === "vpn" || type === "wireguard") {
+            const serviceType = type === "vpn" ? get(vpn, "service-type", "") : "wireguard";
+            profileRecords.push({
+                path,
+                dbusPath: path,
+                kind: "vpn",
+                id: get(connection, "id", ""),
+                uuid: get(connection, "uuid", ""),
+                ssid: get(connection, "id", ""),
+                connectionType: type,
+                serviceType,
+                vpnType: type === "wireguard" ? "wireguard" : serviceType,
+                displayType: root.vpnTypeLabel(type, serviceType),
+                interfaceName: get(connection, "interface-name", ""),
+                available: true,
+                unavailableReason: ""
+            });
         }
     }
 
@@ -507,6 +764,23 @@ Singleton {
 
     Process { id: scanProc; onExited: { root.wifiScanning = false; root.scheduleRefresh(); } }
     Process { id: setWifiProc; onExited: root.scheduleRefresh() }
+    Process {
+        id: hotspotActionProc
+        property string actionError: ""
+        stderr: StdioCollector { onStreamFinished: hotspotActionProc.actionError = text }
+        onRunningChanged: if (running) actionError = ""
+        onExited: code => {
+            root.hotspotStarting = false;
+            root.hotspotStopping = false;
+            hotspotActionProc.environment = ({ LANG: "C", LC_ALL: "C" });
+            if (code !== 0) {
+                const errorText = actionError.trim();
+                root.hotspotError = errorText.includes("Secrets") ? "A valid hotspot password is required." : errorText.includes("not authorized") ? "Network authorization was denied." : "Hotspot operation failed.";
+                root.hotspotStatus = "failed";
+            }
+            root.scheduleRefresh();
+        }
+    }
     Process {
         id: actionProc
         property string actionError: ""

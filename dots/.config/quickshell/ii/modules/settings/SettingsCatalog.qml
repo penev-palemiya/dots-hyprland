@@ -48,6 +48,10 @@ SettingsPage {
         case "connectivity-wifi": return wifiPage;
         case "connectivity-ethernet": return ethernetPage;
         case "connectivity-bluetooth": return bluetoothPage;
+        case "connectivity-vpn": return vpnPage;
+        case "connectivity-proxy": return proxyPage;
+        case "connectivity-hotspot": return hotspotPage;
+        case "devices-keyboard": return keyboardPage;
         case "personalization-colors": return colorsPage;
         case "search-tools-search": return searchPage;
         case "search-tools-clipboard": return clipboardPage;
@@ -422,6 +426,455 @@ SettingsPage {
                                 const device = Network.ethernetDevices.find(item => !modelData.interfaceName || item.interfaceName === modelData.interfaceName) || Network.ethernetDevices[0];
                                 Network.connectEthernetProfile(modelData, device);
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Component {
+        id: hotspotPage
+
+        SettingsSubPage {
+            id: hotspotRoot
+
+            property string draftSsid: Network.hotspotSsid || "My Hotspot"
+            property string draftPassword: ""
+            property string draftBand: Network.hotspotBand || ""
+            property bool confirmingStart: false
+            property bool syncing: false
+            property bool draftTouched: false
+            property bool readyForEdits: false
+
+            Component.onCompleted: readyForEdits = true
+
+            function bandIndex() {
+                const index = Network.hotspotBands.findIndex(item => item.value === hotspotRoot.draftBand);
+                return index >= 0 ? index : 0;
+            }
+
+            function start(confirmed = false) {
+                const result = Network.startHotspot(hotspotRoot.draftSsid, hotspotRoot.draftPassword, hotspotRoot.draftBand, confirmed);
+                if (result === "confirm") hotspotRoot.confirmingStart = true;
+                else if (result === true) {
+                    hotspotRoot.confirmingStart = false;
+                    hotspotRoot.draftPassword = "";
+                }
+            }
+
+            Connections {
+                target: Network
+                function onHotspotProfileChanged() {
+                    if (!hotspotRoot.draftTouched && !Network.hotspotStarting) {
+                        hotspotRoot.draftSsid = Network.hotspotSsid || "My Hotspot";
+                        hotspotRoot.draftBand = Network.hotspotBand || "";
+                    }
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Hotspot")
+
+                SettingsRow {
+                    icon: Network.hotspotStatus === "on" ? "wifi_tethering" : Network.hotspotStatus === "failed" ? "error" : "wifi_find"
+                    title: Network.hotspotStatus === "on" ? Translation.tr("On") : Network.hotspotStatus === "starting" ? Translation.tr("Starting…") : Network.hotspotStatus === "stopping" ? Translation.tr("Stopping…") : Network.hotspotStatus === "failed" ? Translation.tr("Failed") : Network.hotspotSupported ? Translation.tr("Off") : Translation.tr("Unsupported")
+                    description: Network.hotspotInterface.length > 0 ? `${Network.hotspotInterface}${Network.hotspotHasUpstream ? ` · ${Translation.tr("Upstream connection available")}` : ` · ${Translation.tr("Local network only")}`}` : Translation.tr("No AP-capable Wi-Fi device detected")
+                    registerInSearch: false
+                }
+
+                SettingsRow {
+                    visible: Network.hotspotError.length > 0
+                    icon: "error"
+                    title: Translation.tr("Hotspot operation failed")
+                    description: Network.hotspotError
+                    registerInSearch: false
+                }
+
+                SettingsRow {
+                    visible: Network.hotspotSupported && !Network.hotspotActive
+                    icon: "badge"
+                    title: Translation.tr("Network name")
+                    description: Translation.tr("Visible to nearby devices")
+                    registerInSearch: false
+
+                    MaterialTextField {
+                        Layout.preferredWidth: 220
+                        text: hotspotRoot.draftSsid
+                        placeholderText: Translation.tr("My Hotspot")
+                        onTextChanged: if (hotspotRoot.readyForEdits && !hotspotRoot.syncing) { hotspotRoot.draftSsid = text; hotspotRoot.draftTouched = true; }
+                    }
+                }
+
+                SettingsRow {
+                    visible: Network.hotspotSupported && !Network.hotspotActive
+                    icon: "lock"
+                    title: Translation.tr("Password")
+                    description: Network.hotspotProfile ? Translation.tr("Leave blank to keep the current password") : Translation.tr("WPA2-Personal, 8–63 characters")
+                    registerInSearch: false
+
+                    MaterialTextField {
+                        Layout.preferredWidth: 220
+                        echoMode: TextInput.Password
+                        inputMethodHints: Qt.ImhSensitiveData
+                        text: hotspotRoot.draftPassword
+                        placeholderText: Network.hotspotProfile ? Translation.tr("Change password") : Translation.tr("Password")
+                        onTextChanged: if (hotspotRoot.readyForEdits && !hotspotRoot.syncing) { hotspotRoot.draftPassword = text; hotspotRoot.draftTouched = true; }
+                    }
+                }
+
+                SettingsRow {
+                    visible: Network.hotspotSupported && !Network.hotspotActive
+                    icon: "wifi"
+                    title: Translation.tr("Band")
+                    description: Translation.tr("Automatic lets NetworkManager choose a compatible channel")
+                    registerInSearch: false
+
+                    StyledComboBox {
+                        textRole: "label"
+                        model: Network.hotspotBands
+                        currentIndex: hotspotRoot.bandIndex()
+                        onActivated: index => { hotspotRoot.draftBand = model[index].value; hotspotRoot.draftTouched = true; }
+                    }
+                }
+
+                SettingsRow {
+                    visible: Network.hotspotSupported && !Network.hotspotActive && hotspotRoot.confirmingStart
+                    icon: "warning"
+                    title: Translation.tr("Current Wi-Fi may be interrupted")
+                    description: Translation.tr("Starting the hotspot can interrupt the current Wi-Fi connection.")
+                    registerInSearch: false
+
+                    RowLayout {
+                        spacing: 8
+                        DialogButton {
+                            buttonText: Translation.tr("Cancel")
+                            onClicked: hotspotRoot.confirmingStart = false
+                        }
+                        DialogButton {
+                            buttonText: Translation.tr("Start")
+                            colBackground: Appearance.colors.colPrimary
+                            colText: Appearance.colors.colOnPrimary
+                            onClicked: hotspotRoot.start(true)
+                        }
+                    }
+                }
+
+                SettingsRow {
+                    visible: Network.hotspotSupported && !Network.hotspotActive && !hotspotRoot.confirmingStart
+                    icon: "play_arrow"
+                    title: Translation.tr("Start Hotspot")
+                    description: Network.hotspotMayInterruptWifi ? Translation.tr("May interrupt the current Wi-Fi connection") : Translation.tr("Creates a local Wi-Fi network")
+                    registerInSearch: false
+
+                    DialogButton {
+                        buttonText: Network.hotspotStarting ? Translation.tr("Starting…") : Translation.tr("Start Hotspot")
+                        enabled: !Network.hotspotStarting && !Network.hotspotStopping
+                        colBackground: Appearance.colors.colPrimary
+                        colText: Appearance.colors.colOnPrimary
+                        onClicked: hotspotRoot.start()
+                    }
+                }
+
+                SettingsRow {
+                    visible: Network.hotspotActive
+                    icon: "wifi_tethering"
+                    title: hotspotRoot.draftSsid || Network.hotspotSsid
+                    description: [Network.hotspotBand === "a" ? "5 GHz" : Network.hotspotBand === "bg" ? "2.4 GHz" : Translation.tr("Automatic"), Network.hotspotHasUpstream ? Translation.tr("Upstream connection available") : Translation.tr("Local network only")].join(" · ")
+                    registerInSearch: false
+
+                    DialogButton {
+                        buttonText: Network.hotspotStopping ? Translation.tr("Stopping…") : Translation.tr("Stop Hotspot")
+                        enabled: !Network.hotspotStarting && !Network.hotspotStopping
+                        onClicked: Network.stopHotspot()
+                    }
+                }
+            }
+        }
+    }
+
+    Component {
+        id: keyboardPage
+        KeyboardConfig {}
+    }
+
+    Component {
+        id: proxyPage
+
+        SettingsSubPage {
+            id: proxyRoot
+
+            property bool syncing: false
+            property bool dirty: false
+            property string draftMode: "none"
+            property string draftPacUrl: ""
+            property string draftHttpHost: ""
+            property string draftHttpPort: "8080"
+            property string draftHttpsHost: ""
+            property string draftHttpsPort: ""
+            property string draftSocksHost: ""
+            property string draftSocksPort: ""
+            property string draftIgnoreHosts: ""
+
+            function loadAuthoritative() {
+                syncing = true;
+                draftMode = ProxySettings.mode;
+                draftPacUrl = ProxySettings.pacUrl;
+                draftHttpHost = ProxySettings.httpHost;
+                draftHttpPort = ProxySettings.httpPort > 0 ? String(ProxySettings.httpPort) : "";
+                draftHttpsHost = ProxySettings.httpsHost;
+                draftHttpsPort = ProxySettings.httpsPort > 0 ? String(ProxySettings.httpsPort) : "";
+                draftSocksHost = ProxySettings.socksHost;
+                draftSocksPort = ProxySettings.socksPort > 0 ? String(ProxySettings.socksPort) : "";
+                draftIgnoreHosts = ProxySettings.ignoreHosts.join(", ");
+                dirty = false;
+                syncing = false;
+            }
+
+            function markDirty() { if (!syncing) dirty = true; }
+            function applyDraft() {
+                return ProxySettings.apply({
+                    mode: draftMode,
+                    pacUrl: draftPacUrl,
+                    httpHost: draftHttpHost,
+                    httpPort: Number(draftHttpPort || 0),
+                    httpsHost: draftHttpsHost,
+                    httpsPort: Number(draftHttpsPort || 0),
+                    socksHost: draftSocksHost,
+                    socksPort: Number(draftSocksPort || 0),
+                    ignoreHosts: draftIgnoreHosts
+                });
+            }
+
+            Component.onCompleted: proxyRoot.loadAuthoritative()
+            Connections {
+                target: ProxySettings
+                function onPolicyChangedExternally() {
+                    if (!proxyRoot.dirty && !ProxySettings.applying)
+                        proxyRoot.loadAuthoritative();
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Mode")
+
+                SettingsRow {
+                    icon: "settings_ethernet"
+                    title: Translation.tr("Proxy mode")
+                    description: proxyRoot.draftMode === "none" ? Translation.tr("Off") : proxyRoot.draftMode === "auto" ? Translation.tr("Automatic") : Translation.tr("Manual")
+
+                    StyledComboBox {
+                        textRole: "label"
+                        model: [
+                            { label: Translation.tr("Off"), value: "none" },
+                            { label: Translation.tr("Automatic"), value: "auto" },
+                            { label: Translation.tr("Manual"), value: "manual" }
+                        ]
+                        currentIndex: Math.max(0, model.findIndex(item => item.value === proxyRoot.draftMode))
+                        onActivated: index => { proxyRoot.draftMode = model[index].value; proxyRoot.markDirty(); }
+                    }
+                }
+
+                SettingsRow {
+                    visible: proxyRoot.draftMode === "none"
+                    icon: "check"
+                    title: Translation.tr("No proxy is configured")
+                    description: Translation.tr("New applications will use their normal network settings.")
+                    registerInSearch: false
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Automatic Proxy")
+                visible: proxyRoot.draftMode === "auto"
+
+                SettingsRow {
+                    icon: "link"
+                    title: Translation.tr("Configuration URL")
+                    description: Translation.tr("Used by applications that support the desktop proxy resolver.")
+                    registerInSearch: false
+
+                    MaterialTextField {
+                        Layout.preferredWidth: 300
+                        placeholderText: "https://example.com/proxy.pac"
+                        text: proxyRoot.draftPacUrl
+                        onTextChanged: { if (!proxyRoot.syncing) { proxyRoot.draftPacUrl = text; proxyRoot.markDirty(); } }
+                    }
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Manual Proxy")
+                visible: proxyRoot.draftMode === "manual"
+
+                SettingsRow {
+                    icon: "http"
+                    title: Translation.tr("HTTP proxy")
+                    description: Translation.tr("Unauthenticated endpoint")
+                    registerInSearch: false
+                    RowLayout {
+                        spacing: 6
+                        MaterialTextField {
+                            Layout.preferredWidth: 190
+                            placeholderText: Translation.tr("Host")
+                            text: proxyRoot.draftHttpHost
+                            onTextChanged: { if (!proxyRoot.syncing) { proxyRoot.draftHttpHost = text; proxyRoot.markDirty(); } }
+                        }
+                        MaterialTextField {
+                            Layout.preferredWidth: 80
+                            placeholderText: Translation.tr("Port")
+                            text: proxyRoot.draftHttpPort
+                            onTextChanged: { if (!proxyRoot.syncing) { proxyRoot.draftHttpPort = text; proxyRoot.markDirty(); } }
+                        }
+                    }
+                }
+
+                SettingsRow {
+                    icon: "https"
+                    title: Translation.tr("HTTPS proxy")
+                    description: Translation.tr("Unauthenticated endpoint")
+                    registerInSearch: false
+                    RowLayout {
+                        spacing: 6
+                        MaterialTextField {
+                            Layout.preferredWidth: 190
+                            placeholderText: Translation.tr("Host")
+                            text: proxyRoot.draftHttpsHost
+                            onTextChanged: { if (!proxyRoot.syncing) { proxyRoot.draftHttpsHost = text; proxyRoot.markDirty(); } }
+                        }
+                        MaterialTextField {
+                            Layout.preferredWidth: 80
+                            placeholderText: Translation.tr("Port")
+                            text: proxyRoot.draftHttpsPort
+                            onTextChanged: { if (!proxyRoot.syncing) { proxyRoot.draftHttpsPort = text; proxyRoot.markDirty(); } }
+                        }
+                    }
+                }
+
+                SettingsRow {
+                    icon: "lock"
+                    title: Translation.tr("SOCKS proxy")
+                    description: Translation.tr("Unauthenticated endpoint")
+                    registerInSearch: false
+                    RowLayout {
+                        spacing: 6
+                        MaterialTextField {
+                            Layout.preferredWidth: 190
+                            placeholderText: Translation.tr("Host")
+                            text: proxyRoot.draftSocksHost
+                            onTextChanged: { if (!proxyRoot.syncing) { proxyRoot.draftSocksHost = text; proxyRoot.markDirty(); } }
+                        }
+                        MaterialTextField {
+                            Layout.preferredWidth: 80
+                            placeholderText: Translation.tr("Port")
+                            text: proxyRoot.draftSocksPort
+                            onTextChanged: { if (!proxyRoot.syncing) { proxyRoot.draftSocksPort = text; proxyRoot.markDirty(); } }
+                        }
+                    }
+                }
+
+                SettingsRow {
+                    icon: "block"
+                    title: Translation.tr("Bypass proxy for")
+                    description: Translation.tr("Comma-separated hosts or patterns")
+                    registerInSearch: false
+                    MaterialTextField {
+                        Layout.preferredWidth: 300
+                        placeholderText: "localhost, 127.0.0.1, ::1"
+                        text: proxyRoot.draftIgnoreHosts
+                        onTextChanged: { if (!proxyRoot.syncing) { proxyRoot.draftIgnoreHosts = text; proxyRoot.markDirty(); } }
+                    }
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Apply")
+
+                SettingsRow {
+                    icon: ProxySettings.error.length > 0 ? "error" : "save"
+                    title: ProxySettings.error.length > 0 ? ProxySettings.error : Translation.tr("Apply proxy settings")
+                    description: proxyRoot.draftMode === "auto"
+                        ? Translation.tr("Automatic proxy is available to desktop proxy-aware applications.")
+                        : Translation.tr("Applies to newly launched and proxy-aware applications. Running applications may need to be restarted.")
+                    registerInSearch: false
+
+                    DialogButton {
+                        buttonText: ProxySettings.applying ? Translation.tr("Applying…") : Translation.tr("Apply")
+                        enabled: proxyRoot.dirty && !ProxySettings.applying
+                        onClicked: proxyRoot.applyDraft()
+                    }
+                }
+            }
+        }
+    }
+
+    Component {
+        id: vpnPage
+
+        SettingsSubPage {
+            id: vpnRoot
+
+            function activeDescription(connection) {
+                const lines = [connection.type, connection.state];
+                if (connection.interfaceName) lines.push(`${Translation.tr("Interface")}: ${connection.interfaceName}`);
+                if (connection.ipv4.length > 0) lines.push(`${Translation.tr("IPv4")}: ${connection.ipv4.join(", ")}`);
+                if (connection.ipv6.length > 0) lines.push(`${Translation.tr("IPv6")}: ${connection.ipv6.join(", ")}`);
+                if (connection.dns4.length > 0 || connection.dns6.length > 0)
+                    lines.push(`${Translation.tr("DNS")}: ${connection.dns4.concat(connection.dns6).join(", ")}`);
+                return lines.join("\n");
+            }
+
+            SettingsGroup {
+                title: Translation.tr("VPN")
+
+                SettingsRow {
+                    visible: Network.activeVpnConnections.length === 0 && Network.vpnProfiles.length === 0
+                    icon: "vpn_key"
+                    title: Translation.tr("No VPN connections configured")
+                    description: Translation.tr("VPN connections added through NetworkManager will appear here.")
+                    registerInSearch: false
+                }
+
+                Repeater {
+                    model: Network.activeVpnConnections
+
+                    SettingsRow {
+                        required property var modelData
+                        icon: modelData.state === "Connected" ? "vpn_lock" : "vpn_key"
+                        title: modelData.profile
+                        description: vpnRoot.activeDescription(modelData)
+                        registerInSearch: false
+
+                        RippleButtonWithIcon {
+                            materialIcon: "link_off"
+                            mainText: Translation.tr("Disconnect")
+                            enabled: modelData.state !== "Connecting"
+                            onClicked: Network.disconnectVpn(modelData)
+                        }
+                    }
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Saved VPNs")
+                visible: Network.vpnProfiles.length > 0
+
+                Repeater {
+                    model: Network.vpnProfiles
+
+                    SettingsRow {
+                        required property var modelData
+                        icon: modelData.active ? "vpn_lock" : "vpn_key"
+                        title: modelData.id
+                        description: modelData.displayType + (modelData.active ? ` · ${Translation.tr("Connected")}` : "")
+                        registerInSearch: false
+
+                        RippleButtonWithIcon {
+                            visible: !modelData.active
+                            materialIcon: "link"
+                            mainText: Translation.tr("Connect")
+                            enabled: modelData.available !== false && !Network.wifiConnecting
+                            onClicked: Network.connectVpnProfile(modelData)
                         }
                     }
                 }
