@@ -4,6 +4,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.services
 
 /**
  * Provides some system info: distro, username.
@@ -23,6 +24,32 @@ Singleton {
     property string desktopEnvironment: ""
     property string windowingSystem: ""
 
+    // Static/read-mostly information used by System → System Info.
+    property string hostname: ""
+    property string deviceModel: ""
+    property string deviceVendor: ""
+    property string distroVersion: ""
+    property string kernel: ""
+    property string architecture: ""
+    property string cpuModel: ""
+    property real memoryTotalBytes: ResourceUsage.memoryTotal * 1024
+    property list<string> gpuNames: GpuUsage.gpuNames
+    property real uptimeSeconds: 0
+    property string hyprlandVersion: ""
+    property string quickshellVersion: ""
+
+    function formatUptime() {
+        const totalMinutes = Math.max(0, Math.floor(root.uptimeSeconds / 60));
+        const days = Math.floor(totalMinutes / 1440);
+        const hours = Math.floor((totalMinutes % 1440) / 60);
+        const minutes = totalMinutes % 60;
+        const parts = [];
+        if (days > 0) parts.push(`${days} ${days === 1 ? Translation.tr("day") : Translation.tr("days")}`);
+        if (hours > 0) parts.push(`${hours} ${hours === 1 ? Translation.tr("hour") : Translation.tr("hours")}`);
+        if (minutes > 0 || parts.length === 0) parts.push(`${minutes} ${minutes === 1 ? Translation.tr("minute") : Translation.tr("minutes")}`);
+        return parts.join(" ");
+    }
+
     Timer {
         triggeredOnStart: true
         interval: 1
@@ -37,6 +64,9 @@ Singleton {
             const prettyNameMatch = textOsRelease.match(/^PRETTY_NAME="(.+?)"/m)
             const nameMatch = textOsRelease.match(/^NAME="(.+?)"/m)
             distroName = prettyNameMatch ? prettyNameMatch[1] : (nameMatch ? nameMatch[1].replace(/Linux/i, "").trim() : "Unknown")
+
+            const versionMatch = textOsRelease.match(/^(?:VERSION_ID|BUILD_ID)="?([^"\n]+)"?/m)
+            distroVersion = versionMatch ? versionMatch[1] : ""
 
             // Extract the ID
             const idMatch = textOsRelease.match(/^ID="?(.+?)"?$/m)
@@ -109,6 +139,77 @@ Singleton {
                 root.windowingSystem = wayland.trim().length > 0 ? "Wayland" : "X11" // Are there others? 🤔
             }
         }
+    }
+
+    Process {
+        id: getHostname
+        command: ["hostname"]
+        running: true
+        stdout: SplitParser { onRead: data => root.hostname = data.trim() }
+    }
+
+    Process {
+        id: getKernel
+        command: ["uname", "-srmo"]
+        running: true
+        stdout: SplitParser {
+            onRead: data => {
+                const fields = data.trim().split(/\s+/);
+                root.kernel = fields.slice(0, 2).join(" ");
+                root.architecture = fields[2] || "";
+            }
+        }
+    }
+
+    Process {
+        id: getHyprlandVersion
+        command: ["hyprctl", "version"]
+        running: true
+        stdout: SplitParser {
+            onRead: data => {
+                const match = data.match(/^Hyprland\s+(\S+)/);
+                if (match) root.hyprlandVersion = match[1];
+            }
+        }
+    }
+
+    Process {
+        id: getQuickshellVersion
+        command: ["qs", "--version"]
+        running: true
+        stdout: SplitParser {
+            onRead: data => {
+                const match = data.match(/Quickshell\s+([^\s(]+)/i);
+                if (match) root.quickshellVersion = match[1];
+            }
+        }
+    }
+
+    FileView {
+        id: cpuInfo
+        path: "/proc/cpuinfo"
+        onLoaded: {
+            const match = cpuInfo.text().match(/^model name\s*:\s*(.+)$/m);
+            if (match) root.cpuModel = match[1].trim();
+        }
+    }
+
+    FileView {
+        id: uptimeInfo
+        path: "/proc/uptime"
+        onLoaded: root.uptimeSeconds = Number(uptimeInfo.text().trim().split(/\s+/)[0] || 0)
+    }
+
+    FileView {
+        id: productName
+        path: "/sys/devices/virtual/dmi/id/product_name"
+        onLoaded: root.deviceModel = productName.text().trim()
+    }
+
+    FileView {
+        id: productVendor
+        path: "/sys/devices/virtual/dmi/id/sys_vendor"
+        onLoaded: root.deviceVendor = productVendor.text().trim()
     }
 
     FileView {

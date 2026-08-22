@@ -31,6 +31,10 @@ Singleton {
 
     property string vendor: "" // "nvidia" | "amd" | "intel" | ""
     property string gpuName: ""
+    // All detected display/render GPUs, populated from the same lspci probe
+    // used for vendor selection. This probe does not wake runtime-suspended
+    // devices.
+    property list<string> gpuNames: []
     property bool available: false
     // Whether the currently displayed `usage` (and, when set, `temp`) reflect a
     // real sample - not merely a boolean of "detection succeeded once". A
@@ -262,6 +266,11 @@ Singleton {
                 const lines = vendorCollector.text.split('\n').filter(l => l.length > 0);
                 if (lines.length === 0)
                     return;
+
+                root.gpuNames = lines.map(line => {
+                    const fields = line.match(/"[^"]*"|\S+/g) ?? [];
+                    return (fields[3] ?? "").replace(/^"|"$/g, "");
+                }).filter(name => name.length > 0);
 
                 const discrete = lines.find(l => /nvidia/i.test(l)) ?? lines.find(l => /amd|advanced micro devices|ati/i.test(l));
                 const chosen = discrete ?? lines[0];

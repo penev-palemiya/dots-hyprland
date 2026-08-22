@@ -28,6 +28,8 @@ SettingsPage {
         case "system-notifications": return notificationsPage;
         case "system-date-time": return dateTimePage;
         case "system-language-region": return languageRegionPage;
+        case "system-storage": return storagePage;
+        case "system-info": return systemInfoPage;
         case "personalization-colors": return colorsPage;
         case "search-tools-search": return searchPage;
         case "search-tools-clipboard": return clipboardPage;
@@ -89,8 +91,388 @@ SettingsPage {
     }
 
     Component {
+        id: storagePage
+
+        SettingsSubPage {
+            id: storageRoot
+
+            function sizeText(volume) {
+                if (!volume || !volume.size)
+                    return Translation.tr("Capacity unavailable");
+                const used = volume.used > 0 ? `${Storage.humanSize(volume.used)} / ` : "";
+                return `${used}${Storage.humanSize(volume.size)}`;
+            }
+
+            function volumeDescription(volume) {
+                const mount = volume.mountPoints.length > 0 ? volume.mountPoints.join(", ") : Translation.tr("Not mounted");
+                const details = [volume.filesystem, mount].filter(value => value.length > 0).join(" · ");
+                return `${details}\n${storageRoot.sizeText(volume)}`;
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Storage")
+
+                SettingsRow {
+                    icon: "hard_drive"
+                    title: Storage.ready ? `${Storage.humanSize(Storage.overviewUsed)} ${Translation.tr("used")}` : Translation.tr("Loading storage…")
+                    description: Storage.ready
+                        ? `${Storage.humanSize(Storage.overviewAvailable)} ${Translation.tr("available")} · ${Storage.overviewPercent.toFixed(0)}% ${Translation.tr("used")}`
+                        : Translation.tr("Reading mounted filesystems")
+
+                    ColumnLayout {
+                        width: 250
+                        spacing: 5
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 8
+                            radius: 4
+                            color: Appearance.colors.colSurfaceContainerHighest
+
+                            Rectangle {
+                                width: parent.width * Math.min(1, Math.max(0, Storage.overviewPercent / 100))
+                                height: parent.height
+                                radius: 4
+                                color: Appearance.colors.colPrimary
+                            }
+                        }
+
+                        StyledText {
+                            Layout.fillWidth: true
+                            text: Storage.ready ? `${Storage.humanSize(Storage.overviewTotal)} ${Translation.tr("total")}` : ""
+                            color: Appearance.colors.colOnSurfaceVariant
+                            horizontalAlignment: Text.AlignRight
+                        }
+                    }
+                }
+
+                SettingsRow {
+                    visible: Storage.error.length > 0
+                    icon: "error"
+                    title: Translation.tr("Storage service error")
+                    description: Storage.error
+                    registerInSearch: false
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("System Storage")
+
+                Repeater {
+                    model: Storage.volumes.filter(volume => volume.system || volume.mountPoints.includes("/home"))
+
+                    SettingsRow {
+                        required property var modelData
+                        icon: modelData.mountPoints.includes("/") ? "computer" : "folder"
+                        title: modelData.mountPoints.includes("/") ? Translation.tr("System") : Translation.tr("Home")
+                        description: storageRoot.volumeDescription(modelData)
+
+                        StyledText {
+                            text: modelData.used > 0 ? `${(modelData.used / modelData.size * 100).toFixed(0)}%` : ""
+                            color: Appearance.colors.colOnSurfaceVariant
+                        }
+                    }
+                }
+
+                SettingsRow {
+                    visible: Storage.ready && Storage.volumes.filter(volume => volume.system || volume.mountPoints.includes("/home")).length === 0
+                    icon: "info"
+                    title: Translation.tr("No system filesystem found")
+                    description: Translation.tr("Mounted system storage will appear here.")
+                    registerInSearch: false
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Disks & Volumes")
+
+                Repeater {
+                    model: Storage.drives
+
+                    SettingsGroup {
+                        required property var modelData
+                        title: modelData.model || modelData.vendor || Translation.tr("Storage drive")
+
+                        SettingsRow {
+                            icon: modelData.removable ? "usb" : "hard_drive"
+                            title: modelData.model || Translation.tr("Unknown drive")
+                            description: [modelData.vendor, Storage.humanSize(modelData.size)].filter(value => value && value.length > 0).join(" · ")
+                            registerInSearch: false
+                        }
+
+                        Repeater {
+                            model: modelData.volumes.filter(volume => !volume.technical)
+
+                            SettingsRow {
+                                required property var modelData
+                                icon: modelData.mounted ? "folder" : "storage"
+                                title: modelData.label || (modelData.system ? Translation.tr("System") : modelData.device)
+                                description: storageRoot.volumeDescription(modelData)
+                                registerInSearch: false
+
+                                RowLayout {
+                                    spacing: 6
+
+                                    RippleButtonWithIcon {
+                                        visible: modelData.removable && modelData.mounted
+                                        materialIcon: "eject"
+                                        mainText: Translation.tr("Unmount")
+                                        enabled: !Storage.busy
+                                        onClicked: Storage.unmount(modelData)
+                                    }
+
+                                    RippleButtonWithIcon {
+                                        visible: modelData.removable && !modelData.mounted
+                                        materialIcon: "folder_open"
+                                        mainText: Translation.tr("Mount")
+                                        enabled: !Storage.busy
+                                        onClicked: Storage.mount(modelData)
+                                    }
+
+                                    RippleButtonWithIcon {
+                                        visible: modelData.ejectable
+                                        materialIcon: "eject"
+                                        mainText: Translation.tr("Eject")
+                                        enabled: !Storage.busy
+                                        onClicked: Storage.eject(modelData)
+                                    }
+
+                                    RippleButtonWithIcon {
+                                        visible: modelData.canPowerOff
+                                        materialIcon: "power_settings_new"
+                                        mainText: Translation.tr("Safely Remove")
+                                        enabled: !Storage.busy
+                                        onClicked: Storage.powerOff(modelData)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                SettingsRow {
+                    visible: Storage.ready && Storage.drives.length === 0
+                    icon: "hard_drive"
+                    title: Translation.tr("No drives detected")
+                    description: Translation.tr("Connected storage devices will appear here.")
+                    registerInSearch: false
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Removable Storage")
+                visible: Storage.drives.some(drive => drive.removable)
+
+                Repeater {
+                    model: Storage.volumes.filter(volume => volume.removable && !volume.technical)
+
+                    SettingsRow {
+                        required property var modelData
+                        icon: "usb"
+                        title: modelData.label || modelData.device
+                        description: storageRoot.volumeDescription(modelData)
+                        registerInSearch: false
+                    }
+                }
+            }
+        }
+    }
+
+    Component {
         id: powerBatteryPage
         PowerBatteryConfig {}
+    }
+
+    Component {
+        id: systemInfoPage
+
+        SettingsSubPage {
+            id: infoRoot
+
+            property bool copied: false
+
+            function memoryText() {
+                return SystemInfo.memoryTotalBytes > 0
+                    ? Storage.humanSize(SystemInfo.memoryTotalBytes)
+                    : Translation.tr("Unavailable");
+            }
+
+            function graphicsText() {
+                return SystemInfo.gpuNames.length > 0
+                    ? SystemInfo.gpuNames.join("\n")
+                    : Translation.tr("Unavailable");
+            }
+
+            function storageText() {
+                if (!Storage.ready || Storage.overviewTotal <= 0)
+                    return Translation.tr("Unavailable");
+                return `${Storage.humanSize(Storage.overviewUsed)} ${Translation.tr("used")} · ${Storage.humanSize(Storage.overviewAvailable)} ${Translation.tr("available")} / ${Storage.humanSize(Storage.overviewTotal)}`;
+            }
+
+            function summary() {
+                const lines = [
+                    `OS: ${SystemInfo.distroName || Translation.tr("Unknown")}${SystemInfo.distroVersion ? ` ${SystemInfo.distroVersion}` : ""}`,
+                    `Kernel: ${SystemInfo.kernel || Translation.tr("Unknown")}`,
+                    `Architecture: ${SystemInfo.architecture || Translation.tr("Unknown")}`,
+                    `Desktop: ${SystemInfo.desktopEnvironment || Translation.tr("Unknown")}`,
+                    `Session: ${SystemInfo.windowingSystem || Translation.tr("Unknown")}`,
+                    `CPU: ${SystemInfo.cpuModel || Translation.tr("Unknown")}`,
+                    `Memory: ${infoRoot.memoryText()}`,
+                    `GPU: ${SystemInfo.gpuNames.join("; ") || Translation.tr("Unknown")}`,
+                    `Storage: ${infoRoot.storageText()}`,
+                    `Uptime: ${SystemInfo.formatUptime()}`
+                ];
+                if (SystemInfo.hyprlandVersion)
+                    lines.push(`Hyprland: ${SystemInfo.hyprlandVersion}`);
+                if (SystemInfo.quickshellVersion)
+                    lines.push(`Quickshell: ${SystemInfo.quickshellVersion}`);
+                return lines.join("\n");
+            }
+
+            Timer {
+                id: copiedTimer
+                interval: 1800
+                repeat: false
+                onTriggered: infoRoot.copied = false
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Device")
+
+                SettingsRow {
+                    icon: "computer"
+                    title: Translation.tr("Device name")
+                    description: SystemInfo.hostname || Translation.tr("Unavailable")
+                }
+
+                SettingsRow {
+                    visible: SystemInfo.deviceModel.length > 0
+                    icon: "laptop"
+                    title: Translation.tr("Model")
+                    description: [SystemInfo.deviceVendor, SystemInfo.deviceModel].filter(value => value.length > 0).join(" ")
+                    registerInSearch: false
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Operating System")
+
+                SettingsRow {
+                    icon: "developer_board"
+                    title: Translation.tr("Operating system")
+                    description: SystemInfo.distroName || Translation.tr("Unavailable")
+                }
+
+                SettingsRow {
+                    visible: SystemInfo.distroVersion.length > 0
+                    icon: "info"
+                    title: Translation.tr("Version")
+                    description: SystemInfo.distroVersion
+                    registerInSearch: false
+                }
+
+                SettingsRow {
+                    icon: "terminal"
+                    title: Translation.tr("Kernel")
+                    description: SystemInfo.kernel || Translation.tr("Unavailable")
+                    registerInSearch: false
+                }
+
+                SettingsRow {
+                    icon: "architecture"
+                    title: Translation.tr("Architecture")
+                    description: SystemInfo.architecture || Translation.tr("Unavailable")
+                    registerInSearch: false
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Hardware")
+
+                SettingsRow {
+                    icon: "memory"
+                    title: Translation.tr("Processor")
+                    description: SystemInfo.cpuModel || Translation.tr("Unavailable")
+                }
+
+                SettingsRow {
+                    icon: "memory"
+                    title: Translation.tr("Memory")
+                    description: infoRoot.memoryText()
+                    registerInSearch: false
+                }
+
+                SettingsRow {
+                    icon: "developer_board"
+                    title: Translation.tr("Graphics")
+                    description: infoRoot.graphicsText()
+                    registerInSearch: false
+                }
+
+                SettingsRow {
+                    icon: "hard_drive"
+                    title: Translation.tr("Storage")
+                    description: infoRoot.storageText()
+                    registerInSearch: false
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("System")
+
+                SettingsRow {
+                    icon: "schedule"
+                    title: Translation.tr("Uptime")
+                    description: SystemInfo.formatUptime()
+                }
+
+                SettingsRow {
+                    icon: "desktop_windows"
+                    title: Translation.tr("Desktop")
+                    description: SystemInfo.desktopEnvironment || Translation.tr("Unavailable")
+                    registerInSearch: false
+                }
+
+                SettingsRow {
+                    icon: "language"
+                    title: Translation.tr("Display server")
+                    description: SystemInfo.windowingSystem || Translation.tr("Unavailable")
+                    registerInSearch: false
+                }
+
+                SettingsRow {
+                    visible: SystemInfo.hyprlandVersion.length > 0
+                    icon: "layers"
+                    title: Translation.tr("Hyprland")
+                    description: SystemInfo.hyprlandVersion
+                    registerInSearch: false
+                }
+
+                SettingsRow {
+                    visible: SystemInfo.quickshellVersion.length > 0
+                    icon: "code"
+                    title: Translation.tr("Quickshell")
+                    description: SystemInfo.quickshellVersion
+                    registerInSearch: false
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Diagnostic summary")
+
+                SettingsRow {
+                    icon: infoRoot.copied ? "check" : "content_copy"
+                    title: infoRoot.copied ? Translation.tr("Copied") : Translation.tr("Copy System Information")
+                    description: Translation.tr("Copies a safe summary without serial numbers, UUIDs, network addresses, or account names.")
+                    clickable: true
+                    onClicked: {
+                        Quickshell.clipboardText = infoRoot.summary();
+                        infoRoot.copied = true;
+                        copiedTimer.restart();
+                    }
+                }
+            }
+        }
     }
 
     Component {
