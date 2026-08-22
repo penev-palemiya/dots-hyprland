@@ -26,7 +26,7 @@ SettingsSubPage {
         id: themeProcess
 
         property bool dark: Appearance.m3colors.darkmode
-        command: [Directories.wallpaperSwitchScriptPath, "--mode", dark ? "dark" : "light", "--noswitch"]
+        command: [Directories.wallpaperSwitchScriptPath, "--mode", dark ? "dark" : "light", "--noswitch", "--shell-only"]
 
         onExited: (exitCode, exitStatus) => {
             if (exitCode !== 0)

@@ -36,13 +36,16 @@ handle_kde_material_you_colors() {
 
 pre_process() {
     local mode_flag="$1"
-    # Set GNOME color-scheme if mode_flag is dark or light
-    if [[ "$mode_flag" == "dark" ]]; then
-        gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
-        gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3-dark'
-    elif [[ "$mode_flag" == "light" ]]; then
-        gsettings set org.gnome.desktop.interface color-scheme 'prefer-light'
-        gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3'
+    local shell_only_flag="$2"
+    # Shell-only requests must not propagate appearance into GTK.
+    if [[ "$shell_only_flag" != "1" ]]; then
+        if [[ "$mode_flag" == "dark" ]]; then
+            gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+            gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3-dark'
+        elif [[ "$mode_flag" == "light" ]]; then
+            gsettings set org.gnome.desktop.interface color-scheme 'prefer-light'
+            gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3'
+        fi
     fi
 
     if [ ! -d "$CACHE_DIR"/user/generated ]; then
@@ -54,7 +57,9 @@ post_process() {
     local screen_width="$1"
     local screen_height="$2"
     local wallpaper_path="$3"
+    local shell_only_flag="$4"
 
+    [[ "$shell_only_flag" == "1" ]] && return
     handle_kde_material_you_colors &
     "$SCRIPT_DIR/code/material-code-set-color.sh" &
 }
@@ -167,6 +172,7 @@ switch() {
     type_flag="$3"
     color_flag="$4"
     color="$5"
+    shell_only_flag="$6"
 
     # Start Gemini auto-categorization if enabled
     aiStylingEnabled=$(jq -r '.background.widgets.clock.cookie.aiStyling' "$SHELL_CONFIG_FILE")
@@ -282,7 +288,7 @@ switch() {
     generate_colors_material_args+=(--termscheme "$terminalscheme" --blend_bg_fg)
     generate_colors_material_args+=(--cache "$STATE_DIR/user/generated/color.txt")
 
-    pre_process "$mode_flag"
+    pre_process "$mode_flag" "$shell_only_flag"
 
     # Check if app and shell theming is enabled in config
     if [ -f "$SHELL_CONFIG_FILE" ]; then
@@ -303,7 +309,14 @@ switch() {
         [[ "$term_fg_boost" != "null" && -n "$term_fg_boost" ]] && generate_colors_material_args+=(--term_fg_boost "$term_fg_boost")
     fi
 
-    matugen "${matugen_args[@]}"
+    if [[ "$shell_only_flag" == "1" ]]; then
+        matugen --config "$SCRIPT_DIR/shell-only-matugen.toml" "${matugen_args[@]}"
+    else
+        matugen "${matugen_args[@]}"
+    fi
+    if [[ "$shell_only_flag" == "1" ]]; then
+        return
+    fi
     source "$(eval echo $ILLOGICAL_IMPULSE_VIRTUAL_ENV)/bin/activate"
     python3 "$SCRIPT_DIR/generate_colors_material.py" "${generate_colors_material_args[@]}" \
         > "$STATE_DIR"/user/generated/material_colors.scss
@@ -313,7 +326,7 @@ switch() {
     # Pass screen width, height, and wallpaper path to post_process
     max_width_desired="$(hyprctl monitors -j | jq '([.[].width] | min)' | xargs)"
     max_height_desired="$(hyprctl monitors -j | jq '([.[].height] | min)' | xargs)"
-    post_process "$max_width_desired" "$max_height_desired" "$imgpath"
+    post_process "$max_width_desired" "$max_height_desired" "$imgpath" "$shell_only_flag"
 }
 
 main() {
@@ -323,6 +336,7 @@ main() {
     color_flag=""
     color=""
     noswitch_flag=""
+    shell_only_flag=""
 
     get_type_from_config() {
         jq -r '.appearance.palette.type' "$SHELL_CONFIG_FILE" 2>/dev/null || echo "auto"
@@ -371,6 +385,10 @@ main() {
             --noswitch)
                 noswitch_flag="1"
                 imgpath=$(jq -r '.background.wallpaperPath' "$SHELL_CONFIG_FILE" 2>/dev/null || echo "")
+                shift
+                ;;
+            --shell-only)
+                shell_only_flag="1"
                 shift
                 ;;
             *)
@@ -468,7 +486,7 @@ main() {
         fi
     fi
 
-    switch "$imgpath" "$mode_flag" "$type_flag" "$color_flag" "$color"
+    switch "$imgpath" "$mode_flag" "$type_flag" "$color_flag" "$color" "$shell_only_flag"
 }
 
 main "$@"
