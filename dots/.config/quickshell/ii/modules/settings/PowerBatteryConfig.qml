@@ -12,6 +12,26 @@ SettingsSubPage {
     readonly property var batteryDevice: UPower.displayDevice
     readonly property bool hasBattery: Battery.available && batteryDevice !== null
     readonly property bool hasHealth: root.hasBattery && batteryDevice.healthSupported
+    readonly property var powerSavingOptions: [
+        { label: Translation.tr("Never"), seconds: null },
+        { label: Translation.tr("1 minute"), seconds: 60 },
+        { label: Translation.tr("2 minutes"), seconds: 120 },
+        { label: Translation.tr("5 minutes"), seconds: 300 },
+        { label: Translation.tr("10 minutes"), seconds: 600 },
+        { label: Translation.tr("15 minutes"), seconds: 900 },
+        { label: Translation.tr("30 minutes"), seconds: 1800 },
+        { label: Translation.tr("1 hour"), seconds: 3600 }
+    ]
+    readonly property string powerSavingWarning: {
+        const lock = HypridlePowerSaving.values.lock;
+        const displayOff = HypridlePowerSaving.values["dpms-off"];
+        const suspend = HypridlePowerSaving.values.suspend;
+        if (lock === null && displayOff !== null)
+            return Translation.tr("The screen may turn off before the session is locked.");
+        if (displayOff === null && suspend !== null)
+            return Translation.tr("The system may suspend while the display is still on.");
+        return "";
+    }
     readonly property var supportedProfiles: {
         const profiles = [
             { label: Translation.tr("Power Saver"), value: PowerProfile.PowerSaver },
@@ -56,6 +76,31 @@ SettingsSubPage {
             return Translation.tr("Plugged in");
         return "";
     }
+
+    function powerSavingIndex(name) {
+        const value = HypridlePowerSaving.values[name];
+        return root.powerSavingOptions.findIndex(option => option.seconds === value);
+    }
+
+    function powerSavingDescription(name) {
+        if (!HypridlePowerSaving.ready)
+            return Translation.tr("Loading current hypridle setting…");
+        if (HypridlePowerSaving.lastError.length > 0)
+            return HypridlePowerSaving.lastError;
+        return root.powerSavingOptions[root.powerSavingIndex(name)]?.label ?? Translation.tr("Unavailable");
+    }
+
+    function updatePowerSaving(name, seconds) {
+        const next = Object.assign({}, HypridlePowerSaving.values, { [name]: seconds });
+        const finite = [next.lock, next["dpms-off"], next.suspend].filter(value => value !== null);
+        if (finite.some((value, index) => index > 0 && value < finite[index - 1])) {
+            HypridlePowerSaving.lastError = Translation.tr("Lock, display off, and suspend times must be in order.");
+            return;
+        }
+        HypridlePowerSaving.apply(next);
+    }
+
+    Component.onCompleted: HypridlePowerSaving.refresh()
 
     SettingsGroup {
         title: Translation.tr("Battery")
@@ -108,6 +153,60 @@ SettingsSubPage {
                         PowerProfiles.profile = profile.value;
                 }
             }
+        }
+    }
+
+    SettingsGroup {
+        title: Translation.tr("Power Saving")
+
+        SettingsRow {
+            icon: "lock"
+            title: Translation.tr("Lock screen after")
+            description: root.powerSavingDescription("lock")
+
+            StyledComboBox {
+                width: 250
+                textRole: "label"
+                model: root.powerSavingOptions
+                currentIndex: root.powerSavingIndex("lock")
+                onActivated: index => root.updatePowerSaving("lock", model[index].seconds)
+            }
+        }
+
+        SettingsRow {
+            icon: "brightness_low"
+            title: Translation.tr("Turn display off after")
+            description: root.powerSavingDescription("dpms-off")
+
+            StyledComboBox {
+                width: 250
+                textRole: "label"
+                model: root.powerSavingOptions
+                currentIndex: root.powerSavingIndex("dpms-off")
+                onActivated: index => root.updatePowerSaving("dpms-off", model[index].seconds)
+            }
+        }
+
+        SettingsRow {
+            icon: "bedtime"
+            title: Translation.tr("Suspend after")
+            description: root.powerSavingDescription("suspend")
+
+            StyledComboBox {
+                width: 250
+                textRole: "label"
+                model: root.powerSavingOptions
+                currentIndex: root.powerSavingIndex("suspend")
+                onActivated: index => root.updatePowerSaving("suspend", model[index].seconds)
+            }
+        }
+
+        SettingsRow {
+            visible: root.powerSavingWarning.length > 0
+            icon: "warning"
+            title: Translation.tr("Power saving order")
+            description: root.powerSavingWarning
+            registerInSearch: false
         }
     }
 

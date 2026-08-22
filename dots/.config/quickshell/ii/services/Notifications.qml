@@ -75,12 +75,14 @@ Singleton {
         }
     }
 
-    property bool silent: false
+    // DND is persisted in Config, while this compatibility property keeps the
+    // existing bar/sidebar consumers readable.
+    readonly property bool silent: Config.options.notifications.doNotDisturb
     property int unread: 0
     property var filePath: Directories.notificationsPath
     property list<Notif> list: []
     property var popupList: list.filter((notif) => notif.popup);
-    property bool popupInhibited: (GlobalStates?.sidebarRightOpen ?? false) || silent
+    property bool popupInhibited: !Config.options.notifications.enabled || (GlobalStates?.sidebarRightOpen ?? false) || silent
     property var latestTimeForApp: ({})
     Component {
         id: notifComponent
@@ -149,6 +151,10 @@ Singleton {
     signal discardAll();
     signal timeout(id: var);
 
+    function isCritical(notification) {
+        return String(notification?.urgency ?? "").toLowerCase().includes("critical");
+    }
+
 	NotificationServer {
         id: notifServer
         // actionIconsSupported: true
@@ -163,6 +169,11 @@ Singleton {
 
         onNotification: (notification) => {
             notification.tracked = true
+            // Keep the DBus server registered, but drop newly received
+            // notifications before they reach popup, unread, or history.
+            if (!Config.options.notifications.enabled)
+                return;
+
             const newNotifObject = notifComponent.createObject(root, {
                 "notificationId": notification.id + root.idOffset,
                 "notification": notification,
@@ -171,7 +182,9 @@ Singleton {
 			root.list = [...root.list, newNotifObject];
 
             // Popup
-            if (!root.popupInhibited) {
+            const allowPopup = !root.popupInhibited ||
+                (root.silent && Config.options.notifications.allowCritical && root.isCritical(notification));
+            if (allowPopup) {
                 newNotifObject.popup = true;
                 if (notification.expireTimeout != 0) {
                     newNotifObject.timer = notifTimerComponent.createObject(root, {
@@ -236,6 +249,19 @@ Singleton {
         root.popupList.forEach((notif) => {
             notif.popup = false;
         });
+    }
+
+    IpcHandler {
+        target: "notifications"
+
+        function clearHistory(): string {
+            root.discardAllNotifications();
+            return JSON.stringify({ cleared: true, count: root.list.length });
+        }
+
+        function getHistoryCount(): string {
+            return JSON.stringify({ count: root.list.length });
+        }
     }
 
     function attemptInvokeAction(id, notifIdentifier) {

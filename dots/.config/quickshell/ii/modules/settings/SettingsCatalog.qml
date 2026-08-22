@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import qs.services
 import qs.modules.common
 import qs.modules.common.functions
@@ -96,44 +97,152 @@ SettingsPage {
         id: notificationsPage
 
         SettingsSubPage {
+            id: notificationsRoot
+
+            property var popupTimeouts: [
+                { label: Translation.tr("3 seconds"), value: 3000 },
+                { label: Translation.tr("5 seconds"), value: 5000 },
+                { label: Translation.tr("8 seconds"), value: 8000 },
+                { label: Translation.tr("10 seconds"), value: 10000 },
+                { label: Translation.tr("15 seconds"), value: 15000 }
+            ]
+            property var osdTimeouts: [
+                { label: Translation.tr("1 second"), value: 1000 },
+                { label: Translation.tr("2 seconds"), value: 2000 },
+                { label: Translation.tr("3 seconds"), value: 3000 },
+                { label: Translation.tr("5 seconds"), value: 5000 },
+                { label: Translation.tr("10 seconds"), value: 10000 }
+            ]
+            property int historyCount: 0
+
+            function displayLabel(screen) {
+                const monitor = DisplaysService.monitorByName(screen.name);
+                const description = monitor?.description || `${monitor?.make ?? ""} ${monitor?.model ?? ""}`.trim();
+                return description ? `${screen.name} — ${description}` : screen.name;
+            }
+
+            function refreshHistoryCount() {
+                try {
+                    historyCount = JSON.parse(historyFile.text() || "[]").length;
+                } catch (exception) {
+                    historyCount = 0;
+                }
+            }
+
+            FileView {
+                id: historyFile
+                path: Qt.resolvedUrl(Directories.notificationsPath)
+                watchChanges: true
+                onLoaded: notificationsRoot.refreshHistoryCount()
+                onLoadFailed: notificationsRoot.historyCount = 0
+            }
+
+            Process {
+                id: clearHistoryProcess
+                command: ["qs", "-c", "ii", "ipc", "call", "notifications", "clearHistory"]
+                onExited: historyFile.reload()
+            }
+
             SettingsGroup {
-                title: Translation.tr("Notification behavior")
+                title: Translation.tr("General")
+
+                SettingsToggleRow {
+                    icon: "notifications_active"
+                    title: Translation.tr("Notifications enabled")
+                    description: Translation.tr("Receive notifications without showing or saving new items when disabled.")
+                    checked: Config.options.notifications.enabled
+                    onToggled: checked => Config.options.notifications.enabled = checked
+                }
 
                 SettingsRow {
                     icon: "timer"
-                    title: Translation.tr("Timeout duration")
+                    title: Translation.tr("Popup timeout")
                     description: Translation.tr("How long notifications stay visible.")
                     keywords: "notifications timeout"
 
-                    StyledSpinBox {
-                        value: Config.options.notifications.timeout
-                        from: 1000
-                        to: 30000
-                        stepSize: 500
-                        onValueChanged: Config.options.notifications.timeout = value
+                    StyledComboBox {
+                        textRole: "label"
+                        model: notificationsRoot.popupTimeouts
+                        currentIndex: Math.max(0, model.findIndex(item => item.value === Config.options.notifications.timeout))
+                        onActivated: index => Config.options.notifications.timeout = model[index].value
                     }
                 }
 
-                SettingsToggleRow {
+                SettingsRow {
                     icon: "monitor"
-                    title: Translation.tr("Force specific monitor")
-                    description: Translation.tr("Always show notifications on the configured monitor.")
-                    checked: Config.options.notifications.monitor.enable
-                    onToggled: checked => Config.options.notifications.monitor.enable = checked
+                    title: Translation.tr("Display notifications on")
+                    description: Translation.tr("Follow focus or use a specific active display.")
+
+                    StyledComboBox {
+                        textRole: "label"
+                        model: [{ label: Translation.tr("Active display / Follow focus"), value: "" }].concat(
+                            Quickshell.screens.map(screen => ({ label: notificationsRoot.displayLabel(screen), value: screen.name }))
+                        )
+                        currentIndex: {
+                            if (!Config.options.notifications.monitor.enable) return 0;
+                            const index = model.findIndex(item => item.value === Config.options.notifications.monitor.name);
+                            return index >= 0 ? index : 0;
+                        }
+                        onActivated: index => {
+                            const value = model[index].value;
+                            Config.options.notifications.monitor.enable = value !== "";
+                            Config.options.notifications.monitor.name = value;
+                        }
+                    }
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Do Not Disturb")
+
+                SettingsToggleRow {
+                    icon: "notifications_paused"
+                    title: Translation.tr("Do Not Disturb")
+                    description: Translation.tr("Keep notifications in history without showing popups.")
+                    checked: Config.options.notifications.doNotDisturb
+                    onToggled: checked => Config.options.notifications.doNotDisturb = checked
                 }
 
-                SettingsRow {
-                    icon: "display_settings"
-                    title: Translation.tr("Monitor name to show notifications on")
-                    description: Translation.tr("Monitor name used when forced notification placement is enabled.")
-                    enabled: Config.options.notifications.monitor.enable
+                SettingsToggleRow {
+                    icon: "priority_high"
+                    title: Translation.tr("Allow critical notifications")
+                    description: Translation.tr("Show critical notifications while Do Not Disturb is enabled.")
+                    enabled: Config.options.notifications.doNotDisturb
+                    checked: Config.options.notifications.allowCritical
+                    onToggled: checked => Config.options.notifications.allowCritical = checked
+                }
+            }
 
-                    MaterialTextArea {
-                        Layout.preferredWidth: 240
-                        implicitHeight: 42
-                        text: Config.options.notifications.monitor.name
-                        wrapMode: TextEdit.NoWrap
-                        onTextChanged: Config.options.notifications.monitor.name = text
+            SettingsGroup {
+                title: Translation.tr("History")
+
+                SettingsRow {
+                    icon: "history"
+                    title: Translation.tr("Notification history")
+                    description: Translation.tr("%1 notifications saved in the shell history.").arg(notificationsRoot.historyCount)
+
+                    RippleButtonWithIcon {
+                        materialIcon: "delete_sweep"
+                        mainText: Translation.tr("Clear history")
+                        enabled: notificationsRoot.historyCount > 0
+                        onClicked: clearHistoryProcess.running = true
+                    }
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("On-screen display")
+
+                SettingsRow {
+                    icon: "timer"
+                    title: Translation.tr("OSD timeout")
+                    description: Translation.tr("How long volume and brightness indicators stay visible.")
+
+                    StyledComboBox {
+                        textRole: "label"
+                        model: notificationsRoot.osdTimeouts
+                        currentIndex: Math.max(0, model.findIndex(item => item.value === Config.options.osd.timeout))
+                        onActivated: index => Config.options.osd.timeout = model[index].value
                     }
                 }
             }

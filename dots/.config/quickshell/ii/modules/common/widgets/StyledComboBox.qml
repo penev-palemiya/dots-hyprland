@@ -17,6 +17,10 @@ ComboBox {
     property color colBackgroundActive: Appearance.colors.colSecondaryContainerActive
 
     implicitHeight: 40
+    // Keep short settings rows readable while still allowing the layout to
+    // shrink the control when the window genuinely has no room.
+    implicitWidth: Math.max(160, contentItem.implicitWidth + 48)
+    Layout.minimumWidth: 160
     Layout.fillWidth: true
 
     background: Rectangle {
@@ -89,8 +93,11 @@ ComboBox {
 
     delegate: ItemDelegate {
         id: itemDelegate
-        width: ListView.view ? ListView.view.width : root.width
+        // Width is based on the natural label width as well as the trigger.
+        // This prevents the popup from inheriting a narrow trigger width.
+        width: Math.max(root.width - popup.leftPadding - popup.rightPadding, implicitWidth)
         implicitHeight: 40
+        implicitWidth: optionText.implicitWidth + 32
 
         required property var model
         required property int index
@@ -149,6 +156,7 @@ ComboBox {
             }
 
             StyledText {
+                id: optionText
                 Layout.fillWidth: true
                 Layout.preferredHeight: Appearance.font.pixelSize.larger
                 color: itemDelegate.colText
@@ -161,9 +169,21 @@ ComboBox {
 
     popup: Popup {
         y: root.height + 4
-        width: root.width
+        property real windowWidth: root.Window.window?.width ?? 1000
+        property real naturalWidth: Math.max(root.width, listView.contentWidth + leftPadding + rightPadding)
+        property real maximumWidth: Math.max(root.width, windowWidth - 16)
+        width: Math.min(naturalWidth, maximumWidth)
         height: Math.min(listView.contentHeight + topPadding + bottomPadding, 300)
         padding: 8
+
+        // Keep the popup inside the Settings window when the combo is near
+        // its right edge. Popup coordinates are relative to the overlay.
+        x: {
+            if (!parent)
+                return 0;
+            const anchorX = root.mapToItem(parent, 0, 0).x;
+            return Math.max(8 - anchorX, Math.min(0, windowWidth - width - 8 - anchorX));
+        }
 
         enter: Transition {
             PropertyAnimation {

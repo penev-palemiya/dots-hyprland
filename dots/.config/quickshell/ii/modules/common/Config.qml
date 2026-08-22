@@ -373,6 +373,9 @@ Singleton {
             }
 
             property JsonObject notifications: JsonObject {
+                property bool enabled: true
+                property bool doNotDisturb: false
+                property bool allowCritical: true
                 property int timeout: 7000
                 property JsonObject monitor: JsonObject {
                     property bool enable: false
