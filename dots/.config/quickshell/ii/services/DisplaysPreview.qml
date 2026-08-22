@@ -30,6 +30,19 @@ Singleton {
     property string previewClientToken: ""
     property var pendingDraft: null
     property bool recoveryComplete: false
+    property bool debugLifecycle: false
+
+    function traceState(oldState, newState, reason) {
+        if (!debugLifecycle)
+            return;
+        console.log(`[DisplaysPreview] ${Date.now()} ${previewClientToken || "-"} ${oldState} -> ${newState} reason=${reason} active=${previewActive} watchdog=${transactionDirectory ? "armed" : "none"}`);
+    }
+
+    function setPreviewState(nextState, reason) {
+        const oldState = previewState;
+        previewState = nextState;
+        traceState(oldState, nextState, reason);
+    }
 
     function error(code, message, detail) {
         return { code, message, detail: detail ?? null };
@@ -58,7 +71,7 @@ Singleton {
         lastApplyResult = null;
         lastRollbackResult = null;
         pendingDraft = MonitorRules.clone(draft);
-        previewState = "snapshotting";
+        setPreviewState("snapshotting", "begin");
         startSnapshot("begin");
         return true;
     }
@@ -66,7 +79,7 @@ Singleton {
     function confirmPreview() {
         if (!previewActive || previewState !== "active")
             return false;
-        previewState = "confirming";
+        setPreviewState("confirming", "confirm");
         guardProc.purpose = "commit";
         guardProc.command = ["python3", guardPath, "commit", "--directory", transactionDirectory,
             "--rules-json", JSON.stringify(pendingDraft.rules)];
@@ -79,7 +92,7 @@ Singleton {
             return false;
         previewActive = false;
         previewSecondsRemaining = 0;
-        previewState = "reverting";
+        setPreviewState("reverting", reason || "user");
         guardProc.purpose = "revert";
         guardProc.revertReason = reason || "user";
         guardProc.command = ["python3", guardPath, "revert", "--directory", transactionDirectory];
@@ -94,7 +107,7 @@ Singleton {
     }
 
     function armGuard(snapshotText) {
-        previewState = "arming";
+        setPreviewState("arming", "snapshot-complete");
         guardProc.purpose = "begin";
         guardProc.command = ["python3", guardPath, "begin", "--transaction", transactionId(),
             "--timeout", String(previewTimeoutSeconds), "--snapshot-json", snapshotText];
@@ -102,7 +115,7 @@ Singleton {
     }
 
     function startApply() {
-        previewState = "applying";
+        setPreviewState("applying", "watchdog-armed");
         guardProc.purpose = "apply";
         guardProc.command = ["python3", guardPath, "apply", "--rules-json", JSON.stringify(pendingDraft.rules)];
         guardProc.running = true;
@@ -116,7 +129,7 @@ Singleton {
         transactionDirectory = "";
         pendingDraft = null;
         previewClientToken = "";
-        previewState = "idle";
+        setPreviewState("idle", "finished");
     }
 
     function previewStateJson() : string {
@@ -135,7 +148,7 @@ Singleton {
     }
 
     function verifyApplied() {
-        previewState = "verifying";
+        setPreviewState("verifying", "apply-complete");
         startSnapshot("verify");
     }
 
@@ -213,7 +226,7 @@ Singleton {
                 }
                 root.previewActive = true;
                 root.previewTopologySignature = DisplaysService.topologySignature;
-                root.previewState = "active";
+                root.setPreviewState("active", "verification-complete");
                 root.previewSecondsRemaining = Math.max(0, Math.ceil((root.previewDeadline - Date.now()) / 1000));
             }
         }
@@ -318,6 +331,10 @@ Singleton {
 
         function getPreviewState(): string {
             return root.previewStateJson();
+        }
+
+        function setDebugLifecycle(enabled: bool): void {
+            root.debugLifecycle = enabled;
         }
     }
 
