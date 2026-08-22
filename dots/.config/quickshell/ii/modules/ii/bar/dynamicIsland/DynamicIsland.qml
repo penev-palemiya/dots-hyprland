@@ -68,7 +68,13 @@ Item {
     // work on a window degenerate enough not to be "a member of a window"
     // yet (confirmed via live logging). Passing plain numbers as ordinary
     // properties into IslandOverlay sidesteps all of that.
-    readonly property var barScreen: root.QsWindow?.window?.screen ?? null
+    // Set by BarContent, which already resolves the bar's ShellScreen. Reading
+    // it here through `QsWindow.window.screen` measured as null at runtime, so
+    // screenWidth/screenHeight silently stayed 0 — which sized the backdrop's
+    // wallpaper Image to 0x0 and meant the island never showed any wallpaper
+    // at all, on either surface. Falling back to the attached property keeps
+    // this usable if it is ever instantiated outside the bar.
+    property var barScreen: root.QsWindow?.window?.screen ?? null
     property real screenWidth: root.barScreen?.width ?? 0
     property real screenHeight: root.barScreen?.height ?? 0
     property real pillScreenX: 0
@@ -253,10 +259,10 @@ Item {
             active: Config.options.appearance.transparency.enable
             // Not asynchronous: an item that appears after the pill's layer
             // texture has been rendered never gets into it (see the Image's
-            // own comment in IslandWallpaper.qml).
+            // own comment in WallpaperBackdrop.qml).
             asynchronous: false
 
-            sourceComponent: IslandWallpaper {
+            sourceComponent: WallpaperBackdrop {
                 visible: root.mergedWithOverlay
                 screenX: root.pillScreenX
                 screenY: root.pillScreenY

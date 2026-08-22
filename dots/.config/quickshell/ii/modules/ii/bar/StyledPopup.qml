@@ -278,64 +278,28 @@ LazyLoader {
 
                 // Match the wallpaper itself instead of making the layer
                 // surface truly transparent: a popup must not reveal an app
-                // that happens to be underneath it. The source image uses the
-                // same screen-sized PreserveAspectCrop setup as Background.qml;
-                // ShaderEffectSource then takes this popup's rectangle from
-                // that already-scaled screen image.
+                // that happens to be underneath it. Shared with the dynamic
+                // island through WallpaperBackdrop so every translucent
+                // surface in the shell draws the same material — this used to
+                // be a private ShaderEffectSource copy that could drift from
+                // the island's own version of the same idea.
                 Loader {
                     anchors.fill: parent
                     active: Config.options.appearance.transparency.enable
                     asynchronous: true
 
-                    sourceComponent: Item {
-                        id: wallpaperLayer
-
-                        // Keep final dimensions while popupBackground grows;
-                        // its clip reveals this fixed crop without rescaling it.
+                    // Keep final dimensions while popupBackground grows; its
+                    // clip reveals this fixed crop without rescaling it.
+                    sourceComponent: WallpaperBackdrop {
                         width: popupSurface.implicitWidth
                         height: popupSurface.implicitHeight
                         anchors.top: popupWindow.anchors.top ? parent.top : undefined
                         anchors.bottom: popupWindow.anchors.bottom ? parent.bottom : undefined
 
-                        readonly property real screenX: popupWindow.margins.left + Appearance.sizes.elevationMargin
-                        readonly property real screenY: popupWindow.anchors.top
-                            ? popupWindow.margins.top + Appearance.sizes.elevationMargin
-                            : popupWindow.screen.height - popupWindow.margins.bottom - Appearance.sizes.elevationMargin - popupSurface.implicitHeight
-
-                        Image {
-                            id: screenWallpaper
-
-                            width: popupWindow.screen.width
-                            height: popupWindow.screen.height
-                            source: Config.options.background.wallpaperPath
-                            fillMode: Image.PreserveAspectCrop
-                            cache: true
-                            asynchronous: true
-                            visible: false
-                        }
-
-                        ShaderEffectSource {
-                            id: wallpaperCrop
-
-                            anchors.fill: parent
-                            sourceItem: screenWallpaper
-                            // sourceRect is in screenWallpaper's visual
-                            // coordinates, not in the original image's pixels.
-                            sourceRect: Qt.rect(wallpaperLayer.screenX, wallpaperLayer.screenY, wallpaperLayer.width, wallpaperLayer.height)
-                            hideSource: true
-                            live: true
-                        }
-
-                        // Match the base tone used by the side panel and bar.
-                        // It darkens the wallpaper crop without exposing the
-                        // client surface beneath the popup.
-                        Rectangle {
-                            anchors.fill: parent
-                            // Keep half as much wallpaper contribution as the
-                            // standard translucent surface. The base colour is
-                            // still the side panel's colLayer0 tone.
-                            color: ColorUtils.transparentize(Appearance.colors.colLayer0Base, Appearance.backgroundTransparency / 2)
-                        }
+                        screenX: popupWindow.margins.left + Appearance.sizes.elevationMargin
+                        screenY: popupWindow.anchors.top ? popupWindow.margins.top + Appearance.sizes.elevationMargin : popupWindow.screen.height - popupWindow.margins.bottom - Appearance.sizes.elevationMargin - popupSurface.implicitHeight
+                        screenW: popupWindow.screen.width
+                        screenH: popupWindow.screen.height
                     }
                 }
 

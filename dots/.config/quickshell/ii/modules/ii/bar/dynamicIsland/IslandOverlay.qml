@@ -206,7 +206,7 @@ LazyLoader {
                 active: Config.options.appearance.transparency.enable
                 asynchronous: true
 
-                sourceComponent: IslandWallpaper {
+                sourceComponent: WallpaperBackdrop {
                     screenX: root.anchorLeftMargin
                     screenY: root.anchorTopMargin
                     screenW: root.screenWidth

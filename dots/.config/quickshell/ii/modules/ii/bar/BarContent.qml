@@ -127,6 +127,7 @@ Item { // Bar content region
 
     DynamicIsland {
         id: leftCenterGroup
+        barScreen: root.screen
         visible: root.useShortenedForm < 2
         anchors {
             verticalCenter: middleCenterGroup.verticalCenter
