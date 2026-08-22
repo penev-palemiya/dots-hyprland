@@ -263,14 +263,6 @@ SettingsSubPage {
         title: Translation.tr("System sounds")
 
         SettingsToggleRow {
-            icon: "battery_android_full"
-            title: Translation.tr("Battery sounds")
-            description: Translation.tr("Play a sound for battery warnings.")
-            checked: Config.options.sounds.battery
-            onToggled: checked => Config.options.sounds.battery = checked
-        }
-
-        SettingsToggleRow {
             icon: "av_timer"
             title: Translation.tr("Pomodoro sounds")
             description: Translation.tr("Play a sound when a Pomodoro interval ends.")
