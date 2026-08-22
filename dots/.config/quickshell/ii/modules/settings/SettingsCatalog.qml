@@ -52,6 +52,7 @@ SettingsPage {
         case "system-info": return systemInfoPage;
         case "desktop-shell-bar-tray": return barTrayPage;
         case "desktop-shell-dock": return dockPage;
+        case "desktop-shell-workspaces": return workspacesPage;
         case "connectivity-wifi": return wifiPage;
         case "connectivity-ethernet": return ethernetPage;
         case "connectivity-bluetooth": return bluetoothPage;
@@ -136,6 +137,11 @@ SettingsPage {
     Component {
         id: dockPage
         DockConfig {}
+    }
+
+    Component {
+        id: workspacesPage
+        WorkspaceConfig {}
     }
 
     Component {
