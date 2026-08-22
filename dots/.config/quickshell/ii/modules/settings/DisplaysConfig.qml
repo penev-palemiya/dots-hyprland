@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell
+import Quickshell.Io
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
@@ -14,6 +15,7 @@ SettingsSubPage {
     property var originalDraft: ({ rules: [], monitorCapabilities: ({}) })
     property string selectedOutput: ""
     property bool topologyChangedWhileDirty: false
+    property bool previewRequestRunning: false
     readonly property bool hasChanges: JSON.stringify(draft.rules) !== JSON.stringify(originalDraft.rules)
     readonly property var validation: MonitorRules.validateDraft(draft)
     readonly property var selectedRule: draft.rules.find(rule => rule.output === selectedOutput) ?? null
@@ -66,6 +68,13 @@ SettingsSubPage {
         // Text width approximation plus horizontal padding and chevron. A
         // per-control cap keeps a long monitor name from breaking a narrow page.
         return Math.max(120, Math.min(280, longest * Appearance.font.pixelSize.normal * 0.62 + 56));
+    }
+    function beginPreviewInShell() {
+        if (previewRequestRunning)
+            return;
+        previewRequestRunning = true;
+        previewIpc.command = ["qs", "-c", "ii", "ipc", "call", "displayPreview", "beginPreview", JSON.stringify(draft)];
+        previewIpc.running = true;
     }
 
     Component.onCompleted: resetDraft()
@@ -197,9 +206,32 @@ SettingsSubPage {
         }
         SettingsRow {
             icon: "check"; title: Translation.tr("Apply"); description: root.hasChanges ? Translation.tr("Preview changes before keeping them") : Translation.tr("No changes to apply")
-            clickable: root.hasChanges && root.validation.valid && !root.topologyChangedWhileDirty
+            clickable: root.hasChanges && root.validation.valid && !root.topologyChangedWhileDirty && !root.previewRequestRunning
             enabled: clickable
-            onClicked: DisplaysPreview.beginPreview(root.draft)
+            onClicked: root.beginPreviewInShell()
+        }
+    }
+
+    Process {
+        id: previewIpc
+        property string output: ""
+        stdout: StdioCollector {
+            id: previewIpcOutput
+            onStreamFinished: previewIpc.output = previewIpcOutput.text
+        }
+        onExited: (exitCode, exitStatus) => {
+            root.previewRequestRunning = false;
+            if (exitCode !== 0) {
+                console.error(`[DisplaysConfig] display preview IPC failed with exit code ${exitCode}`);
+                return;
+            }
+            try {
+                const response = JSON.parse(previewIpc.output.trim());
+                if (!response.accepted)
+                    console.error(`[DisplaysConfig] display preview refused: ${JSON.stringify(response.error)}`);
+            } catch (exception) {
+                console.error(`[DisplaysConfig] invalid display preview IPC response: ${exception}`);
+            }
         }
     }
 

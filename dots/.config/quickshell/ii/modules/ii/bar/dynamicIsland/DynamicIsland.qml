@@ -251,27 +251,17 @@ Item {
             // finished wallpaper+tint material. That is the "two different
             // materials" seam. Visibility, not existence, is what toggles.
             active: Config.options.appearance.transparency.enable
-            asynchronous: true
+            // Not asynchronous: an item that appears after the pill's layer
+            // texture has been rendered never gets into it (see the Image's
+            // own comment in IslandWallpaper.qml).
+            asynchronous: false
 
-            sourceComponent: Item {
-                anchors.fill: parent
+            sourceComponent: IslandWallpaper {
                 visible: root.mergedWithOverlay
-
-                Image {
-                    x: -root.pillScreenX
-                    y: -root.pillScreenY
-                    width: root.screenWidth
-                    height: root.screenHeight
-                    source: Config.options.background.wallpaperPath
-                    fillMode: Image.PreserveAspectCrop
-                    cache: true
-                    asynchronous: true
-                }
-
-                Rectangle {
-                    anchors.fill: parent
-                    color: ColorUtils.transparentize(Appearance.colors.colLayer0Base, Appearance.backgroundTransparency / 2)
-                }
+                screenX: root.pillScreenX
+                screenY: root.pillScreenY
+                screenW: root.screenWidth
+                screenH: root.screenHeight
             }
         }
 

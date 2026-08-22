@@ -27,6 +27,7 @@ Singleton {
     property string transactionDirectory: ""
     property double previewDeadline: 0
     property string previewTopologySignature: ""
+    property string previewClientToken: ""
     property var pendingDraft: null
     property bool recoveryComplete: false
 
@@ -114,7 +115,18 @@ Singleton {
         previewTopologySignature = "";
         transactionDirectory = "";
         pendingDraft = null;
+        previewClientToken = "";
         previewState = "idle";
+    }
+
+    function previewStateJson() : string {
+        return JSON.stringify({
+            active: previewActive,
+            secondsRemaining: previewSecondsRemaining,
+            error: previewError,
+            state: previewState,
+            transaction: previewClientToken,
+        });
     }
 
     function failBeforeApply(code, message, detail) {
@@ -270,6 +282,42 @@ Singleton {
         function onTopologySignatureChanged() {
             if (root.previewActive && DisplaysService.topologySignature !== root.previewTopologySignature)
                 root.revertPreview("topology-changed");
+        }
+    }
+
+    // This handler is instantiated only by the persistent shell through
+    // DisplayOverlayManager. Standalone Settings reaches it with `qs -c ii
+    // ipc call`; it never owns the watchdog or transaction state itself.
+    IpcHandler {
+        target: "displayPreview"
+
+        function beginPreview(draftJson: string): string {
+            let draft;
+            try {
+                draft = JSON.parse(draftJson);
+            } catch (exception) {
+                return JSON.stringify({ accepted: false, error: root.error("invalid-draft-json", "Display draft IPC payload was invalid.", String(exception)) });
+            }
+            if (!root.beginPreview(draft))
+                return JSON.stringify({ accepted: false, error: root.previewError });
+            root.previewClientToken = `client-${Date.now()}-${Math.floor(Math.random() * 1000000000)}`;
+            return JSON.stringify({ accepted: true, transaction: root.previewClientToken });
+        }
+
+        function confirmPreview(transaction: string): string {
+            if (!transaction || transaction !== root.previewClientToken)
+                return JSON.stringify({ accepted: false, error: root.error("stale-preview", "This display preview is no longer current.") });
+            return JSON.stringify({ accepted: root.confirmPreview(), state: root.previewState });
+        }
+
+        function revertPreview(transaction: string, reason: string): string {
+            if (!transaction || transaction !== root.previewClientToken)
+                return JSON.stringify({ accepted: false, error: root.error("stale-preview", "This display preview is no longer current.") });
+            return JSON.stringify({ accepted: root.revertPreview(reason || "user"), state: root.previewState });
+        }
+
+        function getPreviewState(): string {
+            return root.previewStateJson();
         }
     }
 

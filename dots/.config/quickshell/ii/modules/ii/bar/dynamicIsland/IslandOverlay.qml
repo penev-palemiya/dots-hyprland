@@ -193,28 +193,24 @@ LazyLoader {
             }
 
             Loader {
-                anchors.fill: parent
+                // Pinned to the panel's FINAL height rather than its animating
+                // one: this backdrop crops the wallpaper via sourceClipRect,
+                // and a rect that changed every animation frame would re-decode
+                // the image every frame. The panel's own clip does the reveal.
+                anchors {
+                    top: parent.top
+                    left: parent.left
+                    right: parent.right
+                }
+                height: contentLoader.implicitHeight + overlayBackground.contentPadding * 2
                 active: Config.options.appearance.transparency.enable
                 asynchronous: true
 
-                sourceComponent: Item {
-                    anchors.fill: parent
-
-                    Image {
-                        x: -root.anchorLeftMargin
-                        y: -root.anchorTopMargin
-                        width: root.screenWidth
-                        height: root.screenHeight
-                        source: Config.options.background.wallpaperPath
-                        fillMode: Image.PreserveAspectCrop
-                        cache: true
-                        asynchronous: true
-                    }
-
-                    Rectangle {
-                        anchors.fill: parent
-                        color: ColorUtils.transparentize(Appearance.colors.colLayer0Base, Appearance.backgroundTransparency / 2)
-                    }
+                sourceComponent: IslandWallpaper {
+                    screenX: root.anchorLeftMargin
+                    screenY: root.anchorTopMargin
+                    screenW: root.screenWidth
+                    screenH: root.screenHeight
                 }
             }
 
