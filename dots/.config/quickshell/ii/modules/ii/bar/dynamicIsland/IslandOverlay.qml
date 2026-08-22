@@ -3,6 +3,7 @@ import qs.modules.common.widgets
 import qs.modules.common.functions
 import qs.services
 import QtQuick
+import Qt5Compat.GraphicalEffects
 import Quickshell
 import Quickshell.Wayland
 
@@ -36,6 +37,15 @@ LazyLoader {
     property real anchorRightMargin: 0
     property real anchorBottomMargin: 0
     property real anchorWidth: 0
+    // The screen the pill this panel belongs to actually lives on. Without
+    // it the PanelWindow lands on whatever Quickshell picks as default,
+    // which only coincidentally matches while exactly one monitor exists —
+    // add a second (or a transient virtual/headless one) and the panel can
+    // open on the wrong output, or on one that then goes away, while every
+    // margin below is still computed in the *bar's* screen coordinates.
+    property var targetScreen: null
+    property real screenWidth: 0
+    property real screenHeight: 0
     property color surfaceColor: "transparent"
     property bool shown: false
     property Component sourceComponent
@@ -47,6 +57,8 @@ LazyLoader {
     component: PanelWindow {
         id: overlayWindow
         color: "transparent"
+
+        screen: root.targetScreen
 
         anchors.left: true
         anchors.right: false
@@ -129,7 +141,7 @@ LazyLoader {
             // Flattened in DynamicIsland from "pill over bar background" into
             // the single color this separate surface must paint to match the
             // inline pill visually.
-            color: root.surfaceColor
+            color: Config.options.appearance.transparency.enable ? "transparent" : root.surfaceColor
             // Flat against the pill above (see class comment) — only the
             // bottom corners round, matching the pill's own shape while merged.
             topLeftRadius: 0
@@ -137,6 +149,28 @@ LazyLoader {
             bottomLeftRadius: Appearance.rounding.small
             bottomRightRadius: Appearance.rounding.small
             clip: true
+            // `clip` only clips children to this Rectangle's bounding box,
+            // not to its rounded shape — the wallpaper Image below is a
+            // plain rectangle, so without this mask it paints square right
+            // over the rounded bottom corners, and (since it's then the only
+            // one of the two surfaces rendering through a layered texture)
+            // reads as a visibly different material from the pill above.
+            // Same fix pillBackground already uses, mirrored here so both
+            // surfaces go through the same OpacityMask pipeline.
+            // Guarded on a non-zero height: this window stays mounted even
+            // while closed, so without the guard the layer would be created
+            // at height 0 and never come back to life once the panel grows.
+            layer.enabled: Config.options.appearance.transparency.enable && overlayBackground.height > 0
+            layer.effect: OpacityMask {
+                maskSource: Rectangle {
+                    width: overlayBackground.width
+                    height: overlayBackground.height
+                    topLeftRadius: overlayBackground.topLeftRadius
+                    topRightRadius: overlayBackground.topRightRadius
+                    bottomLeftRadius: overlayBackground.bottomLeftRadius
+                    bottomRightRadius: overlayBackground.bottomRightRadius
+                }
+            }
 
             // Height is a spatial property (MD3 Expressive: size/position use
             // a bouncy spatial spring, not the flat "effects" curve used for
@@ -155,6 +189,32 @@ LazyLoader {
                     duration: root.shown ? Appearance.animation.elementMove.duration : Appearance.animation.elementMoveSmall.duration
                     easing.type: Appearance.animation.elementMove.type
                     easing.bezierCurve: root.shown ? Appearance.animation.elementMove.bezierCurve : Appearance.animation.elementMoveSmall.bezierCurve
+                }
+            }
+
+            Loader {
+                anchors.fill: parent
+                active: Config.options.appearance.transparency.enable
+                asynchronous: true
+
+                sourceComponent: Item {
+                    anchors.fill: parent
+
+                    Image {
+                        x: -root.anchorLeftMargin
+                        y: -root.anchorTopMargin
+                        width: root.screenWidth
+                        height: root.screenHeight
+                        source: Config.options.background.wallpaperPath
+                        fillMode: Image.PreserveAspectCrop
+                        cache: true
+                        asynchronous: true
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        color: ColorUtils.transparentize(Appearance.colors.colLayer0Base, Appearance.backgroundTransparency / 2)
+                    }
                 }
             }
 

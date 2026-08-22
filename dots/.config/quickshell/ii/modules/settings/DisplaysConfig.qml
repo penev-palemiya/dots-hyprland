@@ -14,7 +14,6 @@ SettingsSubPage {
     property var originalDraft: ({ rules: [], monitorCapabilities: ({}) })
     property string selectedOutput: ""
     property bool topologyChangedWhileDirty: false
-    property bool identifyVisible: false
     readonly property bool hasChanges: JSON.stringify(draft.rules) !== JSON.stringify(originalDraft.rules)
     readonly property var validation: MonitorRules.validateDraft(draft)
     readonly property var selectedRule: draft.rules.find(rule => rule.output === selectedOutput) ?? null
@@ -77,8 +76,6 @@ SettingsSubPage {
             else root.resetDraft();
         }
     }
-
-    Timer { id: identifyTimer; interval: 3000; onTriggered: root.identifyVisible = false }
 
     SettingsGroup {
         title: Translation.tr("Display arrangement")
@@ -153,7 +150,7 @@ SettingsSubPage {
             title: Translation.tr("Identify displays")
             description: Translation.tr("Show each display name briefly")
             clickable: true
-            onClicked: { root.identifyVisible = true; identifyTimer.restart(); }
+            onClicked: DisplayOverlayState.showIdentify()
         }
     }
 
@@ -206,14 +203,4 @@ SettingsSubPage {
         }
     }
 
-    Rectangle {
-        parent: Overlay.overlay
-        visible: DisplaysPreview.previewActive
-        anchors.fill: parent; color: Appearance.colors.colScrim; opacity: 0.9; z: 100
-        ColumnLayout { anchors.centerIn: parent; width: Math.min(parent.width - 48, 400)
-            StyledText { Layout.fillWidth: true; text: Translation.tr("Keep these display settings?"); horizontalAlignment: Text.AlignHCenter; font.pixelSize: Appearance.font.pixelSize.large; color: Appearance.colors.colOnSurface }
-            StyledText { Layout.fillWidth: true; text: Translation.tr("Reverting in %1 seconds").arg(DisplaysPreview.previewSecondsRemaining); horizontalAlignment: Text.AlignHCenter; color: Appearance.colors.colOnSurfaceVariant }
-            RowLayout { Layout.alignment: Qt.AlignHCenter; Button { text: Translation.tr("Revert"); onClicked: DisplaysPreview.revertPreview("user") } Button { text: Translation.tr("Keep Changes"); onClicked: DisplaysPreview.confirmPreview() } }
-        }
-    }
 }

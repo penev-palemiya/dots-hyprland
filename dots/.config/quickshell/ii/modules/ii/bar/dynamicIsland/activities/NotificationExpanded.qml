@@ -86,7 +86,14 @@ ColumnLayout {
             width: notifList.width
             implicitHeight: notifContent.implicitHeight + 16
             radius: Appearance.rounding.normal
-            color: Appearance.colors.colLayer2
+            // colLayer2 bakes its alpha assuming it's composited over the
+            // opaque colLayer1Base surface (see solveOverlayColor) — inside
+            // the island overlay the real backdrop is the wallpaper+tint
+            // material instead, so that baked value reads as a mismatched
+            // opaque block against it. Transparentize it further by the same
+            // amount the wallpaper tint itself uses, so the card reads as
+            // more glass sitting on glass, consistent with the pill above it.
+            color: Config.options.appearance.transparency.enable ? ColorUtils.transparentize(Appearance.colors.colLayer2, Appearance.backgroundTransparency) : Appearance.colors.colLayer2
 
             ColumnLayout {
                 id: notifContent

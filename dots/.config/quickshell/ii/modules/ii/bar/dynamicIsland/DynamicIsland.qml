@@ -3,6 +3,7 @@ import qs.modules.common.functions
 import qs.modules.common.widgets
 import qs.modules.ii.bar.dynamicIsland.activities
 import QtQuick
+import Qt5Compat.GraphicalEffects
 import QtQuick.Layouts
 
 /**
@@ -67,8 +68,9 @@ Item {
     // work on a window degenerate enough not to be "a member of a window"
     // yet (confirmed via live logging). Passing plain numbers as ordinary
     // properties into IslandOverlay sidesteps all of that.
-    property real screenWidth: root.QsWindow?.window?.screen?.width ?? 0
-    property real screenHeight: root.QsWindow?.window?.screen?.height ?? 0
+    readonly property var barScreen: root.QsWindow?.window?.screen ?? null
+    property real screenWidth: root.barScreen?.width ?? 0
+    property real screenHeight: root.barScreen?.height ?? 0
     property real pillScreenX: 0
     property real pillScreenY: 0
     property real pillScreenWidth: 0
@@ -76,6 +78,7 @@ Item {
 
     readonly property color pillSurfaceColor: Appearance.colors.colLayer1
     readonly property color expandedSurfaceColor: root.computeExpandedSurfaceColor()
+    readonly property real overlaySeamOverlap: 1
     readonly property real overlayLeftMargin: root.computeOverlayLeftMargin()
     readonly property real overlayRightMargin: 0
     readonly property real overlayTopMargin: root.computeOverlayTopMargin()
@@ -83,8 +86,8 @@ Item {
 
     function computeExpandedSurfaceColor() {
         if (!Config.options.bar.showBackground)
-            return root.pillSurfaceColor;
-        return ColorUtils.compositeOver(root.pillSurfaceColor, Appearance.colors.colLayer0);
+            return ColorUtils.applyAlpha(root.pillSurfaceColor, 1);
+        return ColorUtils.applyAlpha(ColorUtils.compositeOver(root.pillSurfaceColor, Appearance.colors.colLayer0Base), 1);
     }
 
     function computeOverlayLeftMargin() {
@@ -92,11 +95,11 @@ Item {
     }
 
     function computeOverlayTopMargin() {
-        return Config.options.bar.bottom ? 0 : root.pillScreenY + root.pillScreenHeight;
+        return Config.options.bar.bottom ? 0 : Math.max(0, root.pillScreenY + root.pillScreenHeight - root.overlaySeamOverlap);
     }
 
     function computeOverlayBottomMargin() {
-        return Config.options.bar.bottom ? Math.max(0, root.screenHeight - root.pillScreenY) : 0;
+        return Config.options.bar.bottom ? Math.max(0, root.screenHeight - root.pillScreenY - root.overlaySeamOverlap) : 0;
     }
 
     function refreshScreenPosition() {
@@ -208,7 +211,18 @@ Item {
         topRightRadius: Appearance.rounding.small
         bottomLeftRadius: root.mergedWithOverlay ? 0 : Appearance.rounding.small
         bottomRightRadius: root.mergedWithOverlay ? 0 : Appearance.rounding.small
-        color: root.pillSurfaceColor
+        color: (Config.options.appearance.transparency.enable && root.mergedWithOverlay) ? "transparent" : root.mergedWithOverlay ? root.expandedSurfaceColor : root.pillSurfaceColor
+        layer.enabled: Config.options.appearance.transparency.enable && root.mergedWithOverlay
+        layer.effect: OpacityMask {
+            maskSource: Rectangle {
+                width: pillBackground.width
+                height: pillBackground.height
+                topLeftRadius: pillBackground.topLeftRadius
+                topRightRadius: pillBackground.topRightRadius
+                bottomLeftRadius: pillBackground.bottomLeftRadius
+                bottomRightRadius: pillBackground.bottomRightRadius
+            }
+        }
         anchors {
             fill: parent
             topMargin: 4
@@ -222,6 +236,43 @@ Item {
         Behavior on bottomRightRadius {
             enabled: !root.overlayOpen
             animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(pillBackground)
+        }
+
+        Loader {
+            anchors.fill: parent
+            // Kept active whenever transparency is on — NOT gated on
+            // mergedWithOverlay — so the screen-sized wallpaper Image is
+            // decoded once and stays resident. Gating `active` here tore the
+            // Loader down on every close and rebuilt it (asynchronously) on
+            // every open, so for the first frames of a reveal the pill was
+            // still literally transparent and showed the bar's own lighter
+            // colLayer0 background through itself, while the overlay below —
+            // whose Loader is permanently active — was already painting the
+            // finished wallpaper+tint material. That is the "two different
+            // materials" seam. Visibility, not existence, is what toggles.
+            active: Config.options.appearance.transparency.enable
+            asynchronous: true
+
+            sourceComponent: Item {
+                anchors.fill: parent
+                visible: root.mergedWithOverlay
+
+                Image {
+                    x: -root.pillScreenX
+                    y: -root.pillScreenY
+                    width: root.screenWidth
+                    height: root.screenHeight
+                    source: Config.options.background.wallpaperPath
+                    fillMode: Image.PreserveAspectCrop
+                    cache: true
+                    asynchronous: true
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: ColorUtils.transparentize(Appearance.colors.colLayer0Base, Appearance.backgroundTransparency / 2)
+                }
+            }
         }
 
         MouseArea {
@@ -269,6 +320,9 @@ Item {
         anchorRightMargin: root.overlayRightMargin
         anchorBottomMargin: root.overlayBottomMargin
         anchorWidth: root.pillScreenWidth
+        targetScreen: root.barScreen
+        screenWidth: root.screenWidth
+        screenHeight: root.screenHeight
         surfaceColor: root.expandedSurfaceColor
         shown: root.overlayOpen
         sourceComponent: root.primaryActivity?.expandedContent ?? null
