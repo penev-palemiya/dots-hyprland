@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Bluetooth
 import Quickshell.Io
 import qs.services
 import qs.services.network
@@ -14,6 +15,19 @@ SettingsPage {
 
     property string pageKey: ""
     property var menuEntries: []
+
+    function syncBluetoothDiscovery() {
+        if (root.pageKey !== "connectivity")
+            return;
+        if (root.currentSubPageKey === "connectivity-bluetooth")
+            BluetoothStatus.acquireDiscovery("settings");
+        else
+            BluetoothStatus.releaseDiscovery("settings");
+    }
+
+    onCurrentSubPageKeyChanged: root.syncBluetoothDiscovery()
+    onPageKeyChanged: root.syncBluetoothDiscovery()
+    Component.onDestruction: if (root.pageKey === "connectivity") BluetoothStatus.releaseDiscovery("settings")
 
     subPages: root.menuEntries.map(entry => ({
         key: entry.key,
@@ -32,6 +46,8 @@ SettingsPage {
         case "system-storage": return storagePage;
         case "system-info": return systemInfoPage;
         case "connectivity-wifi": return wifiPage;
+        case "connectivity-ethernet": return ethernetPage;
+        case "connectivity-bluetooth": return bluetoothPage;
         case "personalization-colors": return colorsPage;
         case "search-tools-search": return searchPage;
         case "search-tools-clipboard": return clipboardPage;
@@ -294,6 +310,306 @@ SettingsPage {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    Component {
+        id: ethernetPage
+
+        SettingsSubPage {
+            id: ethernetRoot
+
+            // Standalone Settings has its own Network singleton; take one
+            // authoritative snapshot when this page is opened.
+            Component.onCompleted: Network.refresh()
+
+            function details(device) {
+                const parts = [];
+                if (device.ipv4) parts.push(`${Translation.tr("IPv4")}: ${device.ipv4}`);
+                if (device.ipv6) parts.push(`${Translation.tr("IPv6")}: ${device.ipv6}`);
+                if (device.gateway) parts.push(`${Translation.tr("Gateway")}: ${device.gateway}`);
+                if (device.dns) parts.push(`${Translation.tr("DNS")}: ${device.dns}`);
+                return parts.join("\n");
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Ethernet")
+
+                SettingsRow {
+                    visible: Network.ethernetDevices.length === 0
+                    icon: "lan"
+                    title: Translation.tr("No Ethernet adapter detected")
+                    description: Translation.tr("Connect a built-in, USB, or dock Ethernet adapter to configure wired networking.")
+                    registerInSearch: false
+                }
+
+                Repeater {
+                    model: Network.ethernetDevices
+
+                    SettingsGroup {
+                        required property var modelData
+                        readonly property var deviceModel: modelData
+                        title: deviceModel.interfaceName
+
+                        SettingsRow {
+                            icon: deviceModel.connected ? "lan" : "lan_disconnect"
+                            title: deviceModel.state
+                            description: [deviceModel.activeProfile, deviceModel.speed].filter(value => value && value.length > 0).join(" · ")
+                            registerInSearch: false
+
+                            RippleButtonWithIcon {
+                                visible: deviceModel.connected
+                                materialIcon: "link_off"
+                                mainText: Translation.tr("Disconnect")
+                                enabled: !Network.wifiConnecting
+                                onClicked: Network.disconnectEthernet(deviceModel)
+                            }
+                        }
+
+                        SettingsRow {
+                            visible: deviceModel.connected
+                            icon: "lan"
+                            title: Translation.tr("Connection details")
+                            description: ethernetRoot.details(deviceModel)
+                            registerInSearch: false
+                        }
+
+                        Repeater {
+                            model: deviceModel.profiles
+
+                            SettingsRow {
+                                required property var modelData
+                                visible: !modelData.active
+                                icon: "bookmark"
+                                title: modelData.id
+                                description: modelData.interfaceName || Translation.tr("Available wired profile")
+                                registerInSearch: false
+
+                                RippleButtonWithIcon {
+                                    mainText: Translation.tr("Connect")
+                                    materialIcon: "login"
+                                    enabled: !Network.wifiConnecting
+                                    onClicked: Network.connectEthernetProfile(modelData, deviceModel)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Saved Connections")
+                visible: Network.ethernetProfilesList.length > 0
+
+                Repeater {
+                    model: Network.ethernetProfilesList
+
+                    SettingsRow {
+                        required property var modelData
+                        icon: "bookmark"
+                        title: modelData.id
+                        description: modelData.interfaceName || Translation.tr("Wired connection")
+                        registerInSearch: false
+
+                        RippleButtonWithIcon {
+                            visible: Network.ethernetDevices.length > 0
+                            materialIcon: "login"
+                            mainText: Translation.tr("Connect")
+                            enabled: !Network.wifiConnecting
+                            onClicked: {
+                                const device = Network.ethernetDevices.find(item => !modelData.interfaceName || item.interfaceName === modelData.interfaceName) || Network.ethernetDevices[0];
+                                Network.connectEthernetProfile(modelData, device);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Component {
+        id: bluetoothPage
+
+        SettingsSubPage {
+            id: bluetoothRoot
+
+            function statusText(device) {
+                    const parts = [];
+                if (device.connected) parts.push(Translation.tr("Connected"));
+                else if (device.pairing) parts.push(Translation.tr("Pairing…"));
+                else if (BluetoothStatus.deviceConnecting(device)) parts.push(Translation.tr("Connecting…"));
+                else if (device.paired) parts.push(Translation.tr("Paired"));
+                else parts.push(Translation.tr("Available"));
+                if (device.batteryAvailable)
+                    parts.push(`${Math.round(device.battery * 100)}%`);
+                return parts.join(" · ");
+            }
+
+            function addressLine(device) {
+                const details = [BluetoothStatus.deviceType(device), bluetoothRoot.statusText(device)];
+                if (device.address) details.push(device.address);
+                if (device.trusted) details.push(Translation.tr("Trusted"));
+                return details.join(" · ");
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Bluetooth")
+
+                SettingsToggleRow {
+                    icon: BluetoothStatus.blocked ? "bluetooth_disabled" : BluetoothStatus.enabled ? "bluetooth" : "bluetooth_disabled"
+                    title: Translation.tr("Bluetooth")
+                    description: BluetoothStatus.blocked ? Translation.tr("Bluetooth is blocked") : BluetoothStatus.enabled ? Translation.tr("On") : Translation.tr("Off")
+                    checked: BluetoothStatus.enabled
+                    enabled: BluetoothStatus.available && !BluetoothStatus.blocked
+                    onToggled: checked => {
+                        if (Bluetooth.defaultAdapter)
+                            Bluetooth.defaultAdapter.enabled = checked;
+                    }
+                }
+
+                SettingsRow {
+                    icon: "info"
+                    title: Translation.tr("Status")
+                    description: BluetoothStatus.blocked ? Translation.tr("Blocked") : BluetoothStatus.enabled ? Translation.tr("On") : Translation.tr("Off")
+                    registerInSearch: false
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("My Devices")
+                visible: BluetoothStatus.pairedDevices.length > 0
+
+                Repeater {
+                    model: BluetoothStatus.pairedDevices
+
+                    ColumnLayout {
+                        id: deviceDelegate
+                        required property var modelData
+                        property bool confirmingForget: false
+                        Layout.fillWidth: true
+
+                        SettingsRow {
+                            icon: Icons.getBluetoothDeviceMaterialSymbol(modelData.icon || "")
+                            title: BluetoothStatus.deviceName(modelData)
+                            description: bluetoothRoot.addressLine(modelData)
+                            registerInSearch: false
+
+                            RowLayout {
+                                spacing: 6
+
+                                RippleButtonWithIcon {
+                                    materialIcon: modelData.connected ? "link_off" : "link"
+                                    mainText: modelData.connected ? Translation.tr("Disconnect") : Translation.tr("Connect")
+                                    enabled: !modelData.pairing && !BluetoothStatus.deviceConnecting(modelData)
+                                    onClicked: modelData.connected ? modelData.disconnect() : modelData.connect()
+                                }
+
+                                RippleButtonWithIcon {
+                                    materialIcon: "delete"
+                                    mainText: Translation.tr("Forget")
+                                    enabled: !modelData.pairing && !BluetoothStatus.deviceConnecting(modelData)
+                                    onClicked: deviceDelegate.confirmingForget = true
+                                }
+                            }
+                        }
+
+                        SettingsRow {
+                            visible: deviceDelegate.confirmingForget
+                            icon: "warning"
+                            title: Translation.tr("Forget this device?")
+                            description: Translation.tr("You will need to pair it again before connecting.")
+                            registerInSearch: false
+
+                            RowLayout {
+                                spacing: 6
+                                RippleButtonWithIcon {
+                                    materialIcon: "close"
+                                    mainText: Translation.tr("Cancel")
+                                    onClicked: deviceDelegate.confirmingForget = false
+                                }
+                                RippleButtonWithIcon {
+                                    materialIcon: "delete"
+                                    mainText: Translation.tr("Forget")
+                                    onClicked: {
+                                        modelData.forget();
+                                        deviceDelegate.confirmingForget = false;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Available Devices")
+                visible: BluetoothStatus.enabled
+
+                SettingsRow {
+                    icon: "bluetooth_searching"
+                    title: BluetoothStatus.discoveryRequested("settings") ? Translation.tr("Scanning…") : Translation.tr("Scan for devices")
+                    description: Translation.tr("Nearby unpaired devices appear here.")
+                    clickable: true
+                    enabled: BluetoothStatus.available
+                    onClicked: {
+                        if (BluetoothStatus.discoveryRequested("settings"))
+                            BluetoothStatus.releaseDiscovery("settings");
+                        else
+                            BluetoothStatus.acquireDiscovery("settings");
+                    }
+                    registerInSearch: false
+                }
+
+                Repeater {
+                    model: BluetoothStatus.availableDevices
+
+                    ColumnLayout {
+                        id: availableDelegate
+                        required property var modelData
+                        property bool pairFailed: false
+                        Layout.fillWidth: true
+
+                        Connections {
+                            target: availableDelegate.modelData
+                            function onPairedChanged() {
+                                if (availableDelegate.modelData.paired)
+                                    availableDelegate.pairFailed = false;
+                            }
+                            function onPairingChanged() {
+                                if (!availableDelegate.modelData.pairing && !availableDelegate.modelData.paired)
+                                    availableDelegate.pairFailed = true;
+                            }
+                        }
+
+                        SettingsRow {
+                        icon: Icons.getBluetoothDeviceMaterialSymbol(modelData.icon || "")
+                        title: BluetoothStatus.deviceName(modelData)
+                            description: availableDelegate.pairFailed
+                                ? Translation.tr("Couldn't pair")
+                                : [BluetoothStatus.deviceType(modelData), modelData.address].filter(value => value).join(" · ")
+                        registerInSearch: false
+
+                        RippleButtonWithIcon {
+                            materialIcon: "bluetooth"
+                            mainText: Translation.tr("Pair")
+                            enabled: !modelData.pairing
+                            onClicked: {
+                                availableDelegate.pairFailed = false;
+                                modelData.pair();
+                            }
+                        }
+                        }
+                    }
+                }
+
+                SettingsRow {
+                    visible: BluetoothStatus.availableDevices.length === 0
+                    icon: "bluetooth_disabled"
+                    title: BluetoothStatus.discoveryRequested("settings") ? Translation.tr("No unpaired devices found") : Translation.tr("Scan to find nearby devices")
+                    description: Translation.tr("Paired devices are listed above.")
+                    registerInSearch: false
                 }
             }
         }

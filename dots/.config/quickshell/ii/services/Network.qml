@@ -30,6 +30,8 @@ Singleton {
     readonly property list<WifiAccessPoint> wifiNetworks: []
     property list<var> wifiDevices: []
     property list<var> savedWifiProfilesList: []
+    property list<var> ethernetDevices: []
+    property list<var> ethernetProfilesList: []
     property var savedWifiProfiles: ({})
     property var currentDetails: ({ ssid: "", band: "", signal: 0, ipv4: "", ipv6: "", gateway: "", dns: "", activePath: "" })
     property string activeWifiName: ""
@@ -95,6 +97,23 @@ Singleton {
         if (Number(rsnFlags)) return "WPA3 Personal";
         if (Number(wpaFlags)) return "WPA Personal";
         return "Secured";
+    }
+
+    function ethernetState(state, carrier) {
+        state = Number(state);
+        if (state >= 100 && state < 110) return "Connected";
+        if (state >= 40 && state < 100) return "Connecting";
+        if (state === 20) return carrier ? "Unavailable" : "Cable unplugged";
+        if (state === 30) return carrier ? "Disconnected" : "Cable unplugged";
+        if (state >= 110) return "Unavailable";
+        return carrier ? "Disconnected" : "Cable unplugged";
+    }
+
+    function speedText(speedMbps) {
+        const speed = Number(speedMbps || 0);
+        if (speed <= 0) return "";
+        if (speed >= 1000) return `${speed % 1000 === 0 ? speed / 1000 : (speed / 1000).toFixed(1)} Gbps`;
+        return `${speed} Mbps`;
     }
 
     function preferredProfile(ssid) {
@@ -187,6 +206,24 @@ Singleton {
         actionProc.running = true;
     }
 
+    function connectEthernetProfile(profile, device) {
+        if (!profile?.path || !device || actionProc.running) return false;
+        actionProc.environment = ({ LANG: "C", LC_ALL: "C" });
+        actionProc.command = ["busctl", "--system", "call", root.service, root.rootPath,
+            root.managerInterface, "ActivateConnection", "ooo", profile.path, device.dbusPath, "/"];
+        actionProc.running = true;
+        return true;
+    }
+
+    function disconnectEthernet(device) {
+        if (!device?.activeConnection || actionProc.running) return false;
+        actionProc.environment = ({ LANG: "C", LC_ALL: "C" });
+        actionProc.command = ["busctl", "--system", "call", root.service, root.rootPath,
+            root.managerInterface, "DeactivateConnection", "o", device.activeConnection];
+        actionProc.running = true;
+        return true;
+    }
+
     function forgetWifiProfile(profile) {
         if (!profile?.path || actionProc.running) return false;
         actionProc.command = ["busctl", "--system", "call", root.service, profile.path,
@@ -210,7 +247,7 @@ Singleton {
         const accessPoints = {};
         const activeConnections = {};
         const ipConfigs = {};
-        let ethernet = false;
+        const ethernetCandidates = [];
 
         for (const path of Object.keys(objects)) {
             const interfaces = objects[path] || {};
@@ -236,12 +273,46 @@ Singleton {
                     ip4Path: root.value(device, "Ip4Config", "/"),
                     ip6Path: root.value(device, "Ip6Config", "/")
                 });
-            } else if (type === 1 && Number(root.value(device, "State", 0)) >= 100) {
-                ethernet = true;
+            } else if (type === 1) {
+                const wired = interfaces["org.freedesktop.NetworkManager.Device.Wired"];
+                const virtual = interfaces["org.freedesktop.NetworkManager.Device.Veth"] ||
+                    interfaces["org.freedesktop.NetworkManager.Device.Bridge"] ||
+                    interfaces["org.freedesktop.NetworkManager.Device.Bond"] ||
+                    interfaces["org.freedesktop.NetworkManager.Device.Vlan"] ||
+                    interfaces["org.freedesktop.NetworkManager.Device.Tun"];
+                const udi = root.value(device, "Udi", "");
+                if (wired && !virtual && root.value(device, "Real", false) && !udi.includes("/virtual/")) {
+                    ethernetCandidates.push({
+                        id: root.value(device, "Interface", ""),
+                        dbusPath: path,
+                        interfaceName: root.value(device, "Interface", ""),
+                        stateCode: Number(root.value(device, "State", 0)),
+                        carrier: Boolean(root.value(wired, "Carrier", false)),
+                        speedMbps: Number(root.value(wired, "Speed", 0)),
+                        hwAddress: root.value(wired, "HwAddress", root.value(device, "HwAddress", "")),
+                        activeConnection: root.value(device, "ActiveConnection", "/"),
+                        ip4Path: root.value(device, "Ip4Config", "/"),
+                        ip6Path: root.value(device, "Ip6Config", "/")
+                    });
+                }
             }
         }
         root.wifiDevices = devices;
-        root.ethernet = ethernet;
+        const ethernetDevices = ethernetCandidates.map(candidate => {
+            const activeConnection = activeConnections[candidate.activeConnection];
+            const details = root.detailsFor(candidate, activeConnection, ipConfigs);
+            return Object.assign(candidate, details, {
+                state: root.ethernetState(candidate.stateCode, candidate.carrier),
+                connected: candidate.stateCode >= 100 && candidate.stateCode < 110,
+                connecting: candidate.stateCode >= 40 && candidate.stateCode < 100,
+                speed: root.speedText(candidate.speedMbps),
+                activeProfile: activeConnection?.data ? root.value(activeConnection.data, "Id", "") : "",
+                activeProfilePath: activeConnection?.data ? root.value(activeConnection.data, "Connection", "/") : "/",
+                profiles: []
+            });
+        });
+        root.ethernetDevices = ethernetDevices;
+        root.ethernet = ethernetDevices.some(device => device.connected);
 
         const activeDevice = devices.find(device => device.state >= 100) || devices[0];
         const activeConnection = activeDevice ? activeConnections[activeDevice.activePath] : null;
@@ -323,7 +394,8 @@ Singleton {
         const addresses = root.value(ip4, "AddressData", []);
         const address = addresses[0]?.address?.data || addresses[0]?.address || "";
         const v6 = root.value(ip6, "AddressData", []).map(entry => entry.address?.data || entry.address || "").filter(value => value && !value.startsWith("fe80:") );
-        const dns = root.value(ip4, "NameserverData", []).map(entry => entry.address?.data || entry.address || "").filter(Boolean);
+        const dns4 = root.value(ip4, "NameserverData", []).map(entry => entry.address?.data || entry.address || "").filter(Boolean);
+        const dns6 = root.value(ip6, "NameserverData", []).map(entry => entry.address?.data || entry.address || "").filter(value => value && !value.startsWith("fe80:"));
         return {
             activePath: activeConnection?.path || "",
             ssid: root.value(activeConnection?.data, "Id", ""),
@@ -332,8 +404,12 @@ Singleton {
             band: root.band(Number(root.value(apData, "Frequency", 0))),
             ipv4: address,
             ipv6: v6.join(", "),
-            gateway: root.value(ip4, "Gateway", ""),
-            dns: dns.join(", ")
+            gateway4: root.value(ip4, "Gateway", ""),
+            gateway6: root.value(ip6, "Gateway", ""),
+            gateway: root.value(ip4, "Gateway", "") || root.value(ip6, "Gateway", ""),
+            dns4: dns4.join(", "),
+            dns6: dns6.join(", "),
+            dns: dns4.concat(dns6).join(", ")
         };
     }
 
@@ -353,12 +429,23 @@ Singleton {
     function readNextProfile() {
         if (profileIndex >= profilePaths.length) {
             const profiles = profileRecords.filter(profile => profile.ssid);
-            root.savedWifiProfilesList = profiles;
+            const wifiProfiles = profiles.filter(profile => profile.kind === "wifi");
+            const ethernetProfiles = profiles.filter(profile => profile.kind === "ethernet");
+            root.savedWifiProfilesList = wifiProfiles;
+            root.ethernetProfilesList = ethernetProfiles;
             const bySsid = {};
-            profiles.forEach(profile => { if (!bySsid[profile.ssid]) bySsid[profile.ssid] = profile; });
+            wifiProfiles.forEach(profile => { if (!bySsid[profile.ssid]) bySsid[profile.ssid] = profile; });
             root.savedWifiProfiles = bySsid;
-            root.activeProfileUuid = profiles.find(profile => profile.path === root.activeProfilePath)?.uuid || "";
-            root.wifiNetworks.forEach(network => network.lastIpcObject = Object.assign({}, network.lastIpcObject, { savedProfiles: profiles.filter(profile => profile.ssid === network.ssid) }));
+            root.activeProfileUuid = wifiProfiles.find(profile => profile.path === root.activeProfilePath)?.uuid || "";
+            root.wifiNetworks.forEach(network => network.lastIpcObject = Object.assign({}, network.lastIpcObject, { savedProfiles: wifiProfiles.filter(profile => profile.ssid === network.ssid) }));
+            root.ethernetDevices = root.ethernetDevices.map(device => Object.assign({}, device, {
+                profiles: ethernetProfiles.filter(profile => !profile.interfaceName || profile.interfaceName === device.interfaceName).map(profile => Object.assign({}, profile, { active: profile.path === device.activeProfilePath })),
+                activeProfile: ethernetProfiles.find(profile => profile.path === device.activeProfilePath)?.id || device.activeProfile
+            }));
+            root.ethernetProfilesList = ethernetProfiles.map(profile => Object.assign({}, profile, {
+                dbusPath: profile.path,
+                active: root.ethernetDevices.some(device => device.activeProfilePath === profile.path)
+            }));
             root.wifiNetworksChanged();
             return;
         }
@@ -378,8 +465,16 @@ Singleton {
         const security = settings["802-11-wireless-security"] || {};
         const get = (section, key, fallback) => root.value(section, key, fallback);
         const type = get(connection, "type", "");
-        if (type !== "802-11-wireless") return;
-        profileRecords.push({ path, id: get(connection, "id", ""), uuid: get(connection, "uuid", ""), ssid: root.bytes(get(wireless, "ssid", [])), keyManagement: get(security, "key-mgmt", "") });
+        if (type === "802-11-wireless") {
+                profileRecords.push({ path, dbusPath: path, kind: "wifi", id: get(connection, "id", ""), uuid: get(connection, "uuid", ""), ssid: root.bytes(get(wireless, "ssid", [])), keyManagement: get(security, "key-mgmt", ""), interfaceName: get(connection, "interface-name", "") });
+        } else if (type === "802-3-ethernet") {
+            // A profile enslaved to a bridge/bond is not a standalone user-facing
+            // Ethernet connection. Keep generic and directly-bound wired profiles.
+            const master = get(connection, "master", "");
+            const slaveType = get(connection, "slave-type", "");
+            if (!master && !slaveType)
+                profileRecords.push({ path, dbusPath: path, kind: "ethernet", id: get(connection, "id", ""), uuid: get(connection, "uuid", ""), ssid: get(connection, "id", ""), interfaceName: get(connection, "interface-name", "") });
+        }
     }
 
     Process {

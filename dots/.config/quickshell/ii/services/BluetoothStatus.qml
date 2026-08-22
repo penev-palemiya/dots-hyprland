@@ -9,20 +9,30 @@ import QtQuick
 Singleton {
     id: root
 
-    readonly property bool available: Bluetooth.adapters.values.length > 0
-    readonly property bool enabled: Bluetooth.defaultAdapter?.enabled ?? false
+    readonly property var adapters: Bluetooth.adapters.values
+    readonly property var defaultAdapter: Bluetooth.defaultAdapter
+    readonly property bool available: root.adapters.length > 0
+    readonly property bool enabled: root.defaultAdapter?.enabled ?? false
     // -1 means "no adapter at all", distinct from any real BluetoothAdapterState value.
-    readonly property int adapterState: Bluetooth.defaultAdapter?.state ?? -1
+    readonly property int adapterState: root.defaultAdapter?.state ?? -1
     readonly property bool blocked: root.adapterState === BluetoothAdapterState.Blocked
-    readonly property BluetoothDevice firstActiveDevice: Bluetooth.defaultAdapter?.devices.values.find(device => device.connected) ?? null
-    readonly property int activeDeviceCount: Bluetooth.defaultAdapter?.devices.values.filter(device => device.connected).length ?? 0
-    readonly property bool connected: (Bluetooth.defaultAdapter?.devices.values ?? []).some(d => d.connected)
+    readonly property var devices: root.adapters.reduce((all, adapter) => all.concat(adapter.devices.values), [])
+    readonly property BluetoothDevice firstActiveDevice: root.connectedDevices[0] ?? null
+    readonly property int activeDeviceCount: root.connectedDevices.length
+    readonly property bool connected: root.connectedDevices.length > 0
     // True while any device on the adapter is mid-pair or mid-connect. Lets the dialogs
     // pause discovery for the duration of an operation without any single component
     // needing to track "did I pause it" across its own lifetime - which delegates don't
     // reliably have, since a device moving from Nearby to Saved the moment it pairs
     // destroys and recreates the delegate that started the operation.
-    readonly property bool anyDevicePairingOrConnecting: (Bluetooth.defaultAdapter?.devices.values ?? []).some(d => d.pairing || d.state === BluetoothDeviceState.Connecting)
+    readonly property bool anyDevicePairingOrConnecting: root.devices.some(d => d.pairing || d.state === BluetoothDeviceState.Connecting)
+
+    // BlueZ identifies devices by object path/address. These normalized lists are
+    // shared by Quick Settings and standalone Settings; names are presentation only.
+    readonly property var pairedDevices: root.devices.filter(d => d.paired).sort(sortFunction)
+    readonly property var connectedDevices: root.devices.filter(d => d.connected).sort(sortFunction)
+    readonly property var availableDevices: root.devices.filter(d => !d.paired && !d.connected && (d.name || d.deviceName)).sort(sortFunction)
+    readonly property var _discoveryOwners: ({})
 
     function sortFunction(a, b) {
         const aName = a?.name || a?.deviceName || "";
@@ -37,9 +47,8 @@ Singleton {
         // Alphabetical by name
         return aName.localeCompare(bName);
     }
-    property list<var> connectedDevices: (Bluetooth.defaultAdapter?.devices.values ?? []).filter(d => d.connected).sort(sortFunction)
-    property list<var> pairedButNotConnectedDevices: (Bluetooth.defaultAdapter?.devices.values ?? []).filter(d => d.paired && !d.connected).sort(sortFunction)
-    property list<var> unpairedDevices: (Bluetooth.defaultAdapter?.devices.values ?? []).filter(d => !d.paired && !d.connected).sort(sortFunction)
+    property var pairedButNotConnectedDevices: root.pairedDevices.filter(d => !d.connected)
+    property var unpairedDevices: root.availableDevices
     property list<var> friendlyDeviceList: [
         ...connectedDevices,
         ...pairedButNotConnectedDevices,
@@ -53,6 +62,53 @@ Singleton {
     // called pair() - any state kept only on that delegate would be lost right as
     // pairing finishes. This is read by whichever delegate is showing the device next.
     property var _connectAfterPair: ({})
+
+    function deviceName(device) { return device?.name || device?.deviceName || "Unknown device"; }
+
+    function deviceConnecting(device) { return device?.state === BluetoothDeviceState.Connecting; }
+
+    function deviceType(device) {
+        const icon = (device?.icon || "").toLowerCase();
+        if (icon.includes("headset")) return "Headset";
+        if (icon.includes("headphone")) return "Headphones";
+        if (icon.includes("audio") || icon.includes("speaker")) return "Speaker";
+        if (icon.includes("mouse")) return "Mouse";
+        if (icon.includes("keyboard")) return "Keyboard";
+        if (icon.includes("game") || icon.includes("joystick")) return "Game Controller";
+        if (icon.includes("phone")) return "Phone";
+        if (icon.includes("computer") || icon.includes("laptop")) return "Computer";
+        return "Other";
+    }
+
+    function acquireDiscovery(owner) {
+        if (!owner) return false;
+        root._discoveryOwners[owner] = true;
+        root._syncDiscovery();
+        return true;
+    }
+
+    function releaseDiscovery(owner) {
+        if (!owner) return false;
+        delete root._discoveryOwners[owner];
+        root._syncDiscovery();
+        return true;
+    }
+
+    function discoveryRequested(owner) { return Boolean(root._discoveryOwners[owner]); }
+
+    function _syncDiscovery() {
+        const requested = Object.keys(root._discoveryOwners).length > 0;
+        for (const adapter of root.adapters) {
+            if (!adapter.enabled) continue;
+            if (requested && !adapter.discovering) adapter.discovering = true;
+            else if (!requested && adapter.discovering) adapter.discovering = false;
+        }
+    }
+
+    Connections {
+        target: Bluetooth
+        function onDefaultAdapterChanged() { root._syncDiscovery(); }
+    }
 
     function markConnectAfterPair(device) {
         if (!device) return;
@@ -91,7 +147,7 @@ Singleton {
 
     function _prunePendingConnectIntents() {
         const livePaths = {};
-        for (const d of (Bluetooth.defaultAdapter?.devices.values ?? []))
+        for (const d of root.devices)
             livePaths[d.dbusPath] = true;
         for (const path in root._connectAfterPair) {
             if (!livePaths[path])

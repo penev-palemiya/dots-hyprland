@@ -43,7 +43,7 @@ WindowDialog {
     // reset to null automatically if the referenced QObject is destroyed (e.g. the
     // adapter is unplugged before the operation ends), so this can't dereference a
     // dangling adapter either.
-    property BluetoothAdapter pausedAdapter: null
+    property bool pausedDiscovery: false
     Connections {
         target: BluetoothStatus
         function onAnyDevicePairingOrConnectingChanged() {
@@ -56,15 +56,13 @@ WindowDialog {
             if (!root.show)
                 return;
             if (BluetoothStatus.anyDevicePairingOrConnecting) {
-                const adapter = Bluetooth.defaultAdapter;
-                if (adapter && adapter.discovering && !root.pausedAdapter) {
-                    root.pausedAdapter = adapter;
-                    adapter.discovering = false;
+                if (root.show && BluetoothStatus.discoveryRequested("quick-settings")) {
+                    root.pausedDiscovery = true;
+                    BluetoothStatus.releaseDiscovery("quick-settings");
                 }
-            } else if (root.pausedAdapter) {
-                const adapter = root.pausedAdapter;
-                root.pausedAdapter = null;
-                adapter.discovering = true;
+            } else if (root.pausedDiscovery && root.show) {
+                root.pausedDiscovery = false;
+                BluetoothStatus.acquireDiscovery("quick-settings");
             }
         }
     }
@@ -73,7 +71,12 @@ WindowDialog {
     // leaving it for a background operation to act on later. This is what makes the
     // `!root.show` gate above airtight even if this property were somehow left set
     // from before the dialog closed.
-    onShowChanged: if (!root.show) root.pausedAdapter = null;
+    onShowChanged: {
+        if (!root.show) {
+            root.pausedDiscovery = false;
+            BluetoothStatus.releaseDiscovery("quick-settings");
+        }
+    }
 
     WindowDialogHeader {
         id: header
@@ -107,9 +110,10 @@ WindowDialog {
             toggledOn: root.discovering
             enabled: BluetoothStatus.enabled
             onClicked: {
-                const adapter = Bluetooth.defaultAdapter;
-                if (adapter)
-                    adapter.discovering = !adapter.discovering;
+                if (BluetoothStatus.discoveryRequested("quick-settings"))
+                    BluetoothStatus.releaseDiscovery("quick-settings");
+                else
+                    BluetoothStatus.acquireDiscovery("quick-settings");
             }
         }
     }
