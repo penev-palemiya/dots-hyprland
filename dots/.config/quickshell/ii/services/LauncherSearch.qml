@@ -65,7 +65,7 @@ Singleton {
         {
             action: "accentcolor",
             execute: args => {
-                Quickshell.execDetached([Directories.wallpaperSwitchScriptPath, "--noswitch", "--color", ...(args != '' ? [`${args}`] : [])]);
+                Quickshell.execDetached([Directories.wallpaperSwitchScriptPath, "--noswitch", "--shell-only", "--color", ...(args != '' ? [`${args}`] : [])]);
             }
         },
         {

@@ -25,6 +25,11 @@ SettingsPage {
             BluetoothStatus.releaseDiscovery("settings");
     }
 
+    PersonalizationConfig {
+        visible: root.pageKey === "personalization"
+        onOpenSubPage: key => root.openSubPage(key)
+    }
+
     onCurrentSubPageKeyChanged: root.syncBluetoothDiscovery()
     onPageKeyChanged: root.syncBluetoothDiscovery()
     Component.onDestruction: if (root.pageKey === "connectivity") BluetoothStatus.releaseDiscovery("settings")
@@ -79,6 +84,7 @@ SettingsPage {
     }
 
     SettingsGroup {
+        visible: root.pageKey !== "personalization"
         title: Translation.tr("Sections")
 
         Repeater {
@@ -1906,38 +1912,7 @@ SettingsPage {
 
     Component {
         id: colorsPage
-
-        SettingsSubPage {
-            SettingsGroup {
-                title: Translation.tr("Palette")
-
-                SettingsRow {
-                    icon: "colors"
-                    title: Translation.tr("Colour palette style")
-                    description: Translation.tr("Material You palette algorithm used when generating shell colors.")
-                    keywords: "color palette material you"
-
-                    ConfigSelectionArray {
-                        currentValue: Config.options.appearance.palette.type
-                        onSelected: newValue => {
-                            Config.options.appearance.palette.type = newValue;
-                            Quickshell.execDetached(["bash", "-c", `${Directories.wallpaperSwitchScriptPath} --noswitch`]);
-                        }
-                        options: [
-                            { value: "auto", displayName: Translation.tr("Auto") },
-                            { value: "scheme-content", displayName: Translation.tr("Content") },
-                            { value: "scheme-expressive", displayName: Translation.tr("Expressive") },
-                            { value: "scheme-fidelity", displayName: Translation.tr("Fidelity") },
-                            { value: "scheme-fruit-salad", displayName: Translation.tr("Fruit Salad") },
-                            { value: "scheme-monochrome", displayName: Translation.tr("Monochrome") },
-                            { value: "scheme-neutral", displayName: Translation.tr("Neutral") },
-                            { value: "scheme-rainbow", displayName: Translation.tr("Rainbow") },
-                            { value: "scheme-tonal-spot", displayName: Translation.tr("Tonal Spot") }
-                        ]
-                    }
-                }
-            }
-        }
+        ColorsConfig {}
     }
 
     Component {

@@ -70,13 +70,12 @@ ApplicationWindow {
         {
             key: "personalization",
             name: Translation.tr("Personalization"),
-            subtitle: Translation.tr("Appearance, fonts, wallpaper"),
+            subtitle: Translation.tr("Appearance, colors, wallpaper"),
             icon: "palette",
             entries: [
                 { key: "personalization-appearance", name: Translation.tr("Appearance"), icon: "contrast" },
                 { key: "personalization-colors", name: Translation.tr("Colors"), icon: "colors" },
                 { key: "personalization-fonts", name: Translation.tr("Fonts"), icon: "font_download" },
-                { key: "personalization-wallpaper", name: Translation.tr("Wallpaper"), icon: "wallpaper" },
                 { key: "personalization-lock-screen", name: Translation.tr("Lock Screen"), icon: "lock" },
                 { key: "personalization-effects-animations", name: Translation.tr("Effects & Animations"), icon: "animation" }
             ],

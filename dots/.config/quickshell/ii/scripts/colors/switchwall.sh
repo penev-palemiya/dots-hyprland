@@ -310,13 +310,12 @@ switch() {
     fi
 
     if [[ "$shell_only_flag" == "1" ]]; then
-        matugen --config "$SCRIPT_DIR/shell-only-matugen.toml" "${matugen_args[@]}"
-    else
-        matugen "${matugen_args[@]}"
-    fi
-    if [[ "$shell_only_flag" == "1" ]]; then
+        shell_only_args=(--mode "$mode_flag" --scheme "$type_flag")
+        [[ "$color_flag" == "1" ]] && shell_only_args+=(--color "$color")
+        "$SCRIPT_DIR/generate-shell-palette.sh" "${shell_only_args[@]}"
         return
     fi
+    matugen "${matugen_args[@]}"
     source "$(eval echo $ILLOGICAL_IMPULSE_VIRTUAL_ENV)/bin/activate"
     python3 "$SCRIPT_DIR/generate_colors_material.py" "${generate_colors_material_args[@]}" \
         > "$STATE_DIR"/user/generated/material_colors.scss
