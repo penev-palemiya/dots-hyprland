@@ -242,6 +242,7 @@ MouseArea {
 
         // Username
         IconAndTextPair {
+            visible: Config.options.lock.showUserName
             Layout.leftMargin: 8
             icon: "account_circle"
             text: SystemInfo.username

@@ -194,60 +194,6 @@ ContentPage {
             }
         }
 
-        ContentSubsection {
-            title: Translation.tr("Style: general")
-
-            ConfigSwitch {
-                buttonIcon: "center_focus_weak"
-                text: Translation.tr('Center clock')
-                checked: Config.options.lock.centerClock
-                onCheckedChanged: {
-                    Config.options.lock.centerClock = checked;
-                }
-            }
-
-            ConfigSwitch {
-                buttonIcon: "info"
-                text: Translation.tr('Show "Locked" text')
-                checked: Config.options.lock.showLockedText
-                onCheckedChanged: {
-                    Config.options.lock.showLockedText = checked;
-                }
-            }
-
-            ConfigSwitch {
-                buttonIcon: "shapes"
-                text: Translation.tr('Use varying shapes for password characters')
-                checked: Config.options.lock.materialShapeChars
-                onCheckedChanged: {
-                    Config.options.lock.materialShapeChars = checked;
-                }
-            }
-        }
-        ContentSubsection {
-            title: Translation.tr("Style: Blurred")
-
-            ConfigSwitch {
-                buttonIcon: "blur_on"
-                text: Translation.tr('Enable blur')
-                checked: Config.options.lock.blur.enable
-                onCheckedChanged: {
-                    Config.options.lock.blur.enable = checked;
-                }
-            }
-
-            ConfigSpinBox {
-                icon: "loupe"
-                text: Translation.tr("Extra wallpaper zoom (%)")
-                value: Config.options.lock.blur.extraZoom * 100
-                from: 1
-                to: 150
-                stepSize: 2
-                onValueChanged: {
-                    Config.options.lock.blur.extraZoom = value / 100;
-                }
-            }
-        }
     }
 
     ContentSection {
