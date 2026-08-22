@@ -50,6 +50,7 @@ SettingsPage {
         case "system-language-region": return languageRegionPage;
         case "system-storage": return storagePage;
         case "system-info": return systemInfoPage;
+        case "desktop-shell-bar-tray": return barTrayPage;
         case "connectivity-wifi": return wifiPage;
         case "connectivity-ethernet": return ethernetPage;
         case "connectivity-bluetooth": return bluetoothPage;
@@ -124,6 +125,11 @@ SettingsPage {
     Component {
         id: soundPage
         SoundConfig {}
+    }
+
+    Component {
+        id: barTrayPage
+        BarConfig {}
     }
 
     Component {

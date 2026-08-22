@@ -216,30 +216,6 @@ ContentPage {
 
         ConfigRow {
             ContentSubsection {
-                title: Translation.tr("Bar position")
-                ConfigSelectionArray {
-                    currentValue: Config.options.bar.bottom ? 1 : 0
-                    onSelected: newValue => {
-                        Config.options.bar.bottom = newValue === 1;
-                    }
-                    options: [
-                        {
-                            displayName: Translation.tr("Top"),
-                            icon: "arrow_upward",
-                            value: 0
-                        },
-                        {
-                            displayName: Translation.tr("Bottom"),
-                            icon: "arrow_downward",
-                            value: 1
-                        }
-                    ]
-                }
-            }
-        }
-
-        ConfigRow {
-            ContentSubsection {
                 title: Translation.tr("Screen round corner")
 
                 ConfigSelectionArray {
