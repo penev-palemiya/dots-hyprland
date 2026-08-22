@@ -1,7 +1,9 @@
 import qs.modules.common
+import qs.modules.common.functions
 import qs.modules.common.widgets
 import qs.services
 import QtQuick
+import Qt5Compat.GraphicalEffects
 import Quickshell
 import Quickshell.Wayland
 
@@ -256,72 +258,85 @@ LazyLoader {
                 anchors.top: popupWindow.anchors.top ? parent.top : undefined
                 anchors.bottom: popupWindow.anchors.bottom ? parent.bottom : undefined
 
-                // Own fill is transparent: the wallpaper backdrop + tint below
-                // are what paint the surface, so the wallpaper shows through
-                // where colTint's alpha allows it. This Rectangle only still
-                // exists for the shape - radius, border, and the clip that
-                // reveals wallpaperBackdrop/colTint during the grow animation.
-                color: "transparent"
+                // In transparent mode the masked backdrop below is the one
+                // surface. Keeping a second opaque Rectangle underneath it
+                // makes two anti-aliased radii blend at the edge.
+                color: Config.options.appearance.transparency.enable ? "transparent" : Appearance.m3colors.m3surfaceContainer
                 radius: Appearance.rounding.small
-                border.width: 1
-                border.color: Appearance.colors.colLayer0Border
                 // The content is full-size from the start; the surface growing
                 // over it is what reveals it. Rounded corners stay correct
                 // throughout because this is the real shape, not a clip mask.
                 clip: true
+                layer.enabled: Config.options.appearance.transparency.enable
+                layer.effect: OpacityMask {
+                    maskSource: Rectangle {
+                        width: popupBackground.width
+                        height: popupBackground.height
+                        radius: Math.min(popupBackground.radius, width / 2, height / 2)
+                    }
+                }
 
-                // "Transparency" here deliberately isn't real window alpha
-                // (which would reveal whatever app happens to be behind the
-                // popup - a maximized editor, a random wallpaper-less window,
-                // etc). Instead, same idea as the lock screen's wallpaper blur
-                // (Background.qml): a blurred crop of the actual wallpaper,
-                // positioned to align with where this popup sits on screen, so
-                // the panel's colour is influenced by the wallpaper specifically
-                // - not by whatever's incidentally underneath.
+                // Match the wallpaper itself instead of making the layer
+                // surface truly transparent: a popup must not reveal an app
+                // that happens to be underneath it. The source image uses the
+                // same screen-sized PreserveAspectCrop setup as Background.qml;
+                // ShaderEffectSource then takes this popup's rectangle from
+                // that already-scaled screen image.
                 Loader {
                     anchors.fill: parent
                     active: Config.options.appearance.transparency.enable
                     asynchronous: true
 
                     sourceComponent: Item {
-                        anchors.fill: parent
+                        id: wallpaperLayer
 
-                        // Absolute position of this Rectangle's final (fully
-                        // open) bounds on the monitor. Deliberately computed
-                        // from the FINAL size, not the animating one - same
-                        // reasoning as contentHost below being full-size from
-                        // the start and simply revealed by the growing clip.
+                        // Keep final dimensions while popupBackground grows;
+                        // its clip reveals this fixed crop without rescaling it.
+                        width: popupSurface.implicitWidth
+                        height: popupSurface.implicitHeight
+                        anchors.top: popupWindow.anchors.top ? parent.top : undefined
+                        anchors.bottom: popupWindow.anchors.bottom ? parent.bottom : undefined
+
                         readonly property real screenX: popupWindow.margins.left + Appearance.sizes.elevationMargin
                         readonly property real screenY: popupWindow.anchors.top
-                            ? (popupWindow.margins.top + Appearance.sizes.elevationMargin)
-                            : (popupWindow.screen.height - popupWindow.margins.bottom - Appearance.sizes.elevationMargin - popupSurface.implicitHeight)
+                            ? popupWindow.margins.top + Appearance.sizes.elevationMargin
+                            : popupWindow.screen.height - popupWindow.margins.bottom - Appearance.sizes.elevationMargin - popupSurface.implicitHeight
 
                         Image {
-                            id: wallpaperBackdrop
-                            x: -parent.screenX
-                            y: -parent.screenY
+                            id: screenWallpaper
+
                             width: popupWindow.screen.width
                             height: popupWindow.screen.height
                             source: Config.options.background.wallpaperPath
                             fillMode: Image.PreserveAspectCrop
                             cache: true
                             asynchronous: true
-                            visible: false // only used as the blur's source texture
+                            visible: false
                         }
 
-                        StyledBlurEffect {
+                        ShaderEffectSource {
+                            id: wallpaperCrop
+
                             anchors.fill: parent
-                            source: wallpaperBackdrop
+                            sourceItem: screenWallpaper
+                            // sourceRect is in screenWallpaper's visual
+                            // coordinates, not in the original image's pixels.
+                            sourceRect: Qt.rect(wallpaperLayer.screenX, wallpaperLayer.screenY, wallpaperLayer.width, wallpaperLayer.height)
+                            hideSource: true
+                            live: true
+                        }
+
+                        // Match the base tone used by the side panel and bar.
+                        // It darkens the wallpaper crop without exposing the
+                        // client surface beneath the popup.
+                        Rectangle {
+                            anchors.fill: parent
+                            // Keep half as much wallpaper contribution as the
+                            // standard translucent surface. The base colour is
+                            // still the side panel's colLayer0 tone.
+                            color: ColorUtils.transparentize(Appearance.colors.colLayer0Base, Appearance.backgroundTransparency / 2)
                         }
                     }
-                }
-
-                Rectangle { // Tint over the blurred wallpaper (or, if transparency
-                    // is off, the sole background - its own alpha already
-                    // reflects that: see Appearance.qml's contentTransparency).
-                    id: colorTint
-                    anchors.fill: parent
-                    color: Appearance.colors.colSurfaceContainer
                 }
 
                 Item {
