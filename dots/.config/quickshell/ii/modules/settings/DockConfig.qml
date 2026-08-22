@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Widgets
 import qs.services
 import qs.modules.common
 import qs.modules.common.functions
@@ -12,6 +13,16 @@ SettingsSubPage {
 
     function iconFor(appId) {
         return Quickshell.iconPath(AppSearch.guessIcon(appId), "image-missing");
+    }
+
+    // Dock IDs are window/application IDs, while desktop files often use a
+    // vendor-qualified ID. Keep the Dock's heuristic lookup first, then use
+    // the existing launcher index for the common short IDs in persisted pins.
+    function entryFor(appId) {
+        return DesktopEntries.heuristicLookup(appId)
+            || DesktopEntries.byId(appId)
+            || AppSearch.fuzzyQuery(appId)[0]
+            || null;
     }
 
     function nameFor(appId, entry) {
@@ -77,7 +88,7 @@ SettingsSubPage {
 
             delegate: SettingsRow {
                 required property string modelData
-                property var desktopEntry: DesktopEntries.heuristicLookup(modelData)
+                property var desktopEntry: root.entryFor(modelData)
                 icon: desktopEntry ? "" : "apps"
                 iconSource: desktopEntry ? root.iconFor(modelData) : ""
                 title: root.nameFor(modelData, desktopEntry)
@@ -113,7 +124,7 @@ SettingsSubPage {
 
             delegate: SettingsRow {
                 required property var modelData
-                property var desktopEntry: DesktopEntries.heuristicLookup(modelData.appId)
+                property var desktopEntry: root.entryFor(modelData.appId)
                 icon: desktopEntry ? "" : "apps"
                 iconSource: desktopEntry ? root.iconFor(modelData.appId) : ""
                 title: root.nameFor(modelData.appId, desktopEntry)
