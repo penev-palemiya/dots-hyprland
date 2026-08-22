@@ -33,6 +33,10 @@ Singleton {
     property real autoContentTransparency: 0.9
     property real backgroundTransparency: Config?.options.appearance.transparency.enable ? Config?.options.appearance.transparency.automatic ? autoBackgroundTransparency : Config?.options.appearance.transparency.backgroundTransparency : 0
     property real contentTransparency: Config?.options.appearance.transparency.automatic ? autoContentTransparency : Config?.options.appearance.transparency.contentTransparency
+    // Public resolved values for settings previews and other visual consumers.
+    // Keep the formulas above as the single source of truth.
+    readonly property real effectiveBackgroundTransparency: root.backgroundTransparency
+    readonly property real effectiveContentTransparency: root.contentTransparency
 
     m3colors: QtObject {
         property bool darkmode: true

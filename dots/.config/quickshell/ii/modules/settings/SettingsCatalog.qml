@@ -65,6 +65,7 @@ SettingsPage {
         case "personalization-colors": return colorsPage;
         case "personalization-fonts": return fontsPage;
         case "personalization-lock-screen": return lockScreenPage;
+        case "personalization-effects-animations": return effectsAnimationsPage;
         case "search-tools-search": return searchPage;
         case "search-tools-clipboard": return clipboardPage;
         case "search-tools-screenshots": return screenshotsPage;
@@ -1925,6 +1926,11 @@ SettingsPage {
     Component {
         id: lockScreenPage
         LockScreenConfig {}
+    }
+
+    Component {
+        id: effectsAnimationsPage
+        EffectsAnimationsConfig {}
     }
 
     Component {
