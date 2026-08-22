@@ -253,8 +253,149 @@ SettingsPage {
         id: dateTimePage
 
         SettingsSubPage {
+            id: dateTimeRoot
+
+            property date editingDate: DateTime.clock.date
+            property int editYear: editingDate.getFullYear()
+            property int editMonth: editingDate.getMonth() + 1
+            property int editDay: editingDate.getDate()
+            property int editHour: editingDate.getHours()
+            property int editMinute: editingDate.getMinutes()
+
+            function syncEditor() {
+                const current = DateTime.clock.date;
+                editYear = current.getFullYear();
+                editMonth = current.getMonth() + 1;
+                editDay = current.getDate();
+                editHour = current.getHours();
+                editMinute = current.getMinutes();
+            }
+
+            function validEditingDate() {
+                const candidate = new Date(editYear, editMonth - 1, editDay, editHour, editMinute, 0, 0);
+                return candidate.getFullYear() === editYear
+                    && candidate.getMonth() === editMonth - 1
+                    && candidate.getDate() === editDay
+                    && candidate.getHours() === editHour
+                    && candidate.getMinutes() === editMinute;
+            }
+
+            function submitEditingDate() {
+                if (!validEditingDate()) {
+                    TimeDate.error = Translation.tr("Enter a valid date and time.");
+                    return;
+                }
+                TimeDate.setDateTime(new Date(editYear, editMonth - 1, editDay, editHour, editMinute, 0, 0).getTime());
+            }
+
+            Connections {
+                target: DateTime.clock
+                function onDateChanged() {
+                    if (TimeDate.ntpEnabled)
+                        dateTimeRoot.syncEditor();
+                }
+            }
+
+            SettingsRow {
+                icon: "calendar_today"
+                title: Translation.tr("Current date")
+                description: Qt.locale().toString(DateTime.clock.date, "dd MMMM yyyy")
+                registerInSearch: false
+            }
+
+            SettingsRow {
+                icon: "schedule"
+                title: Translation.tr("Current time")
+                description: DateTime.time
+                registerInSearch: false
+            }
+
+            SettingsRow {
+                icon: "sync"
+                title: Translation.tr("Automatic date & time")
+                description: TimeDate.ntpSynchronized
+                    ? Translation.tr("Synchronized")
+                    : Translation.tr("Waiting for synchronization")
+                enabled: TimeDate.ready && !TimeDate.operationPending
+
+                StyledSwitch {
+                    checked: TimeDate.ntpEnabled
+                    enabled: TimeDate.ready && !TimeDate.operationPending
+                    onClicked: TimeDate.setNtp(checked)
+                }
+            }
+
+            SettingsRow {
+                visible: TimeDate.error.length > 0
+                icon: "error"
+                title: Translation.tr("Date & time operation failed")
+                description: TimeDate.error
+                registerInSearch: false
+            }
+
             SettingsGroup {
-                title: Translation.tr("Clock")
+                visible: !TimeDate.ntpEnabled
+                title: Translation.tr("Manual date & time")
+
+                SettingsRow {
+                    icon: "calendar_today"
+                    title: Translation.tr("Date")
+                    description: Translation.tr("Local date")
+
+                    RowLayout {
+                        spacing: 4
+                        StyledSpinBox { from: 1; to: 31; value: dateTimeRoot.editDay; onValueChanged: dateTimeRoot.editDay = value }
+                        StyledSpinBox { from: 1; to: 12; value: dateTimeRoot.editMonth; onValueChanged: dateTimeRoot.editMonth = value }
+                        StyledSpinBox { from: 1970; to: 2100; value: dateTimeRoot.editYear; onValueChanged: dateTimeRoot.editYear = value }
+                    }
+                }
+
+                SettingsRow {
+                    icon: "schedule"
+                    title: Translation.tr("Time")
+                    description: Translation.tr("Local time")
+
+                    RowLayout {
+                        spacing: 4
+                        StyledSpinBox { from: 0; to: 23; value: dateTimeRoot.editHour; onValueChanged: dateTimeRoot.editHour = value }
+                        StyledText { text: ":"; color: Appearance.colors.colOnSurfaceVariant }
+                        StyledSpinBox { from: 0; to: 59; value: dateTimeRoot.editMinute; onValueChanged: dateTimeRoot.editMinute = value }
+                        RippleButtonWithIcon {
+                            materialIcon: "check"
+                            mainText: Translation.tr("Set")
+                            enabled: !TimeDate.operationPending && dateTimeRoot.validEditingDate()
+                            onClicked: dateTimeRoot.submitEditingDate()
+                        }
+                    }
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Time zone")
+
+                SettingsRow {
+                    icon: "public"
+                    title: Translation.tr("Current time zone")
+                    description: TimeDate.timezone || Translation.tr("Unavailable")
+                    registerInSearch: false
+                }
+
+                SettingsRow {
+                    icon: "public"
+                    title: Translation.tr("Time zone")
+                    description: Translation.tr("Choose the system time zone.")
+
+                    SearchableSelection {
+                        currentValue: TimeDate.timezone
+                        options: TimeDate.availableTimezones
+                        placeholder: Translation.tr("Select time zone")
+                        onSelected: value => TimeDate.setTimezone(value)
+                    }
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Format")
 
                 SettingsToggleRow {
                     icon: "pace"
@@ -320,6 +461,54 @@ SettingsPage {
                         }
                         onActivated: index => Config.options.language.ui = model[index].value
                     }
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Regional formats")
+
+                SettingsRow {
+                    icon: "public"
+                    title: Translation.tr("Region / locale")
+                    description: Translation.tr("Controls date, number, currency, and measurement conventions.")
+
+                    SearchableSelection {
+                        currentValue: Locale1.languageLocale
+                        options: Locale1.availableLocales
+                        placeholder: Translation.tr("Select locale")
+                        enabled: Locale1.ready && !Locale1.operationPending
+                        onSelected: value => Locale1.setLocale(value)
+                    }
+                }
+
+                SettingsRow {
+                    icon: "computer"
+                    title: Translation.tr("System locale")
+                    description: Locale1.friendlyName(Locale1.languageLocale)
+                    registerInSearch: false
+                }
+
+                SettingsRow {
+                    visible: Locale1.messageLocale.length > 0 && Locale1.messageLocale !== Locale1.languageLocale
+                    icon: "translate"
+                    title: Translation.tr("Interface messages")
+                    description: Locale1.friendlyName(Locale1.messageLocale)
+                    registerInSearch: false
+                }
+
+                SettingsRow {
+                    visible: Locale1.error.length > 0
+                    icon: "error"
+                    title: Translation.tr("Locale operation failed")
+                    description: Locale1.error
+                    registerInSearch: false
+                }
+
+                SettingsRow {
+                    icon: "info"
+                    title: Translation.tr("Applying regional formats")
+                    description: Translation.tr("New applications use the new locale. Existing applications may need to be restarted.")
+                    registerInSearch: false
                 }
             }
         }

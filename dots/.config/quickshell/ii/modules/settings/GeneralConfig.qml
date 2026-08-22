@@ -83,40 +83,6 @@ SettingsPage {
     }
 
     SettingsGroup {
-        title: Translation.tr("Language")
-
-        SettingsRow {
-            icon: "language"
-            title: Translation.tr("Interface language")
-            description: Translation.tr("Language used across the shell. \"Auto\" follows your system locale.")
-            keywords: "locale translation"
-
-            StyledComboBox {
-                textRole: "displayName"
-
-                model: [
-                    {
-                        displayName: Translation.tr("Auto (System)"),
-                        value: "auto"
-                    },
-                    ...Translation.allAvailableLanguages.map(lang => {
-                        return {
-                            displayName: Translation.friendlyLanguageName(lang),
-                            value: lang
-                        };
-                    })]
-
-                currentIndex: {
-                    const index = model.findIndex(item => item.value === Config.options.language.ui);
-                    return index !== -1 ? index : 0;
-                }
-
-                onActivated: index => Config.options.language.ui = model[index].value
-            }
-        }
-    }
-
-    SettingsGroup {
         title: Translation.tr("Sounds")
 
         SettingsToggleRow {
