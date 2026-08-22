@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import qs.services
+import qs.services.network
 import qs.modules.common
 import qs.modules.common.functions
 import qs.modules.common.widgets
@@ -30,6 +31,7 @@ SettingsPage {
         case "system-language-region": return languageRegionPage;
         case "system-storage": return storagePage;
         case "system-info": return systemInfoPage;
+        case "connectivity-wifi": return wifiPage;
         case "personalization-colors": return colorsPage;
         case "search-tools-search": return searchPage;
         case "search-tools-clipboard": return clipboardPage;
@@ -88,6 +90,213 @@ SettingsPage {
     Component {
         id: soundPage
         SoundConfig {}
+    }
+
+    Component {
+        id: wifiPage
+
+        SettingsSubPage {
+            id: wifiRoot
+
+            property WifiAccessPoint passwordTarget: null
+            property string password: ""
+
+            Component.onCompleted: Network.requestScan()
+
+            function signalText(network) {
+                return `${network.strength}%${network.band ? ` · ${network.band}` : ""}`;
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Wi-Fi")
+
+                SettingsToggleRow {
+                    icon: Network.wifiEnabled ? "wifi" : "wifi_off"
+                    title: Translation.tr("Wi-Fi")
+                    description: Network.wifiDevices.length > 1
+                        ? Translation.tr("%1 Wi-Fi devices").arg(Network.wifiDevices.length)
+                        : (Network.wifiDevices[0]?.interfaceName || Translation.tr("No Wi-Fi device detected"))
+                    checked: Network.wifiEnabled
+                    onToggled: checked => Network.enableWifi(checked)
+                }
+
+                SettingsRow {
+                    visible: Network.error.length > 0
+                    icon: "error"
+                    title: Translation.tr("Wi-Fi operation failed")
+                    description: Network.error
+                    registerInSearch: false
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Current Network")
+                visible: Network.wifiStatus === "connected"
+
+                SettingsRow {
+                    icon: "wifi"
+                    title: Network.currentDetails.ssid || Network.activeWifiName
+                    description: [Translation.tr("Connected"), Network.currentDetails.band, Network.currentDetails.signal > 0 ? `${Network.currentDetails.signal}%` : ""].filter(value => value.length > 0).join(" · ")
+
+                    RippleButtonWithIcon {
+                        materialIcon: "link_off"
+                        mainText: Translation.tr("Disconnect")
+                        enabled: !Network.wifiConnecting
+                        onClicked: Network.disconnectWifiNetwork()
+                    }
+                }
+
+                SettingsRow {
+                    icon: "lan"
+                    title: Translation.tr("IPv4")
+                    description: Network.currentDetails.ipv4 || Translation.tr("Unavailable")
+                    registerInSearch: false
+                }
+
+                SettingsRow {
+                    visible: Network.currentDetails.ipv6.length > 0
+                    icon: "language"
+                    title: Translation.tr("IPv6")
+                    description: Network.currentDetails.ipv6
+                    registerInSearch: false
+                }
+
+                SettingsRow {
+                    icon: "router"
+                    title: Translation.tr("Gateway")
+                    description: Network.currentDetails.gateway || Translation.tr("Unavailable")
+                    registerInSearch: false
+                }
+
+                SettingsRow {
+                    icon: "dns"
+                    title: Translation.tr("DNS")
+                    description: Network.currentDetails.dns || Translation.tr("Unavailable")
+                    registerInSearch: false
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Available Networks")
+
+                SettingsRow {
+                    icon: "refresh"
+                    title: Network.wifiScanning ? Translation.tr("Scanning…") : Translation.tr("Refresh")
+                    description: Translation.tr("NetworkManager updates this list when access points change.")
+                    clickable: true
+                    enabled: !Network.wifiScanning
+                    onClicked: Network.requestScan(true)
+                    registerInSearch: false
+                }
+
+                Repeater {
+                    model: Network.friendlyWifiNetworks.filter(network => !network.connected)
+
+                    SettingsRow {
+                        required property WifiAccessPoint modelData
+                        icon: modelData.isSecure ? "lock" : "wifi"
+                        title: modelData.ssid
+                        description: [modelData.security, wifiRoot.signalText(modelData)].filter(value => value.length > 0).join(" · ")
+                        registerInSearch: false
+
+                        ColumnLayout {
+                            spacing: 6
+
+                            RowLayout {
+                                spacing: 6
+                                RippleButtonWithIcon {
+                                    visible: !modelData.askingPassword
+                                    materialIcon: "login"
+                                    mainText: Network.isKnownNetwork(modelData.ssid) ? Translation.tr("Connect") : Translation.tr("Join")
+                                    enabled: !Network.wifiConnecting
+                                    onClicked: {
+                                        if (modelData.isSecure && !Network.isKnownNetwork(modelData.ssid))
+                                            modelData.askingPassword = true;
+                                        else
+                                            Network.connectToWifiNetwork(modelData);
+                                    }
+                                }
+                            }
+
+                            MaterialTextField {
+                                id: passwordField
+                                visible: modelData.askingPassword
+                                Layout.preferredWidth: 220
+                                placeholderText: Translation.tr("Password")
+                                echoMode: TextInput.Password
+                                inputMethodHints: Qt.ImhSensitiveData
+                                onAccepted: {
+                                    Network.changePassword(modelData, text);
+                                    clear();
+                                    modelData.askingPassword = false;
+                                }
+                            }
+
+                            RowLayout {
+                                visible: modelData.askingPassword
+                                spacing: 6
+                                DialogButton {
+                                    buttonText: Translation.tr("Cancel")
+                                    onClicked: modelData.askingPassword = false
+                                }
+                                DialogButton {
+                                    buttonText: Translation.tr("Connect")
+                                    colBackground: Appearance.colors.colPrimary
+                                    colText: Appearance.colors.colOnPrimary
+                                    onClicked: {
+                                        Network.changePassword(modelData, passwordField.text);
+                                        passwordField.clear();
+                                        modelData.askingPassword = false;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                SettingsRow {
+                    visible: Network.ready && Network.friendlyWifiNetworks.length === 0
+                    icon: "wifi_find"
+                    title: Translation.tr("No networks found")
+                    description: Translation.tr("Try refreshing the access-point list.")
+                    registerInSearch: false
+                }
+            }
+
+            SettingsGroup {
+                title: Translation.tr("Known Networks")
+                visible: Network.savedWifiProfilesList.length > 0
+
+                Repeater {
+                    model: Network.savedWifiProfilesList
+
+                    SettingsRow {
+                        required property var modelData
+                        icon: "bookmark"
+                        title: modelData.id || modelData.ssid
+                        description: modelData.ssid
+                        registerInSearch: false
+
+                        RowLayout {
+                            spacing: 6
+                            RippleButtonWithIcon {
+                                visible: Network.wifiDevices.length > 0
+                                materialIcon: "login"
+                                mainText: Translation.tr("Connect")
+                                enabled: !Network.wifiConnecting
+                                onClicked: Network.connectSavedProfile(modelData)
+                            }
+                            RippleButtonWithIcon {
+                                materialIcon: "delete"
+                                mainText: Translation.tr("Forget")
+                                enabled: !Network.wifiConnecting
+                                onClicked: Network.forgetWifiProfile(modelData)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     Component {

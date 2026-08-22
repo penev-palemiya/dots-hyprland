@@ -94,17 +94,6 @@ WindowDialog {
     Component.onCompleted: root.resortNetworks()
 
 
-    // Walking around the house means the list is already out of date by the time
-    // the dialog opens, and a scan takes seconds to land. Keep pulling
-    // NetworkManager's cached list while the dialog is on screen — it's cheap,
-    // and the scan behind it is rate-limited inside the service.
-    Timer {
-        running: root.show
-        interval: 2500
-        repeat: true
-        onTriggered: Network.rescanWifi()
-    }
-
     WindowDialogHeader {
         id: header
 
