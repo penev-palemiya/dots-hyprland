@@ -11,47 +11,6 @@ SettingsPage {
     pageTitle: Translation.tr("General")
 
     SettingsGroup {
-        title: Translation.tr("Audio")
-
-        SettingsToggleRow {
-            icon: "hearing"
-            title: Translation.tr("Earbang protection")
-            description: Translation.tr("Blocks sudden volume jumps and caps how loud the output can go.")
-            keywords: "volume loud hearing"
-            checked: Config.options.audio.protection.enable
-            onToggled: checked => Config.options.audio.protection.enable = checked
-        }
-
-        SettingsSubRow {
-            title: Translation.tr("Max allowed increase")
-            description: Translation.tr("The largest single volume step a shortcut or scroll can apply.")
-            enabled: Config.options.audio.protection.enable
-
-            StyledSpinBox {
-                value: Config.options.audio.protection.maxAllowedIncrease
-                from: 0
-                to: 100
-                stepSize: 2
-                onValueChanged: Config.options.audio.protection.maxAllowedIncrease = value
-            }
-        }
-
-        SettingsSubRow {
-            title: Translation.tr("Volume limit")
-            description: Translation.tr("Hard ceiling for output volume, in percent.")
-            enabled: Config.options.audio.protection.enable
-
-            StyledSpinBox {
-                value: Config.options.audio.protection.maxAllowed
-                from: 0
-                to: 154 // pavucontrol allows up to 153%
-                stepSize: 2
-                onValueChanged: Config.options.audio.protection.maxAllowed = value
-            }
-        }
-    }
-
-    SettingsGroup {
         title: Translation.tr("Battery")
 
         SettingsRow {

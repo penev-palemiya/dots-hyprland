@@ -84,77 +84,7 @@ SettingsPage {
 
     Component {
         id: soundPage
-
-        SettingsSubPage {
-            SettingsGroup {
-                title: Translation.tr("Output protection")
-
-                SettingsToggleRow {
-                    icon: "hearing"
-                    title: Translation.tr("Earbang protection")
-                    description: Translation.tr("Blocks sudden volume jumps and caps how loud the output can go.")
-                    keywords: "volume loud hearing"
-                    checked: Config.options.audio.protection.enable
-                    onToggled: checked => Config.options.audio.protection.enable = checked
-                }
-
-                SettingsSubRow {
-                    title: Translation.tr("Max allowed increase")
-                    description: Translation.tr("The largest single volume step a shortcut or scroll can apply.")
-                    enabled: Config.options.audio.protection.enable
-
-                    StyledSpinBox {
-                        value: Config.options.audio.protection.maxAllowedIncrease
-                        from: 0
-                        to: 100
-                        stepSize: 2
-                        onValueChanged: Config.options.audio.protection.maxAllowedIncrease = value
-                    }
-                }
-
-                SettingsSubRow {
-                    title: Translation.tr("Volume limit")
-                    description: Translation.tr("Hard ceiling for output volume, in percent.")
-                    enabled: Config.options.audio.protection.enable
-
-                    StyledSpinBox {
-                        value: Config.options.audio.protection.maxAllowed
-                        from: 0
-                        to: 154
-                        stepSize: 2
-                        onValueChanged: Config.options.audio.protection.maxAllowed = value
-                    }
-                }
-            }
-
-            SettingsGroup {
-                title: Translation.tr("Sounds")
-
-                SettingsToggleRow {
-                    icon: "battery_android_full"
-                    title: Translation.tr("Battery sounds")
-                    description: Translation.tr("Play a sound for battery warnings.")
-                    checked: Config.options.sounds.battery
-                    onToggled: checked => Config.options.sounds.battery = checked
-                }
-
-                SettingsToggleRow {
-                    icon: "av_timer"
-                    title: Translation.tr("Pomodoro sounds")
-                    description: Translation.tr("Play a sound when a Pomodoro interval ends.")
-                    checked: Config.options.sounds.pomodoro
-                    onToggled: checked => Config.options.sounds.pomodoro = checked
-                }
-
-                SettingsToggleRow {
-                    icon: "hourglass_bottom"
-                    title: Translation.tr("Countdown timer sounds")
-                    description: Translation.tr("Play a sound when a countdown timer finishes.")
-                    checked: Config.options.sounds.countdownTimer
-                    onToggled: checked => Config.options.sounds.countdownTimer = checked
-                }
-            }
-        }
+        SoundConfig {}
     }
 
     Component {
