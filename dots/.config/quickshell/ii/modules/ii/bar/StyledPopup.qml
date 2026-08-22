@@ -296,10 +296,9 @@ LazyLoader {
                         anchors.top: popupWindow.anchors.top ? parent.top : undefined
                         anchors.bottom: popupWindow.anchors.bottom ? parent.bottom : undefined
 
+                        screen: popupWindow.screen
                         screenX: popupWindow.margins.left + Appearance.sizes.elevationMargin
                         screenY: popupWindow.anchors.top ? popupWindow.margins.top + Appearance.sizes.elevationMargin : popupWindow.screen.height - popupWindow.margins.bottom - Appearance.sizes.elevationMargin - popupSurface.implicitHeight
-                        screenW: popupWindow.screen.width
-                        screenH: popupWindow.screen.height
                     }
                 }
 

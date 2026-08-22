@@ -151,37 +151,31 @@ Variants {
                     return Math.max(0, Math.min(1, usedFraction));
                 }
 
-                x: {
-                    if (bgRoot.screen.width > width) {
-                        // Center the picture
-                        return (bgRoot.screen.width - width) / 2;
-                    }
-                    return - bgRoot.parallaxTotalPixelsX * usedFractionX;
-                }
-                y: {
-                    if (bgRoot.screen.height > height) {
-                        // Center the picture
-                        return (bgRoot.screen.height - height) / 2;
-                    }
-                    return - bgRoot.parallaxTotalPixelsY * usedFractionY;
-                }
+                // Geometry comes from WallpaperGeometry rather than being
+                // computed here, so the frosted surfaces elsewhere in the shell
+                // (WallpaperBackdrop) pan and zoom with exactly this picture
+                // instead of each keeping their own copy of the arithmetic.
+                readonly property rect drawRect: WallpaperGeometry.drawRectFor(bgRoot.screen)
+
+                x: drawRect.x
+                y: drawRect.y
+                width: drawRect.width
+                height: drawRect.height
 
                 source: bgRoot.wallpaperPath
                 fillMode: Image.PreserveAspectCrop
                 Behavior on x {
                     NumberAnimation {
-                        duration: 600
-                        easing.type: Easing.OutCubic
+                        duration: WallpaperGeometry.panDuration
+                        easing.type: WallpaperGeometry.panEasing
                     }
                 }
                 Behavior on y {
                     NumberAnimation {
-                        duration: 600
-                        easing.type: Easing.OutCubic
+                        duration: WallpaperGeometry.panDuration
+                        easing.type: WallpaperGeometry.panEasing
                     }
                 }
-                width: bgRoot.scaledWallpaperWidth
-                height: bgRoot.scaledWallpaperHeight
             }
 
             Loader {

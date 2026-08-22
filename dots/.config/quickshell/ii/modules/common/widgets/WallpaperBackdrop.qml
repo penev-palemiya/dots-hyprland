@@ -1,5 +1,6 @@
 import qs.modules.common
 import qs.modules.common.functions
+import qs.services
 import QtQuick
 
 /**
@@ -14,42 +15,59 @@ import QtQuick
  * from a single piece of code. When they did not, the island's pill and its
  * panel drew visibly different greys along the seam between them.
  *
- * Give it the surface's top-left in screen coordinates and the full screen
- * size; it draws the wallpaper exactly as Background.qml does (screen-sized,
- * PreserveAspectCrop), shifted so this surface's rectangle lands over it, and
- * clips the rest.
+ * Give it the screen it lives on and its own top-left in that screen's
+ * coordinates. Where the wallpaper actually sits — zoomed and panned by the
+ * workspace parallax — comes from WallpaperGeometry, the same service the
+ * desktop itself uses, so the glass keeps showing exactly the piece of picture
+ * that is behind it instead of drifting away on every workspace switch.
  *
- * `screenW`/`screenH` must be real screen dimensions. Resolving them via
- * `QsWindow.window.screen` from inside a bar widget measured as null at
- * runtime, which silently left them 0, sized the Image to 0x0 and produced a
- * surface with no wallpaper in it at all — indistinguishable at a glance from
- * a correct one, since the tint alone still looks like a dark panel. Pass the
- * screen down explicitly from whoever owns the window.
+ * `screen` must be a real ShellScreen. Resolving one via `QsWindow.window
+ * .screen` from inside a bar widget measured as null at runtime, which
+ * silently produced a surface with no wallpaper in it at all — hard to spot,
+ * since the tint alone still looks like a dark panel. Pass it down explicitly
+ * from whoever owns the window.
  */
 Item {
     id: root
 
+    property var screen: null
     // This surface's top-left in screen coordinates.
     property real screenX: 0
     property real screenY: 0
-    // The full screen size the wallpaper is displayed at.
-    property real screenW: 0
-    property real screenH: 0
+
+    readonly property rect wallpaperRect: WallpaperGeometry.drawRectFor(root.screen)
 
     clip: true
 
     Image {
-        x: -root.screenX
-        y: -root.screenY
-        width: root.screenW
-        height: root.screenH
-        source: Config.options.background.wallpaperPath
+        // Positioned so the wallpaper lands where the desktop draws it, then
+        // shifted into this surface's local space.
+        x: root.wallpaperRect.x - root.screenX
+        y: root.wallpaperRect.y - root.screenY
+        width: root.wallpaperRect.width
+        height: root.wallpaperRect.height
+        source: WallpaperGeometry.path
         fillMode: Image.PreserveAspectCrop
         cache: true
         // Synchronous on purpose: a static layered surface (the island's pill)
         // renders its layer texture once and nothing dirties it again, so an
         // image that arrived later would never make it into that texture.
         asynchronous: false
+
+        // Matches the desktop's own glide, so the glass pans in lockstep with
+        // the wallpaper behind it rather than snapping ahead of it.
+        Behavior on x {
+            NumberAnimation {
+                duration: WallpaperGeometry.panDuration
+                easing.type: WallpaperGeometry.panEasing
+            }
+        }
+        Behavior on y {
+            NumberAnimation {
+                duration: WallpaperGeometry.panDuration
+                easing.type: WallpaperGeometry.panEasing
+            }
+        }
     }
 
     Rectangle {

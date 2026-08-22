@@ -207,10 +207,9 @@ LazyLoader {
                 asynchronous: true
 
                 sourceComponent: WallpaperBackdrop {
+                    screen: root.targetScreen
                     screenX: root.anchorLeftMargin
                     screenY: root.anchorTopMargin
-                    screenW: root.screenWidth
-                    screenH: root.screenHeight
                 }
             }
 

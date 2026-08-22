@@ -264,10 +264,9 @@ Item {
 
             sourceComponent: WallpaperBackdrop {
                 visible: root.mergedWithOverlay
+                screen: root.barScreen
                 screenX: root.pillScreenX
                 screenY: root.pillScreenY
-                screenW: root.screenWidth
-                screenH: root.screenHeight
             }
         }
 
