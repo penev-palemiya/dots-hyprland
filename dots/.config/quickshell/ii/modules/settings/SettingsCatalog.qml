@@ -53,6 +53,10 @@ SettingsPage {
         case "connectivity-hotspot": return hotspotPage;
         case "devices-keyboard": return keyboardPage;
         case "devices-mouse-touchpad": return mouseTouchpadPage;
+        case "devices-printers": return printersPage;
+        case "devices-game-controllers": return gameControllersPage;
+        case "devices-other": return otherDevicesPage;
+        case "personalization-appearance": return appearancePage;
         case "personalization-colors": return colorsPage;
         case "search-tools-search": return searchPage;
         case "search-tools-clipboard": return clipboardPage;
@@ -602,6 +606,21 @@ SettingsPage {
     Component {
         id: mouseTouchpadPage
         MouseTouchpadConfig {}
+    }
+
+    Component {
+        id: printersPage
+        PrintersConfig {}
+    }
+
+    Component {
+        id: gameControllersPage
+        GameControllersConfig {}
+    }
+
+    Component {
+        id: otherDevicesPage
+        OtherDevicesConfig {}
     }
 
     Component {
@@ -1878,6 +1897,11 @@ SettingsPage {
                 }
             }
         }
+    }
+
+    Component {
+        id: appearancePage
+        AppearanceConfig {}
     }
 
     Component {
