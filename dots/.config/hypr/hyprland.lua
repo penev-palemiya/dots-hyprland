@@ -28,6 +28,9 @@ end
 if is_file_exists(HOME .. "/.config/hypr/custom/keyboard.lua") then
     require("custom.keyboard")
 end
+if is_file_exists(HOME .. "/.config/hypr/custom/pointer.lua") then
+    require("custom.pointer")
+end
 if is_file_exists(HOME .. "/.config/hypr/custom/rules.lua") then
     require("custom.rules")
 end

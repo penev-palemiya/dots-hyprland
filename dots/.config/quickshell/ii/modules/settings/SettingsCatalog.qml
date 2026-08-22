@@ -52,6 +52,7 @@ SettingsPage {
         case "connectivity-proxy": return proxyPage;
         case "connectivity-hotspot": return hotspotPage;
         case "devices-keyboard": return keyboardPage;
+        case "devices-mouse-touchpad": return mouseTouchpadPage;
         case "personalization-colors": return colorsPage;
         case "search-tools-search": return searchPage;
         case "search-tools-clipboard": return clipboardPage;
@@ -596,6 +597,11 @@ SettingsPage {
     Component {
         id: keyboardPage
         KeyboardConfig {}
+    }
+
+    Component {
+        id: mouseTouchpadPage
+        MouseTouchpadConfig {}
     }
 
     Component {
