@@ -35,6 +35,14 @@ Item {
     property real screenX: 0
     property real screenY: 0
 
+    // Block until the wallpaper is decoded instead of letting it appear a
+    // frame or two later. Only worth it for a surface whose layer texture is
+    // rendered once and never dirtied again (the island's pill), where a late
+    // image would never make it into the texture at all. Everywhere else this
+    // is a stall on the UI thread at exactly the wrong moment — while a popup
+    // is trying to animate open — so it stays off.
+    property bool synchronous: false
+
     readonly property rect wallpaperRect: WallpaperGeometry.drawRectFor(root.screen)
 
     clip: true
@@ -49,10 +57,7 @@ Item {
         source: WallpaperGeometry.path
         fillMode: Image.PreserveAspectCrop
         cache: true
-        // Synchronous on purpose: a static layered surface (the island's pill)
-        // renders its layer texture once and nothing dirties it again, so an
-        // image that arrived later would never make it into that texture.
-        asynchronous: false
+        asynchronous: !root.synchronous
 
         // Matches the desktop's own glide, so the glass pans in lockstep with
         // the wallpaper behind it rather than snapping ahead of it.

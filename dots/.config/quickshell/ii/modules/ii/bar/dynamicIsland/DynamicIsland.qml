@@ -264,6 +264,9 @@ Item {
 
             sourceComponent: WallpaperBackdrop {
                 visible: root.mergedWithOverlay
+                // This pill's layer texture is rendered once and never
+                // dirtied again, so the wallpaper has to be there already.
+                synchronous: true
                 screen: root.barScreen
                 screenX: root.pillScreenX
                 screenY: root.pillScreenY

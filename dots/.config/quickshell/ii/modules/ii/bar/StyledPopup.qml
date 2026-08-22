@@ -53,12 +53,36 @@ LazyLoader {
 
     signal dismissRequested()
 
-    // Kept mounted through the exit animation, then torn down.
+    // Kept mounted through the exit animation.
     property bool exiting: false
-    active: root.shown || root.exiting
+
+    // Built once, then kept. Rebuilding meant every single open had to
+    // construct the whole content tree AND bring up a fresh Wayland
+    // layer-shell surface before the open animation could start — the work
+    // landed exactly in the frames the popup was supposed to be animating
+    // through, which is what made opening feel like it stuttered. Once built,
+    // a reopen is just the animation. Staying mounted is cheap here: while
+    // hidden the surface paints nothing (the background's height is 0) and its
+    // input region collapses to `closedMask`, and these popups own no timers
+    // or processes of their own — they only read services that tick anyway.
+    property bool built: false
+    active: root.shown || root.exiting || root.built
+
+    // ...and built before it is ever asked for, so even the first open is
+    // smooth. Deliberately delayed rather than done at startup: the point is
+    // to use idle time once the shell has settled, not to add this work to
+    // everything competing during boot.
+    property Timer preloadTimer: Timer {
+        interval: 4000
+        running: !root.built
+        repeat: false
+        onTriggered: root.built = true
+    }
 
     onShownChanged: {
-        if (!root.shown && root.active)
+        if (root.shown)
+            root.built = true;
+        else if (root.active)
             root.exiting = true;
     }
 
