@@ -9,14 +9,17 @@ Singleton {
     id: root
 
     function isPinned(appId) {
-        return Config.options.dock.pinnedApps.indexOf(appId) !== -1;
+        const needle = String(appId ?? "").toLowerCase();
+        return (Config.options.dock.pinnedApps ?? []).some(id => String(id).toLowerCase() === needle);
     }
 
     function togglePin(appId) {
+        const needle = String(appId ?? "").toLowerCase();
+        const pins = Config.options.dock.pinnedApps ?? [];
         if (root.isPinned(appId)) {
-            Config.options.dock.pinnedApps = Config.options.dock.pinnedApps.filter(id => id !== appId)
+            Config.options.dock.pinnedApps = pins.filter(id => String(id).toLowerCase() !== needle)
         } else {
-            Config.options.dock.pinnedApps = Config.options.dock.pinnedApps.concat([appId])
+            Config.options.dock.pinnedApps = pins.concat([appId])
         }
     }
 

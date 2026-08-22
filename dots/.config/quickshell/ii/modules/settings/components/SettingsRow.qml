@@ -24,6 +24,9 @@ Rectangle {
     id: root
 
     property string icon: ""
+    // Optional application/icon-theme image used by app-oriented settings rows.
+    // The symbol remains the fallback when the image cannot be loaded.
+    property string iconSource: ""
     property string title: ""
     property string description: ""
     // Extra search terms that a user might type but which don't appear in the
@@ -131,7 +134,7 @@ Rectangle {
 
         Item { // Icon column, reserved even when empty so text stays aligned
             Layout.alignment: Qt.AlignVCenter
-            visible: root.icon.length > 0
+            visible: root.icon.length > 0 || root.iconSource.length > 0
             implicitWidth: root.iconColumnWidth
             implicitHeight: iconWidget.implicitHeight
 
@@ -141,6 +144,21 @@ Rectangle {
                 text: root.icon
                 iconSize: Appearance.font.pixelSize.huge
                 color: Appearance.colors.colOnSurfaceVariant
+                opacity: root.enabled ? 1 : 0.4
+                visible: root.iconSource.length === 0 || appIcon.status === Image.Error
+            }
+
+            Image {
+                id: appIcon
+                anchors.centerIn: parent
+                source: root.iconSource
+                sourceSize.width: Appearance.font.pixelSize.huge
+                sourceSize.height: Appearance.font.pixelSize.huge
+                width: Appearance.font.pixelSize.huge
+                height: Appearance.font.pixelSize.huge
+                fillMode: Image.PreserveAspectFit
+                asynchronous: true
+                visible: root.iconSource.length > 0 && status !== Image.Error
                 opacity: root.enabled ? 1 : 0.4
             }
         }

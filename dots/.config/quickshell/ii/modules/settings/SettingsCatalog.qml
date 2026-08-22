@@ -51,6 +51,7 @@ SettingsPage {
         case "system-storage": return storagePage;
         case "system-info": return systemInfoPage;
         case "desktop-shell-bar-tray": return barTrayPage;
+        case "desktop-shell-dock": return dockPage;
         case "connectivity-wifi": return wifiPage;
         case "connectivity-ethernet": return ethernetPage;
         case "connectivity-bluetooth": return bluetoothPage;
@@ -130,6 +131,11 @@ SettingsPage {
     Component {
         id: barTrayPage
         BarConfig {}
+    }
+
+    Component {
+        id: dockPage
+        DockConfig {}
     }
 
     Component {
