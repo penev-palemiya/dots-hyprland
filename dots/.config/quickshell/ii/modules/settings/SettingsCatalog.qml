@@ -57,6 +57,7 @@ SettingsPage {
         case "desktop-shell-sidebars": return sidebarsPage;
         case "desktop-shell-quick-settings": return quickSettingsPage;
         case "desktop-shell-hot-corners": return hotCornersPage;
+        case "desktop-shell-shortcuts": return shortcutsPage;
         case "connectivity-wifi": return wifiPage;
         case "connectivity-ethernet": return ethernetPage;
         case "connectivity-bluetooth": return bluetoothPage;
@@ -166,6 +167,11 @@ SettingsPage {
     Component {
         id: hotCornersPage
         HotCornersConfig {}
+    }
+
+    Component {
+        id: shortcutsPage
+        ShortcutsConfig {}
     }
 
     Component {
