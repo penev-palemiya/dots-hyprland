@@ -29,7 +29,12 @@ SettingsPage {
     Loader {
         id: personalizationLoader
         Layout.fillWidth: true
-        active: root.pageKey === "personalization"
+        // Personalization has a landing surface, but it must not remain alive
+        // once a child route is selected. Otherwise the landing Loader and the
+        // detail Loader overlap and the next category can inherit a stale
+        // content surface.
+        active: root.pageKey === "personalization" && root.currentSubPageKey === ""
+        visible: active
         sourceComponent: personalizationComponent
     }
 
