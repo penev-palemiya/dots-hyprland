@@ -16,6 +16,13 @@ Singleton {
     property bool sloppySearch: Config.options?.search.sloppy ?? false
     property real scoreThreshold: 0.2
     property list<string> entries: []
+    // cliphist's default follows its own XDG resolution; on this setup it is
+    // the conventional user cache rather than the shell's redirected cache.
+    readonly property string databasePath: FileUtils.trimFileProtocol(`${Directories.home}/.cache/cliphist/db`)
+    property bool available: true
+    property string error: ""
+    property int revision: 0
+    property bool refreshPending: false
     readonly property var preparedEntries: entries.map(a => ({
         name: Fuzzy.prepare(`${a.replace(/^\s*\S+\s+/, "")}`),
         entry: a
@@ -47,6 +54,10 @@ Singleton {
     }
 
     function refresh() {
+        if (readProc.running) {
+            root.refreshPending = true;
+            return;
+        }
         readProc.buffer = []
         readProc.running = true
     }
@@ -82,15 +93,28 @@ Singleton {
 
     Process {
         id: deleteProc
-        property string entry: ""
-        command: ["bash", "-c", `echo '${StringUtils.shellSingleQuoteEscape(deleteProc.entry)}' | ${root.cliphistBinary} delete`]
+        property string commandEntry: ""
+        command: [root.cliphistBinary, "delete"]
+        stdinEnabled: false
         function deleteEntry(entry) {
-            deleteProc.entry = entry;
+            deleteProc.commandEntry = entry;
+            deleteProc.stdinEnabled = true;
             deleteProc.running = true;
-            deleteProc.entry = "";
+        }
+        onRunningChanged: {
+            if (deleteProc.running) {
+                deleteProc.write(`${deleteProc.commandEntry}\n`);
+                deleteProc.stdinEnabled = false;
+            }
         }
         onExited: (exitCode, exitStatus) => {
-            root.refresh();
+            if (exitCode === 0) {
+                root.error = "";
+                root.refresh();
+            } else {
+                root.error = "Could not delete that clipboard item.";
+            }
+            deleteProc.commandEntry = "";
         }
     }
 
@@ -98,11 +122,28 @@ Singleton {
         deleteProc.deleteEntry(entry);
     }
 
+    // UI callers use the numeric cliphist id; serialized entries stay inside
+    // the canonical backend rather than becoming a second page-local model.
+    function deleteById(id) {
+        const entry = root.entries.find(value => String(value).split("\t")[0] === String(id));
+        if (entry === undefined) {
+            root.error = "Clipboard item is no longer available.";
+            return false;
+        }
+        deleteProc.deleteEntry(entry);
+        return true;
+    }
+
     Process {
         id: wipeProc
         command: [root.cliphistBinary, "wipe"]
         onExited: (exitCode, exitStatus) => {
-            root.refresh();
+            if (exitCode === 0) {
+                root.error = "";
+                root.refresh();
+            } else {
+                root.error = "Could not clear clipboard history.";
+            }
         }
     }
 
@@ -140,9 +181,18 @@ Singleton {
 
         onExited: (exitCode, exitStatus) => {
             if (exitCode === 0) {
+                root.available = true;
+                root.error = "";
                 root.entries = readProc.buffer
+                root.revision++;
             } else {
+                root.available = false;
+                root.error = "Clipboard history is unavailable.";
                 console.error("[Cliphist] Failed to refresh with code", exitCode, "and status", exitStatus)
+            }
+            if (root.refreshPending) {
+                root.refreshPending = false;
+                Qt.callLater(root.refresh);
             }
         }
     }

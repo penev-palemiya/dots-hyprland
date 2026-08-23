@@ -248,19 +248,22 @@ PanelWindow {
             root.action = root.mouseButton === Qt.RightButton ? RegionSelection.SnipAction.Edit : RegionSelection.SnipAction.Copy;
         }
         
-        const screenshotDir = Config.options.screenSnip.savePath !== "" ? //
-            Config.options.screenSnip.savePath : "";
+        const screenshotDir = ScreenshotAction.regionSaveDirectory();
         var screenshotAction = root.getScreenshotAction();
-        const command = ScreenshotAction.getCommand(
-            root.regionX * root.monitorScale, //
-            root.regionY * root.monitorScale, //
-            root.regionWidth * root.monitorScale,// 
-            root.regionHeight * root.monitorScale, //
-            root.screenshotPath, //
-            screenshotAction, //
-            screenshotDir
-        )
-        Quickshell.execDetached(command);
+        const captureX = root.regionX * root.monitorScale;
+        const captureY = root.regionY * root.monitorScale;
+        const captureWidth = root.regionWidth * root.monitorScale;
+        const captureHeight = root.regionHeight * root.monitorScale;
+        if (screenshotAction === ScreenshotAction.Action.Copy) {
+            ScreenshotAction.captureRegion(root.screenshotPath, captureX, captureY,
+                                           captureWidth, captureHeight);
+        } else {
+            const command = ScreenshotAction.getCommand(
+                captureX, captureY, captureWidth, captureHeight,
+                root.screenshotPath, screenshotAction, screenshotDir
+            );
+            Quickshell.execDetached(command);
+        }
         if (root.action == RegionSelection.SnipAction.Record || root.action == RegionSelection.SnipAction.RecordWithSound) {
             root.phase = RegionSelection.Phase.Post
             root.selectionMode = RegionSelection.SelectionMode.RectCorners

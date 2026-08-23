@@ -81,16 +81,6 @@ ContentPage {
                 Config.options.screenRecord.savePath = text;
             }
         }
-        
-        MaterialTextArea {
-            Layout.fillWidth: true
-            placeholderText: Translation.tr("Screenshot Path (leave empty to just copy)")
-            text: Config.options.screenSnip.savePath
-            wrapMode: TextEdit.Wrap
-            onTextChanged: {
-                Config.options.screenSnip.savePath = text;
-            }
-        }
     }
 
     // There's no update indicator in ii for now so we shouldn't show this yet

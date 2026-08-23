@@ -518,7 +518,11 @@ Singleton {
             }
 
             property JsonObject screenSnip: JsonObject {
-                property string savePath: "" // only copy to clipboard when empty
+                // Legacy field retained only for one-time migration.
+                property string savePath: ""
+                property string saveDirectory: ""
+                property bool saveRegion: false
+                property bool copySavedToClipboard: true
             }
 
             property JsonObject sounds: JsonObject {

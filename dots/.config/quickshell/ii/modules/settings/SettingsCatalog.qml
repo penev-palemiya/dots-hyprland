@@ -2032,45 +2032,12 @@ SettingsPage {
 
     Component {
         id: clipboardPage
-
-        SettingsSubPage {
-            SettingsGroup {
-                title: Translation.tr("Work safety")
-
-                SettingsToggleRow {
-                    icon: "assignment"
-                    title: Translation.tr("Hide clipboard images copied from sussy sources")
-                    description: Translation.tr("Blurs clipboard image previews that came from flagged sites, but only while you're on a public network.")
-                    keywords: "nsfw privacy clipboard"
-                    checked: Config.options.workSafety.enable.clipboard
-                    onToggled: checked => Config.options.workSafety.enable.clipboard = checked
-                }
-            }
-        }
+        ClipboardConfig {}
     }
 
     Component {
         id: screenshotsPage
-
-        SettingsSubPage {
-            SettingsGroup {
-                title: Translation.tr("Save path")
-
-                SettingsRow {
-                    icon: "folder"
-                    title: Translation.tr("Screenshot Path")
-                    description: Translation.tr("Where screenshots are saved. Leave empty to only copy.")
-
-                    MaterialTextArea {
-                        Layout.preferredWidth: 280
-                        implicitHeight: 42
-                        text: Config.options.screenSnip.savePath
-                        wrapMode: TextEdit.NoWrap
-                        onTextChanged: Config.options.screenSnip.savePath = text
-                    }
-                }
-            }
-        }
+        ScreenshotsConfig {}
     }
 
     Component {
