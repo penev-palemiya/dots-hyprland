@@ -2,6 +2,7 @@
 import configparser
 import json
 import os
+import shlex
 import shutil
 import sys
 import tempfile
@@ -18,6 +19,11 @@ def paths():
     user = config_home / "autostart"
     system = [Path(p) / "autostart" for p in config_dirs if p]
     return user, system
+
+
+def normalize_basename(value):
+    """Normalize a DesktopEntries id to the XDG autostart basename."""
+    return Path(str(value)).name if str(value).endswith(".desktop") else f"{Path(str(value)).name}.desktop"
 
 
 def parse(path):
@@ -55,9 +61,24 @@ def desktop_applicable(item):
 
 def executable_available(item):
     try_exec = item.get("TryExec", "").strip()
-    if not try_exec:
-        return True
-    return (Path(try_exec).is_file() and os.access(try_exec, os.X_OK)) or bool(shutil.which(try_exec))
+    command = try_exec
+    if not command:
+        # TryExec is optional.  Still expose an unavailable row when the
+        # desktop entry's actual command cannot be resolved.
+        try:
+            tokens = shlex.split(item.get("Exec", ""), comments=False)
+        except ValueError:
+            return False
+        while tokens and (tokens[0].startswith("%") or ("=" in tokens[0] and not tokens[0].startswith("/"))):
+            tokens.pop(0)
+        if tokens and tokens[0] == "env":
+            tokens.pop(0)
+            while tokens and "=" in tokens[0] and not tokens[0].startswith("/"):
+                tokens.pop(0)
+        command = tokens[0] if tokens else ""
+    if not command:
+        return False
+    return (Path(command).is_file() and os.access(command, os.X_OK)) or bool(shutil.which(command))
 
 
 def infrastructure(item):
@@ -92,6 +113,14 @@ def find_effective():
             merged.update({"Hidden": "true", MANAGED: "true", DISABLE_MARKER: "true"})
             base = merged
             hidden = True
+        if system_path and user_path:
+            provenance = "managedOverride" if managed else "userAuthored"
+        elif system_path:
+            provenance = "system"
+        elif managed:
+            provenance = "managedAdded"
+        else:
+            provenance = "userAuthored"
         item = {
             "id": basename,
             "basename": basename,
@@ -111,6 +140,7 @@ def find_effective():
             "effectivePath": str(user_path or system_path),
             "userOwned": bool(user_path),
             "managed": managed,
+            "provenance": provenance,
             "removable": bool(user_path and managed and not system_path),
         }
         if item["applicable"] and not item["infrastructure"]:
@@ -153,6 +183,7 @@ def set_field(content, key, value):
 
 
 def toggle(basename, enabled):
+    basename = normalize_basename(basename)
     user, system_dirs = paths()
     system = next((directory / basename for directory in system_dirs if (directory / basename).is_file()), None)
     user_path = user / basename
@@ -183,6 +214,7 @@ def desktop_source(desktop_id):
 
 
 def add(desktop_id):
+    desktop_id = normalize_basename(desktop_id)
     source = desktop_source(desktop_id)
     if not source:
         return False
@@ -198,6 +230,7 @@ def add(desktop_id):
 
 
 def remove(basename):
+    basename = normalize_basename(basename)
     user, system_dirs = paths()
     path = user / basename
     system = any((directory / basename).is_file() for directory in system_dirs)

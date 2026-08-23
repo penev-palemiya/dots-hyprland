@@ -14,6 +14,11 @@ SettingsSubPage {
     property string pickerQuery: ""
     property bool pickerOpen: false
 
+    function desktopId(entry) {
+        const id = String(entry?.id || "");
+        return id.endsWith(".desktop") ? id : `${id}.desktop`;
+    }
+
     function displayName(entry) {
         return entry.name || entry.basename.replace(/\.desktop$/, "");
     }
@@ -23,7 +28,7 @@ SettingsSubPage {
         const needle = root.pickerQuery.trim().toLowerCase();
         return Array.from(DesktopEntries.applications.values || [])
             .filter(entry => !entry.hidden && !entry.noDisplay && entry.command?.length > 0)
-            .filter(entry => !present.includes(String(entry.id).endsWith(".desktop") ? String(entry.id) : `${entry.id}.desktop`))
+            .filter(entry => !present.includes(root.desktopId(entry)))
             .filter(entry => !needle || `${entry.name} ${entry.id}`.toLowerCase().includes(needle))
             .sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
     }
@@ -157,8 +162,7 @@ SettingsSubPage {
                             description: modelData.id
                             clickable: true
                             onClicked: {
-                                const desktopId = String(modelData.id || "");
-                                Autostart.add(desktopId.endsWith(".desktop") ? desktopId : `${desktopId}.desktop`);
+                                Autostart.add(root.desktopId(modelData));
                                 root.pickerOpen = false;
                             }
                         }
@@ -166,5 +170,15 @@ SettingsSubPage {
                 }
             }
         }
+    }
+
+    SettingsRow {
+        icon: "refresh"
+        title: Translation.tr("Refresh startup apps")
+        description: Translation.tr("Reload entries from the effective XDG autostart files.")
+        clickable: true
+        enabled: !Autostart.loading && !Autostart.applying
+        onClicked: Autostart.refresh(true)
+        registerInSearch: false
     }
 }

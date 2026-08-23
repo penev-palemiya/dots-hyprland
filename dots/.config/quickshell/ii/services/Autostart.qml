@@ -17,12 +17,21 @@ Singleton {
     property bool ready: false
     property string error: ""
     property int revision: 0
+    property bool pendingRefresh: false
+    property bool lastMutationOk: false
 
     signal changed(bool success)
 
-    function refresh() {
-        if (root.loading || root.applying)
+    function refresh(force = false) {
+        if (root.loading) {
+            if (force)
+                root.pendingRefresh = true;
             return;
+        }
+        if (root.applying) {
+            root.pendingRefresh = true;
+            return;
+        }
         root.loading = true;
         listProc.command = ["python3", root.helperPath, "list"];
         listProc.running = true;
@@ -32,6 +41,7 @@ Singleton {
         if (root.loading || root.applying || !entry?.basename)
             return;
         root.applying = true;
+        root.lastMutationOk = false;
         mutationProc.command = ["python3", root.helperPath, "toggle", entry.basename, enabled ? "true" : "false"];
         mutationProc.running = true;
     }
@@ -40,6 +50,7 @@ Singleton {
         if (root.loading || root.applying || !desktopId)
             return;
         root.applying = true;
+        root.lastMutationOk = false;
         mutationProc.command = ["python3", root.helperPath, "add", desktopId];
         mutationProc.running = true;
     }
@@ -48,6 +59,7 @@ Singleton {
         if (root.loading || root.applying || !entry?.basename)
             return;
         root.applying = true;
+        root.lastMutationOk = false;
         mutationProc.command = ["python3", root.helperPath, "remove", entry.basename];
         mutationProc.running = true;
     }
@@ -92,8 +104,15 @@ Singleton {
         id: mutationProc
         stdout: StdioCollector {
             onStreamFinished: {
-                const success = root.applyResult(text);
-                root.changed(success);
+                try {
+                    const result = JSON.parse(text);
+                    root.lastMutationOk = !!result.ok;
+                    if (!root.lastMutationOk)
+                        root.error = Translation.tr("Could not change startup applications.");
+                } catch (exception) {
+                    root.lastMutationOk = false;
+                    root.error = Translation.tr("Could not change startup applications.");
+                }
             }
         }
         stderr: StdioCollector {
@@ -101,8 +120,21 @@ Singleton {
         }
         onExited: code => {
             root.applying = false;
-            if (code !== 0 && !root.error)
+            if (code === 0 && root.lastMutationOk) {
+                root.pendingRefresh = false;
+                root.refresh(true);
+            } else if (code !== 0 && !root.error) {
                 root.error = Translation.tr("Could not change startup applications.");
+                root.changed(false);
+            }
+        }
+    }
+
+    Connections {
+        target: root
+        function onPendingRefreshChanged() {
+            if (root.pendingRefresh && !root.loading && !root.applying)
+                root.refresh(true);
         }
     }
 
