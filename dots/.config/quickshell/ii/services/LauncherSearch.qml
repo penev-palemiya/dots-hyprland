@@ -122,6 +122,21 @@ Singleton {
     property var allActions: searchActions.concat(userActionScripts)
 
     property string mathResult: ""
+    property int mathGeneration: 0
+
+    onQueryChanged: {
+        root.mathGeneration++;
+        root.mathResult = "";
+        if (root.query.trim() === "") {
+            nonAppResultsTimer.stop();
+            mathProc.restartPending = false;
+            if (mathProc.running)
+                mathProc.running = false;
+        } else {
+            nonAppResultsTimer.restart();
+        }
+    }
+
     property bool clipboardWorkSafetyActive: {
         const enabled = Config.options.workSafety.enable.clipboard;
         const sensitiveNetwork = (StringUtils.stringListContainsSubstring(Network.networkName.toLowerCase(), Config.options.workSafety.triggerCondition.networkNameKeywords));
@@ -143,21 +158,53 @@ Singleton {
             if (expr.startsWith(Config.options.search.prefix.math)) {
                 expr = expr.slice(Config.options.search.prefix.math.length);
             }
-            mathProc.calculateExpression(expr);
+            mathProc.requestExpression(expr);
         }
     }
 
     Process {
         id: mathProc
         property list<string> baseCommand: ["qalc", "-t"]
-        function calculateExpression(expression) {
-            mathProc.running = false;
-            mathProc.command = baseCommand.concat(expression);
+        property int requestGeneration: -1
+        property int pendingGeneration: -1
+        property string pendingExpression: ""
+        property bool restartPending: false
+
+        function startPending() {
+            mathProc.requestGeneration = mathProc.pendingGeneration;
+            mathProc.command = mathProc.baseCommand.concat(mathProc.pendingExpression);
             mathProc.running = true;
         }
-        stdout: SplitParser {
-            onRead: data => {
-                root.mathResult = data;
+
+        function requestExpression(expression) {
+            mathProc.pendingGeneration = root.mathGeneration;
+            mathProc.pendingExpression = expression;
+            if (mathProc.running || mathProc.restartPending) {
+                mathProc.restartPending = true;
+                if (mathProc.running)
+                    mathProc.running = false;
+                return;
+            }
+            mathProc.startPending();
+        }
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (mathProc.requestGeneration === root.mathGeneration && !mathProc.restartPending)
+                    root.mathResult = text.trim();
+            }
+        }
+
+        onExited: {
+            // Invalidate the completed process before scheduling its replacement.
+            // A collector can finish on the next event-loop turn; it must not be
+            // mistaken for the newer request.
+            mathProc.requestGeneration = -1;
+            if (mathProc.restartPending && mathProc.pendingGeneration === root.mathGeneration && root.query.trim() !== "") {
+                mathProc.restartPending = false;
+                Qt.callLater(() => mathProc.startPending());
+            } else {
+                mathProc.restartPending = false;
             }
         }
     }
@@ -243,7 +290,6 @@ Singleton {
         }
 
         ////////////////// Init ///////////////////
-        nonAppResultsTimer.restart();
         const mathResultObject = resultComp.createObject(null, {
             name: root.mathResult,
             verb: Translation.tr("Copy"),
@@ -341,10 +387,9 @@ Singleton {
             iconType: LauncherSearchResult.IconType.Material,
             execute: () => {
                 let query = StringUtils.cleanPrefix(root.query, Config.options.search.prefix.webSearch);
-                let url = Config.options.search.engineBaseUrl + query;
-                for (let site of Config.options.search.excludedSites) {
-                    url += ` -site:${site}`;
-                }
+                const excluded = Config.options.search.excludedSites.map(site => `-site:${site}`);
+                const searchTerms = [query, ...excluded].filter(value => value.length > 0).join(" ");
+                let url = Config.options.search.engineBaseUrl + encodeURIComponent(searchTerms);
                 Qt.openUrlExternally(url);
             }
         });
