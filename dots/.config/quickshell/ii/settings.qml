@@ -256,6 +256,26 @@ ApplicationWindow {
         root.currentPage = Math.max(0, Math.min(index, root.pages.length - 1));
     }
 
+    function configurePage(item) {
+        if (!item)
+            return;
+        const page = root.pages[root.currentPage] ?? {};
+        if (item.settingsPageIndex !== undefined)
+            item.settingsPageIndex = root.currentPage;
+        if (item.settingsPageName !== undefined)
+            item.settingsPageName = page.name ?? "";
+        if (item.pageTitle !== undefined)
+            item.pageTitle = page.name ?? "";
+        if (item.pageKey !== undefined)
+            item.pageKey = page.key ?? "";
+        if (item.menuEntries !== undefined)
+            item.menuEntries = page.entries ?? [];
+        if (item.currentSubPageKey !== undefined)
+            item.currentSubPageKey = "";
+    }
+
+    onCurrentPageChanged: configurePage(pageLoader.item)
+
     // Search hit selected: switch to its page, then scroll it into view. The
     // page has to be laid out at its new size before its position is meaningful,
     // hence the deferred reveal.
@@ -270,7 +290,7 @@ ApplicationWindow {
         searchField.text = "";
         root.goToPage(context.pageIndex);
         Qt.callLater(() => {
-            const pageItem = pageRepeater.itemAt(context.pageIndex)?.pageItem ?? null;
+            const pageItem = pageLoader.item ?? null;
             if (pageItem?.revealRow)
                 pageItem.revealRow(entry.target);
         });
@@ -454,49 +474,24 @@ ApplicationWindow {
                     anchors.fill: parent
                     visible: !SettingsSearch.searching
 
-                    Repeater {
-                        id: pageRepeater
-                        model: root.pages
-
-                        // Every page stays loaded rather than swapping a single
-                        // Loader: that's what lets the search index cover all of
-                        // them, and it makes switching pages instant.
-                        Item {
-                            required property var modelData
-                            required property int index
-                            property alias pageItem: pageLoader.item
-
-                            anchors.fill: parent
-                            visible: root.currentPage === index
-                            opacity: visible ? 1 : 0
-
-                            Behavior on opacity {
-                                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
-                            }
-
-                            Loader {
-                                id: pageLoader
-                                anchors.fill: parent
-                                active: Config.ready
-                                source: modelData.component
-
-                                onLoaded: {
-                                    if (item.settingsPageIndex !== undefined)
-                                        item.settingsPageIndex = index;
-                                    if (item.settingsPageName !== undefined)
-                                        item.settingsPageName = modelData.name;
-                                    if (item.pageTitle !== undefined)
-                                        item.pageTitle = modelData.name;
-                                    if (item.pageKey !== undefined)
-                                        item.pageKey = modelData.key ?? "";
-                                    if (item.menuEntries !== undefined)
-                                        item.menuEntries = modelData.entries ?? [];
-                                }
-                            }
-                        }
+                    Loader {
+                        id: pageLoader
+                        anchors.fill: parent
+                        // One reusable catalog is enough: it owns only the
+                        // selected category and swaps its metadata when the
+                        // user navigates. This avoids thirteen inactive Loader
+                        // trees and their per-page host objects at startup.
+                        active: Config.ready && root.pages.length > 0
+                        sourceComponent: catalogComponent
+                        onLoaded: root.configurePage(item)
                     }
                 }
             }
         }
+    }
+
+    Component {
+        id: catalogComponent
+        SettingsCatalog {}
     }
 }

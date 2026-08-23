@@ -11,9 +11,9 @@ import QtQuick
  * than a hand-maintained parallel list that would drift out of date. This means
  * a setting becomes searchable the moment it's authored - nothing else to update.
  *
- * Because registration happens at row-creation time, every settings page must be
- * instantiated for the index to be complete (see the page host in settings.qml,
- * which keeps all pages alive and only toggles visibility).
+ * Registration follows the live page lifecycle. The settings host keeps the
+ * navigation/catalog chrome cheap and instantiates only the active category;
+ * page-local rows therefore enter and leave the index with that category.
  */
 Singleton {
     id: root

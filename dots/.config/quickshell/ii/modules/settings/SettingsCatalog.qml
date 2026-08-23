@@ -26,9 +26,22 @@ SettingsPage {
             BluetoothStatus.releaseDiscovery("settings");
     }
 
-    PersonalizationConfig {
-        visible: root.pageKey === "personalization"
-        onOpenSubPage: key => root.openSubPage(key)
+    Loader {
+        id: personalizationLoader
+        active: root.pageKey === "personalization"
+        sourceComponent: personalizationComponent
+    }
+
+    Connections {
+        target: personalizationLoader.item
+        function onOpenSubPage(key) {
+            root.openSubPage(key);
+        }
+    }
+
+    Component {
+        id: personalizationComponent
+        PersonalizationConfig {}
     }
 
     onCurrentSubPageKeyChanged: root.syncBluetoothDiscovery()
