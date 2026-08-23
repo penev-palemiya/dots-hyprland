@@ -76,6 +76,7 @@ SettingsPage {
         case "apps-startup-apps": return startupAppsPage;
         case "apps-installed-apps": return installedAppsPage;
         case "apps-permissions": return appPermissionsPage;
+        case "apps-file-associations": return fileAssociationsPage;
         case "connectivity-wifi": return wifiPage;
         case "connectivity-ethernet": return ethernetPage;
         case "connectivity-bluetooth": return bluetoothPage;
@@ -210,6 +211,11 @@ SettingsPage {
     Component {
         id: appPermissionsPage
         AppPermissionsConfig {}
+    }
+
+    Component {
+        id: fileAssociationsPage
+        FileAssociationsConfig {}
     }
 
     Component {
