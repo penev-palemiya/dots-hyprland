@@ -126,10 +126,6 @@ ApplicationWindow {
                 { key: "search-tools-clipboard", name: Translation.tr("Clipboard"), icon: "content_paste" },
                 { key: "search-tools-screenshots", name: Translation.tr("Screenshots"), icon: "screenshot_monitor" },
                 { key: "search-tools-screen-recording", name: Translation.tr("Screen Recording"), icon: "videocam" },
-                { key: "search-tools-region-selection", name: Translation.tr("Region Selection"), icon: "select" },
-                { key: "search-tools-color-picker", name: Translation.tr("Color Picker"), icon: "colorize" },
-                { key: "search-tools-translator", name: Translation.tr("Translator"), icon: "translate" },
-                { key: "search-tools-other", name: Translation.tr("Other Tools"), icon: "construction" }
             ],
             component: "modules/settings/SettingsCatalog.qml"
         },

@@ -97,8 +97,6 @@ SettingsPage {
         case "search-tools-clipboard": return clipboardPage;
         case "search-tools-screenshots": return screenshotsPage;
         case "search-tools-screen-recording": return screenRecordingPage;
-        case "search-tools-translator": return translatorPage;
-        case "search-tools-other": return otherToolsPage;
         case "privacy-security-location": return locationPage;
         case "advanced-diagnostics": return diagnosticsPage;
         case "advanced-configuration": return configurationPage;
@@ -2043,62 +2041,6 @@ SettingsPage {
     Component {
         id: screenRecordingPage
         ScreenRecordingConfig {}
-    }
-
-    Component {
-        id: translatorPage
-
-        SettingsSubPage {
-            SettingsGroup {
-                title: Translation.tr("Translator")
-
-                SettingsToggleRow {
-                    icon: "translate"
-                    title: Translation.tr("Enable translator")
-                    description: Translation.tr("Enable the shell translator tool.")
-                    checked: Config.options.sidebar.translator.enable
-                    onToggled: checked => Config.options.sidebar.translator.enable = checked
-                }
-            }
-        }
-    }
-
-    Component {
-        id: otherToolsPage
-
-        SettingsSubPage {
-            SettingsGroup {
-                title: Translation.tr("Music recognition")
-
-                SettingsRow {
-                    icon: "timer_off"
-                    title: Translation.tr("Total duration timeout")
-                    description: Translation.tr("Maximum time to listen while recognizing music.")
-
-                    StyledSpinBox {
-                        value: Config.options.musicRecognition.timeout
-                        from: 10
-                        to: 100
-                        stepSize: 2
-                        onValueChanged: Config.options.musicRecognition.timeout = value
-                    }
-                }
-
-                SettingsRow {
-                    icon: "av_timer"
-                    title: Translation.tr("Polling interval")
-                    description: Translation.tr("How often recognition status is polled.")
-
-                    StyledSpinBox {
-                        value: Config.options.musicRecognition.interval
-                        from: 2
-                        to: 10
-                        stepSize: 1
-                        onValueChanged: Config.options.musicRecognition.interval = value
-                    }
-                }
-            }
-        }
     }
 
     Component {
