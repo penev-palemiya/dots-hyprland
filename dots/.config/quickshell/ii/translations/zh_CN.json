@@ -148,7 +148,6 @@
   "Color generation": "配色生成",
   "Dotfiles": "配置文件",
   "Distro": "发行版",
-  "Privacy Policy": "隐私政策",
   "Documentation": "文档",
   "Shell & utilities theming must also be enabled": "必须同时启用 Shell 与工具主题",
   "Ignored if terminal theming is not enabled": "终端主题未启用时不生效",

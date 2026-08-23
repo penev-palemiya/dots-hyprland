@@ -100,8 +100,7 @@ SettingsPage {
         case "privacy-security-screen-lock": return screenLockSecurityPage;
         case "updates-system": return systemUpdatesPage;
         case "advanced-diagnostics": return diagnosticsPage;
-        case "about-support": return supportPage;
-        case "about-legal": return legalPage;
+        case "about-about": return aboutPage;
         default: return placeholderPage;
         }
     }
@@ -2059,50 +2058,7 @@ SettingsPage {
     }
 
     Component {
-        id: supportPage
-
-        SettingsSubPage {
-            SettingsGroup {
-                title: Translation.tr("Support")
-
-                SettingsRow {
-                    icon: "description"
-                    title: Translation.tr("Documentation")
-                    description: Translation.tr("Open the project documentation.")
-                    registerInSearch: false
-                }
-
-                SettingsRow {
-                    icon: "help"
-                    title: Translation.tr("Help & Support")
-                    description: Translation.tr("Support resources will be wired in a later pass.")
-                    registerInSearch: false
-                }
-
-                SettingsRow {
-                    icon: "bug_report"
-                    title: Translation.tr("Report a Bug")
-                    description: Translation.tr("Bug-report link will be wired in a later pass.")
-                    registerInSearch: false
-                }
-            }
-        }
-    }
-
-    Component {
-        id: legalPage
-
-        SettingsSubPage {
-            SettingsGroup {
-                title: Translation.tr("Legal")
-
-                SettingsRow {
-                    icon: "privacy_tip"
-                    title: Translation.tr("Privacy Policy")
-                    description: Translation.tr("Legal links will be wired in a later pass.")
-                    registerInSearch: false
-                }
-            }
-        }
+        id: aboutPage
+        AboutConfig {}
     }
 }

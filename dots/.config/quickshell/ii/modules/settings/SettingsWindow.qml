@@ -162,14 +162,10 @@ ApplicationWindow {
         {
             key: "about",
             name: Translation.tr("About"),
-            subtitle: Translation.tr("Device, software, support"),
+            subtitle: Translation.tr("Project information"),
             icon: "info",
             entries: [
-                { key: "about-device", name: Translation.tr("Device"), icon: "devices" },
-                { key: "about-hardware", name: Translation.tr("Hardware"), icon: "memory" },
-                { key: "about-software", name: Translation.tr("Software"), icon: "deployed_code" },
-                { key: "about-support", name: Translation.tr("Support"), icon: "support_agent" },
-                { key: "about-legal", name: Translation.tr("Legal"), icon: "policy" }
+                { key: "about-about", name: Translation.tr("About"), icon: "info" }
             ],
             component: "modules/settings/SettingsCatalog.qml"
         }
