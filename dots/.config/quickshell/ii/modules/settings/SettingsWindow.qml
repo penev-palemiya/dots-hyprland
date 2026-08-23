@@ -140,43 +140,22 @@ ApplicationWindow {
             component: "modules/settings/SettingsCatalog.qml"
         },
         {
-            key: "accounts",
-            name: Translation.tr("Accounts"),
-            subtitle: Translation.tr("User, profile, login"),
-            icon: "account_circle",
-            entries: [
-                { key: "accounts-user", name: Translation.tr("User Account"), icon: "person" },
-                { key: "accounts-profile", name: Translation.tr("Profile"), icon: "badge" },
-                { key: "accounts-password", name: Translation.tr("Password"), icon: "password" },
-                { key: "accounts-login", name: Translation.tr("Login"), icon: "login" }
-            ],
-            component: "modules/settings/SettingsCatalog.qml"
-        },
-        {
             key: "updates",
             name: Translation.tr("Updates"),
             subtitle: Translation.tr("System update status"),
             icon: "deployed_code_update",
             entries: [
-                { key: "updates-system", name: Translation.tr("System Updates"), icon: "system_update" },
-                { key: "updates-settings", name: Translation.tr("Update Settings"), icon: "update" },
-                { key: "updates-history", name: Translation.tr("Update History"), icon: "history" }
+                { key: "updates-system", name: Translation.tr("System Updates"), icon: "system_update" }
             ],
             component: "modules/settings/SettingsCatalog.qml"
         },
         {
             key: "advanced",
             name: Translation.tr("Advanced"),
-            subtitle: Translation.tr("Performance, diagnostics, config"),
+            subtitle: Translation.tr("System health"),
             icon: "construction",
             entries: [
-                { key: "advanced-performance", name: Translation.tr("Performance"), icon: "speed" },
-                { key: "advanced-power-management", name: Translation.tr("Power Management"), icon: "power_settings_new" },
-                { key: "advanced-compatibility", name: Translation.tr("Compatibility"), icon: "extension" },
-                { key: "advanced-experimental", name: Translation.tr("Experimental"), icon: "experiment" },
-                { key: "advanced-developer", name: Translation.tr("Developer"), icon: "code" },
-                { key: "advanced-diagnostics", name: Translation.tr("Diagnostics"), icon: "troubleshoot" },
-                { key: "advanced-configuration", name: Translation.tr("Configuration"), icon: "settings_applications" }
+                { key: "advanced-diagnostics", name: Translation.tr("Diagnostics"), icon: "troubleshoot" }
             ],
             component: "modules/settings/SettingsCatalog.qml"
         },

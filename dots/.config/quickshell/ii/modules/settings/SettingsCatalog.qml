@@ -98,8 +98,8 @@ SettingsPage {
         case "search-tools-screenshots": return screenshotsPage;
         case "search-tools-screen-recording": return screenRecordingPage;
         case "privacy-security-screen-lock": return screenLockSecurityPage;
+        case "updates-system": return systemUpdatesPage;
         case "advanced-diagnostics": return diagnosticsPage;
-        case "advanced-configuration": return configurationPage;
         case "about-support": return supportPage;
         case "about-legal": return legalPage;
         default: return placeholderPage;
@@ -2049,51 +2049,13 @@ SettingsPage {
     }
 
     Component {
-        id: diagnosticsPage
-
-        SettingsSubPage {
-            SettingsGroup {
-                title: Translation.tr("Resources")
-
-                SettingsRow {
-                    icon: "memory"
-                    title: Translation.tr("Polling interval")
-                    description: Translation.tr("How often resource usage is refreshed, in milliseconds.")
-
-                    StyledSpinBox {
-                        value: Config.options.resources.updateInterval
-                        from: 100
-                        to: 10000
-                        stepSize: 100
-                        onValueChanged: Config.options.resources.updateInterval = value
-                    }
-                }
-            }
-        }
+        id: systemUpdatesPage
+        SystemUpdatesConfig {}
     }
 
     Component {
-        id: configurationPage
-
-        SettingsSubPage {
-            SettingsGroup {
-                title: Translation.tr("Networking")
-
-                SettingsRow {
-                    icon: "cell_tower"
-                    title: Translation.tr("User agent")
-                    description: Translation.tr("User agent for services that require it.")
-
-                    MaterialTextArea {
-                        Layout.preferredWidth: 280
-                        implicitHeight: 42
-                        text: Config.options.networking.userAgent
-                        wrapMode: TextEdit.NoWrap
-                        onTextChanged: Config.options.networking.userAgent = text
-                    }
-                }
-            }
-        }
+        id: diagnosticsPage
+        DiagnosticsConfig {}
     }
 
     Component {
