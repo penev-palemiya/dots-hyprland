@@ -11,7 +11,6 @@ SettingsSubPage {
     id: root
 
     property string selectedRoleId: ""
-    property string candidateQuery: ""
     property bool pickerOpen: false
 
     readonly property var roles: [
@@ -44,6 +43,7 @@ SettingsSubPage {
     }
 
     function roleState(role) {
+        if (!role) return { kind: "unset", desktopId: "", entry: null };
         const values = role.mimes.map(mime => String(MimeAssociations.values[mime] || ""));
         const active = values.filter(value => value.length > 0);
         const unique = [...new Set(active)];
@@ -92,6 +92,8 @@ SettingsSubPage {
         const current = state.desktopId ? root.entryFor(state.desktopId) : null;
         if (current && !current.hidden && !current.noDisplay && !candidates.some(entry => entry.id === current.id))
             candidates.push(current);
+        if (!current && state.kind === "stale")
+            candidates.unshift({ id: state.desktopId, name: Translation.tr("Current application unavailable"), icon: "error_outline", unavailable: true });
         return candidates.sort((a, b) => {
             const aCurrent = a.id === state.desktopId;
             const bCurrent = b.id === state.desktopId;
@@ -100,17 +102,8 @@ SettingsSubPage {
         });
     }
 
-    function filteredCandidates() {
-        const role = root.roleFor(root.selectedRoleId);
-        const candidates = root.candidatesFor(role);
-        const needle = root.candidateQuery.trim().toLowerCase();
-        if (!needle) return candidates;
-        return candidates.filter(entry => `${entry.name || ""} ${entry.id || ""}`.toLowerCase().includes(needle));
-    }
-
     function openPicker(role) {
         root.selectedRoleId = role.id;
-        root.candidateQuery = "";
         root.pickerOpen = true;
     }
 
@@ -137,6 +130,7 @@ SettingsSubPage {
     }
 
     SettingsGroup {
+        visible: !root.pickerOpen
         title: Translation.tr("DEFAULT APPS")
 
         Repeater {
@@ -179,104 +173,21 @@ SettingsSubPage {
     }
 
     SettingsRow {
-        visible: MimeAssociations.error.length > 0
+        visible: !root.pickerOpen && MimeAssociations.error.length > 0
         icon: "error_outline"
         title: Translation.tr("Default applications unavailable")
         description: MimeAssociations.error
         registerInSearch: false
     }
 
-    Popup {
-        id: picker
-        parent: Overlay.overlay
+    ApplicationPicker {
         visible: root.pickerOpen
-        modal: true
-        focus: true
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        width: Math.min(560, (root.Window.window?.width ?? 900) - 32)
-        height: Math.min(620, (root.Window.window?.height ?? 720) - 48)
-        anchors.centerIn: Overlay.overlay
-        padding: 16
-
-        onClosed: root.pickerOpen = false
-
-        background: Rectangle {
-            radius: Appearance.rounding.normal
-            color: Appearance.m3colors.m3surfaceContainerHigh
-            StyledRectangularShadow { target: parent }
-        }
-
-        ColumnLayout {
-            anchors.fill: parent
-            spacing: 12
-
-            StyledText {
-                Layout.fillWidth: true
-                text: root.roleFor(root.selectedRoleId)?.title || Translation.tr("Select default application")
-                font.pixelSize: Appearance.font.pixelSize.title
-                color: Appearance.colors.colOnSurface
-            }
-
-            StyledText {
-                visible: root.roleFor(root.selectedRoleId)?.id === "images"
-                Layout.fillWidth: true
-                text: Translation.tr("Choosing an app applies it to all common image types in this role.")
-                color: Appearance.colors.colOnSurfaceVariant
-                wrapMode: Text.WordWrap
-            }
-
-            MaterialTextField {
-                Layout.fillWidth: true
-                placeholderText: Translation.tr("Search applications")
-                text: root.candidateQuery
-                onTextChanged: root.candidateQuery = text
-            }
-
-            StyledListView {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                spacing: 4
-                model: root.filteredCandidates()
-
-                delegate: ItemDelegate {
-                    required property var modelData
-                    width: ListView.view.width
-                    implicitHeight: 56
-                    enabled: !MimeAssociations.applying
-
-                    background: Rectangle {
-                        radius: Appearance.rounding.small
-                        color: modelData.id === (root.roleFor(root.selectedRoleId) ? root.roleState(root.roleFor(root.selectedRoleId)).desktopId : "")
-                            ? Appearance.colors.colSecondaryContainer : "transparent"
-                    }
-
-                    contentItem: RowLayout {
-                        spacing: 12
-
-                        Image {
-                            source: Quickshell.iconPath(modelData.icon || "application-x-executable", "image-missing")
-                            sourceSize: Qt.size(32, 32)
-                            Layout.preferredWidth: 32
-                            Layout.preferredHeight: 32
-                        }
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            StyledText { text: modelData.name || modelData.id; color: Appearance.colors.colOnSurface }
-                            StyledText { text: modelData.id; color: Appearance.colors.colOnSurfaceVariant; font.pixelSize: Appearance.font.pixelSize.smaller }
-                        }
-                    }
-
-                    onClicked: root.chooseCandidate(modelData)
-                }
-            }
-
-            StyledText {
-                visible: root.filteredCandidates().length === 0
-                text: Translation.tr("No compatible applications found.")
-                color: Appearance.colors.colOnSurfaceVariant
-            }
-        }
+        title: root.roleFor(root.selectedRoleId)?.title || Translation.tr("Select default application")
+        applications: root.candidatesFor(root.roleFor(root.selectedRoleId))
+        currentId: root.roleState(root.roleFor(root.selectedRoleId)).desktopId
+        loading: MimeAssociations.loading || MimeAssociations.applying
+        noResultsText: Translation.tr("No compatible applications found.")
+        onSelected: application => root.chooseCandidate(application)
+        onCanceled: root.pickerOpen = false
     }
 }

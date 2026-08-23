@@ -22,12 +22,11 @@ SettingsSubPage {
     SettingsGroup {
         title: Translation.tr("Printers")
 
-        SettingsRow {
+        SettingsStateRow {
+            statusState: "unavailable"
+            stateTitle: Translation.tr("Printing service unavailable")
+            stateDescription: Translation.tr("Printer management requires the CUPS printing service.")
             visible: !Printers.serverAvailable
-            icon: "print_disabled"
-            title: Translation.tr("Printing service unavailable")
-            description: Translation.tr("Printer management requires the CUPS printing service.")
-            registerInSearch: false
 
             DialogButton {
                 buttonText: Printers.loading ? Translation.tr("Refreshing…") : Translation.tr("Refresh")
@@ -36,12 +35,11 @@ SettingsSubPage {
             }
         }
 
-        SettingsRow {
+        SettingsStateRow {
+            statusState: "empty"
+            stateTitle: Translation.tr("No printers configured")
+            stateDescription: Translation.tr("Printers configured through CUPS will appear here.")
             visible: Printers.serverAvailable && Printers.printers.length === 0
-            icon: "print"
-            title: Translation.tr("No printers configured")
-            description: Translation.tr("Printers configured through CUPS will appear here.")
-            registerInSearch: false
 
             DialogButton {
                 buttonText: Printers.loading ? Translation.tr("Refreshing…") : Translation.tr("Refresh")

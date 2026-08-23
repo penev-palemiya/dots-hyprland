@@ -58,20 +58,18 @@ SettingsSubPage {
             }
         }
 
-        SettingsRow {
+        SettingsStateRow {
+            statusState: "loading"
+            stateTitle: Translation.tr("Loading installed applications…")
+            stateDescription: Translation.tr("Reading local package and Flatpak metadata.")
             visible: InstalledApps.loading
-            icon: "hourglass_top"
-            title: Translation.tr("Loading installed applications…")
-            description: Translation.tr("Reading local package and Flatpak metadata.")
-            registerInSearch: false
         }
 
-        SettingsRow {
+        SettingsStateRow {
+            statusState: root.query.length > 0 ? "no-results" : "empty"
+            stateTitle: root.query.length > 0 ? Translation.tr("No matching applications") : Translation.tr("No installed applications found")
+            stateDescription: root.query.length > 0 ? Translation.tr("Try a different search.") : Translation.tr("No visible desktop applications were detected.")
             visible: !InstalledApps.loading && InstalledApps.ready && root.filteredApps.length === 0
-            icon: "search_off"
-            title: root.query.length > 0 ? Translation.tr("No matching applications") : Translation.tr("No installed applications found")
-            description: root.query.length > 0 ? Translation.tr("Try a different search.") : Translation.tr("No visible desktop applications were detected.")
-            registerInSearch: false
         }
 
         Repeater {
@@ -95,12 +93,11 @@ SettingsSubPage {
         }
     }
 
-    SettingsRow {
+    SettingsStateRow {
+        statusState: "error"
+        stateTitle: Translation.tr("Installed application inventory unavailable")
+        stateDescription: InstalledApps.error
         visible: InstalledApps.error.length > 0
-        icon: "error_outline"
-        title: Translation.tr("Installed application inventory unavailable")
-        description: InstalledApps.error
-        registerInSearch: false
     }
 
     SettingsGroup {

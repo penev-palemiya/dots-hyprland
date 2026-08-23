@@ -59,6 +59,14 @@ SettingsSubPage {
         return rule.output;
     }
     function mirrorTargets() { return draft.rules.filter(rule => rule.output !== selectedOutput && rule.enabled && !rule.mirrorOf); }
+    function mirrorEntities() {
+        return root.mirrorTargets().map(rule => ({
+            id: rule.output,
+            name: root.labelFor(rule),
+            secondary: `${rule.output} · ${rule.mode?.width ?? "?"} × ${rule.mode?.height ?? "?"}`,
+            icon: "monitor"
+        }));
+    }
     function comboWidth(items) {
         let longest = 0;
         for (const item of items ?? []) {
@@ -174,7 +182,7 @@ SettingsSubPage {
         SettingsRow {
             visible: Boolean(root.selectedRule?.mirrorOf)
             icon: "screen_share"; title: Translation.tr("Mirror target")
-            StyledComboBox { textRole: "label"; model: root.mirrorTargets().map(rule => ({ label: root.labelFor(rule), output: rule.output })); width: root.comboWidth(model); currentIndex: model.findIndex(item => item.output === root.selectedRule?.mirrorOf); onActivated: index => root.updateRule(root.selectedOutput, { mirrorOf: model[index].output }) }
+            EntityPicker { entities: root.mirrorEntities(); currentId: root.selectedRule?.mirrorOf ?? ""; onSelected: entity => root.updateRule(root.selectedOutput, { mirrorOf: entity.id }) }
         }
         SettingsRow {
             visible: !root.selectedRule?.mirrorOf

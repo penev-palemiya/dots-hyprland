@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import qs.modules.common
 import qs.modules.common.widgets
@@ -17,6 +18,10 @@ Item {
     property bool selected: false
 
     signal clicked()
+
+    activeFocusOnTab: true
+    Accessible.name: root.subtitle.length > 0 ? `${root.title}, ${root.subtitle}` : root.title
+    Accessible.role: Accessible.Button
 
     Layout.fillWidth: true
     implicitHeight: Math.max(60, contentRow.implicitHeight + 14 * 2)
@@ -51,6 +56,19 @@ Item {
         cursorShape: Qt.PointingHandCursor
         onClicked: root.clicked()
     }
+
+    Rectangle {
+        anchors.fill: parent
+        color: "transparent"
+        border.color: Appearance.colors.colPrimary
+        border.width: root.activeFocus ? 2 : 0
+        radius: Appearance.rounding.normal
+        z: 3
+    }
+
+    Keys.onEnterPressed: root.clicked()
+    Keys.onReturnPressed: root.clicked()
+    Keys.onSpacePressed: root.clicked()
 
     RowLayout {
         id: contentRow

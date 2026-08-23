@@ -22,10 +22,14 @@ ComboBox {
     implicitWidth: Math.max(160, contentItem.implicitWidth + 48)
     Layout.minimumWidth: 160
     Layout.fillWidth: true
+    activeFocusOnTab: true
+    Accessible.name: root.displayText
 
     background: Rectangle {
         radius: root.buttonRadius
         color: (root.down && !root.popup.visible) ? root.colBackgroundActive : root.hovered ? root.colBackgroundHover : root.colBackground
+        border.color: root.activeFocus ? Appearance.colors.colPrimary : "transparent"
+        border.width: root.activeFocus ? 2 : 0
 
         Behavior on color {
             animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)

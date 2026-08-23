@@ -13,7 +13,8 @@ SettingsSubPage {
     SettingsGroup {
         title: Translation.tr("Diagnostics")
 
-        SettingsRow {
+        SettingsStateRow {
+            statusState: Diagnostics.loading ? "loading" : Diagnostics.error.length > 0 ? "error" : ""
             icon: Diagnostics.loading ? "sync" : Diagnostics.issueCount > 0 ? "warning" : "check_circle"
             title: Diagnostics.loading
                 ? Translation.tr("Checking…")

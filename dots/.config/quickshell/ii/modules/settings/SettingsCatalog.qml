@@ -28,6 +28,7 @@ SettingsPage {
 
     Loader {
         id: personalizationLoader
+        Layout.fillWidth: true
         active: root.pageKey === "personalization"
         sourceComponent: personalizationComponent
     }
@@ -843,11 +844,13 @@ SettingsPage {
                             text: proxyRoot.draftHttpHost
                             onTextChanged: { if (!proxyRoot.syncing) { proxyRoot.draftHttpHost = text; proxyRoot.markDirty(); } }
                         }
-                        MaterialTextField {
-                            Layout.preferredWidth: 80
-                            placeholderText: Translation.tr("Port")
-                            text: proxyRoot.draftHttpPort
-                            onTextChanged: { if (!proxyRoot.syncing) { proxyRoot.draftHttpPort = text; proxyRoot.markDirty(); } }
+                        NumberInput {
+                            value: Number(proxyRoot.draftHttpPort || 0)
+                            minimum: 1
+                            maximum: 65535
+                            allowEmpty: true
+                            unit: Translation.tr("Port")
+                            onTextCommitted: text => { if (!proxyRoot.syncing) { proxyRoot.draftHttpPort = text; proxyRoot.markDirty(); } }
                         }
                     }
                 }
@@ -865,11 +868,13 @@ SettingsPage {
                             text: proxyRoot.draftHttpsHost
                             onTextChanged: { if (!proxyRoot.syncing) { proxyRoot.draftHttpsHost = text; proxyRoot.markDirty(); } }
                         }
-                        MaterialTextField {
-                            Layout.preferredWidth: 80
-                            placeholderText: Translation.tr("Port")
-                            text: proxyRoot.draftHttpsPort
-                            onTextChanged: { if (!proxyRoot.syncing) { proxyRoot.draftHttpsPort = text; proxyRoot.markDirty(); } }
+                        NumberInput {
+                            value: Number(proxyRoot.draftHttpsPort || 0)
+                            minimum: 1
+                            maximum: 65535
+                            allowEmpty: true
+                            unit: Translation.tr("Port")
+                            onTextCommitted: text => { if (!proxyRoot.syncing) { proxyRoot.draftHttpsPort = text; proxyRoot.markDirty(); } }
                         }
                     }
                 }
@@ -887,11 +892,13 @@ SettingsPage {
                             text: proxyRoot.draftSocksHost
                             onTextChanged: { if (!proxyRoot.syncing) { proxyRoot.draftSocksHost = text; proxyRoot.markDirty(); } }
                         }
-                        MaterialTextField {
-                            Layout.preferredWidth: 80
-                            placeholderText: Translation.tr("Port")
-                            text: proxyRoot.draftSocksPort
-                            onTextChanged: { if (!proxyRoot.syncing) { proxyRoot.draftSocksPort = text; proxyRoot.markDirty(); } }
+                        NumberInput {
+                            value: Number(proxyRoot.draftSocksPort || 0)
+                            minimum: 1
+                            maximum: 65535
+                            allowEmpty: true
+                            unit: Translation.tr("Port")
+                            onTextCommitted: text => { if (!proxyRoot.syncing) { proxyRoot.draftSocksPort = text; proxyRoot.markDirty(); } }
                         }
                     }
                 }
@@ -1196,6 +1203,7 @@ SettingsPage {
 
         SettingsSubPage {
             id: storageRoot
+            property var pendingStorageAction: null
 
             function sizeText(volume) {
                 if (!volume || !volume.size)
@@ -1208,6 +1216,14 @@ SettingsPage {
                 const mount = volume.mountPoints.length > 0 ? volume.mountPoints.join(", ") : Translation.tr("Not mounted");
                 const details = [volume.filesystem, mount].filter(value => value.length > 0).join(" · ");
                 return `${details}\n${storageRoot.sizeText(volume)}`;
+            }
+            function requestStorageAction(volume, action) { pendingStorageAction = { volume: volume, action: action }; }
+            function confirmStorageAction() {
+                const pending = storageRoot.pendingStorageAction;
+                if (!pending) return;
+                if (pending.action === "eject") Storage.eject(pending.volume);
+                else if (pending.action === "powerOff") Storage.powerOff(pending.volume);
+                pendingStorageAction = null;
             }
 
             SettingsGroup {
@@ -1331,19 +1347,32 @@ SettingsPage {
                                     }
 
                                     RippleButtonWithIcon {
-                                        visible: modelData.ejectable
+                                        visible: modelData.ejectable && (!storageRoot.pendingStorageAction || storageRoot.pendingStorageAction.volume !== modelData)
                                         materialIcon: "eject"
                                         mainText: Translation.tr("Eject")
                                         enabled: !Storage.busy
-                                        onClicked: Storage.eject(modelData)
+                                        onClicked: storageRoot.requestStorageAction(modelData, "eject")
                                     }
 
                                     RippleButtonWithIcon {
-                                        visible: modelData.canPowerOff
+                                        visible: modelData.canPowerOff && (!storageRoot.pendingStorageAction || storageRoot.pendingStorageAction.volume !== modelData)
                                         materialIcon: "power_settings_new"
                                         mainText: Translation.tr("Safely Remove")
                                         enabled: !Storage.busy
-                                        onClicked: Storage.powerOff(modelData)
+                                        onClicked: storageRoot.requestStorageAction(modelData, "powerOff")
+                                    }
+
+                                    DialogButton {
+                                        visible: storageRoot.pendingStorageAction?.volume === modelData
+                                        buttonText: Translation.tr("Confirm")
+                                        enabled: !Storage.busy
+                                        onClicked: storageRoot.confirmStorageAction()
+                                    }
+
+                                    DialogButton {
+                                        visible: storageRoot.pendingStorageAction?.volume === modelData
+                                        buttonText: Translation.tr("Cancel")
+                                        onClicked: storageRoot.pendingStorageAction = null
                                     }
                                 }
                             }
@@ -1744,6 +1773,8 @@ SettingsPage {
             property int editDay: editingDate.getDate()
             property int editHour: editingDate.getHours()
             property int editMinute: editingDate.getMinutes()
+            property bool datePickerOpen: false
+            property bool timePickerOpen: false
 
             function syncEditor() {
                 const current = DateTime.clock.date;
@@ -1817,40 +1848,61 @@ SettingsPage {
             }
 
             SettingsGroup {
-                visible: !TimeDate.ntpEnabled
+                visible: !TimeDate.ntpEnabled && !dateTimeRoot.datePickerOpen
                 title: Translation.tr("Manual date & time")
 
                 SettingsRow {
                     icon: "calendar_today"
                     title: Translation.tr("Date")
-                    description: Translation.tr("Local date")
+                    description: Qt.locale().toString(dateTimeRoot.editingDate, "dd MMMM yyyy")
+                    clickable: true
+                    onClicked: dateTimeRoot.datePickerOpen = true
 
-                    RowLayout {
-                        spacing: 4
-                        StyledSpinBox { from: 1; to: 31; value: dateTimeRoot.editDay; onValueChanged: dateTimeRoot.editDay = value }
-                        StyledSpinBox { from: 1; to: 12; value: dateTimeRoot.editMonth; onValueChanged: dateTimeRoot.editMonth = value }
-                        StyledSpinBox { from: 1970; to: 2100; value: dateTimeRoot.editYear; onValueChanged: dateTimeRoot.editYear = value }
+                    StyledText {
+                        text: Translation.tr("Choose date")
+                        color: Appearance.colors.colOnSurfaceVariant
                     }
                 }
 
                 SettingsRow {
+                    visible: !dateTimeRoot.timePickerOpen
                     icon: "schedule"
                     title: Translation.tr("Time")
                     description: Translation.tr("Local time")
+                    clickable: true
+                    onClicked: dateTimeRoot.timePickerOpen = true
 
-                    RowLayout {
-                        spacing: 4
-                        StyledSpinBox { from: 0; to: 23; value: dateTimeRoot.editHour; onValueChanged: dateTimeRoot.editHour = value }
-                        StyledText { text: ":"; color: Appearance.colors.colOnSurfaceVariant }
-                        StyledSpinBox { from: 0; to: 59; value: dateTimeRoot.editMinute; onValueChanged: dateTimeRoot.editMinute = value }
-                        RippleButtonWithIcon {
-                            materialIcon: "check"
-                            mainText: Translation.tr("Set")
-                            enabled: !TimeDate.operationPending && dateTimeRoot.validEditingDate()
-                            onClicked: dateTimeRoot.submitEditingDate()
-                        }
-                    }
+                    StyledText { text: DateTime.time; color: Appearance.colors.colOnSurfaceVariant }
                 }
+            }
+
+            DatePicker {
+                visible: !TimeDate.ntpEnabled && dateTimeRoot.datePickerOpen
+                enabled: !TimeDate.operationPending
+                selectedDate: dateTimeRoot.editingDate
+                onAccepted: value => {
+                    dateTimeRoot.editingDate = value;
+                    dateTimeRoot.editYear = value.getFullYear();
+                    dateTimeRoot.editMonth = value.getMonth() + 1;
+                    dateTimeRoot.editDay = value.getDate();
+                    dateTimeRoot.datePickerOpen = false;
+                }
+                onCanceled: dateTimeRoot.datePickerOpen = false
+            }
+
+            TimePicker {
+                visible: !TimeDate.ntpEnabled && dateTimeRoot.timePickerOpen
+                enabled: !TimeDate.operationPending
+                hour: dateTimeRoot.editHour
+                minute: dateTimeRoot.editMinute
+                format24Hour: Config.options.time.format === "hh:mm"
+                onAccepted: (hour, minute) => {
+                    dateTimeRoot.editHour = hour;
+                    dateTimeRoot.editMinute = minute;
+                    dateTimeRoot.submitEditingDate();
+                    dateTimeRoot.timePickerOpen = false;
+                }
+                onCanceled: dateTimeRoot.timePickerOpen = false
             }
 
             SettingsGroup {

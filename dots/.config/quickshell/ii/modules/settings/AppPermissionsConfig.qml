@@ -67,12 +67,11 @@ SettingsSubPage {
             }
         }
 
-        SettingsRow {
+        SettingsStateRow {
+            statusState: "loading"
+            stateTitle: Translation.tr("Loading permissions…")
+            stateDescription: Translation.tr("Reading installed sandbox and portal metadata.")
             visible: AppPermissions.loading
-            icon: "hourglass_top"
-            title: Translation.tr("Loading permissions…")
-            description: Translation.tr("Reading installed sandbox and portal metadata.")
-            registerInSearch: false
         }
 
         Repeater {
@@ -93,12 +92,11 @@ SettingsSubPage {
             }
         }
 
-        SettingsRow {
+        SettingsStateRow {
+            statusState: "empty"
+            stateTitle: Translation.tr("No managed app permissions")
+            stateDescription: Translation.tr("No installed Flatpak applications with sandbox permissions were found.")
             visible: AppPermissions.ready && AppPermissions.flatpakApps.length === 0
-            icon: "info"
-            title: Translation.tr("No managed app permissions")
-            description: Translation.tr("No installed Flatpak applications with sandbox permissions were found.")
-            registerInSearch: false
         }
 
         SettingsRow {
@@ -125,12 +123,11 @@ SettingsSubPage {
         registerInSearch: false
     }
 
-    SettingsRow {
+    SettingsStateRow {
+        statusState: "error"
+        stateTitle: Translation.tr("Permission information unavailable")
+        stateDescription: AppPermissions.error
         visible: AppPermissions.ready && AppPermissions.error.length > 0
-        icon: "error_outline"
-        title: Translation.tr("Permission information unavailable")
-        description: AppPermissions.error
-        registerInSearch: false
     }
 
     SettingsGroup {

@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import qs.modules.common
 import qs.modules.common.widgets
@@ -51,6 +52,10 @@ Rectangle {
 
     signal clicked()
 
+    activeFocusOnTab: root.clickable && root.enabled
+    Accessible.name: root.description.length > 0 ? `${root.title}, ${root.description}` : root.title
+    Accessible.role: root.clickable ? Accessible.Button : Accessible.Text
+
     // Same radius scale as GroupedListCard/GroupedGrid (4 inside, 16 outside).
     // SettingsCard overwrites these once it knows the row's position; the
     // defaults just avoid a corner-radius pop on the first paint.
@@ -99,6 +104,15 @@ Rectangle {
         }
     }
 
+    Rectangle {
+        anchors.fill: parent
+        color: "transparent"
+        border.color: Appearance.colors.colPrimary
+        border.width: root.activeFocus ? 2 : 0
+        radius: root.outerRadius
+        z: 4
+    }
+
     // M3 state layer rather than a ripple, matching GroupedListCard: a ripple
     // spreading across a 16px-cornered group edge looks wrong.
     Rectangle { // Hover/press state layer
@@ -120,6 +134,10 @@ Rectangle {
         cursorShape: root.clickable ? Qt.PointingHandCursor : Qt.ArrowCursor
         onClicked: root.clicked()
     }
+
+    Keys.onEnterPressed: if (root.clickable && root.enabled) root.clicked()
+    Keys.onReturnPressed: if (root.clickable && root.enabled) root.clicked()
+    Keys.onSpacePressed: if (root.clickable && root.enabled) root.clicked()
 
     RowLayout {
         id: rowLayout

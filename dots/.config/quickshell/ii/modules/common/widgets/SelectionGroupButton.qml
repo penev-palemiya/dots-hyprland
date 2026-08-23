@@ -16,6 +16,7 @@ GroupButton {
     property string buttonIcon
     property bool leftmost: false
     property bool rightmost: false
+    Accessible.name: root.buttonText
     leftRadius: (toggled || leftmost) ? (height / 2) : Appearance.rounding.unsharpenmore
     rightRadius: (toggled || rightmost) ? (height / 2) : Appearance.rounding.unsharpenmore
     colBackground: Appearance.colors.colSecondaryContainer

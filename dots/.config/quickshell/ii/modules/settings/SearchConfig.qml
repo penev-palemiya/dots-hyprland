@@ -173,11 +173,10 @@ SettingsSubPage {
             icon: "apps"
             title: Services.Translation.tr("Applications")
             description: root.prefixDescription("app", Services.Translation.tr("Prefix for application search."))
-            MaterialTextArea {
+            MaterialTextField {
                 id: appPrefix
                 Layout.preferredWidth: 100
                 implicitHeight: 42
-                wrapMode: TextEdit.NoWrap
                 Binding { target: appPrefix; property: "text"; value: Config.options.search.prefix.app; when: !appPrefix.activeFocus }
                 onEditingFinished: root.commitPrefix("app", text)
             }
@@ -187,11 +186,10 @@ SettingsSubPage {
             icon: "bolt"
             title: Services.Translation.tr("Shell actions")
             description: root.prefixDescription("action", Services.Translation.tr("Prefix for built-in and user shell actions."))
-            MaterialTextArea {
+            MaterialTextField {
                 id: actionPrefix
                 Layout.preferredWidth: 100
                 implicitHeight: 42
-                wrapMode: TextEdit.NoWrap
                 Binding { target: actionPrefix; property: "text"; value: Config.options.search.prefix.action; when: !actionPrefix.activeFocus }
                 onEditingFinished: root.commitPrefix("action", text)
             }
@@ -201,11 +199,10 @@ SettingsSubPage {
             icon: "content_paste"
             title: Services.Translation.tr("Clipboard")
             description: root.prefixDescription("clipboard", Services.Translation.tr("Prefix for explicit clipboard-history search."))
-            MaterialTextArea {
+            MaterialTextField {
                 id: clipboardPrefix
                 Layout.preferredWidth: 100
                 implicitHeight: 42
-                wrapMode: TextEdit.NoWrap
                 Binding { target: clipboardPrefix; property: "text"; value: Config.options.search.prefix.clipboard; when: !clipboardPrefix.activeFocus }
                 onEditingFinished: root.commitPrefix("clipboard", text)
             }
@@ -215,11 +212,10 @@ SettingsSubPage {
             icon: "mood"
             title: Services.Translation.tr("Emoji & symbols")
             description: root.prefixDescription("emojis", Services.Translation.tr("Prefix for emoji and symbol search."))
-            MaterialTextArea {
+            MaterialTextField {
                 id: emojiPrefix
                 Layout.preferredWidth: 100
                 implicitHeight: 42
-                wrapMode: TextEdit.NoWrap
                 Binding { target: emojiPrefix; property: "text"; value: Config.options.search.prefix.emojis; when: !emojiPrefix.activeFocus }
                 onEditingFinished: root.commitPrefix("emojis", text)
             }
@@ -229,11 +225,10 @@ SettingsSubPage {
             icon: "calculate"
             title: Services.Translation.tr("Calculator")
             description: root.prefixDescription("math", Services.Translation.tr("Prefix for calculator queries."))
-            MaterialTextArea {
+            MaterialTextField {
                 id: mathPrefix
                 Layout.preferredWidth: 100
                 implicitHeight: 42
-                wrapMode: TextEdit.NoWrap
                 Binding { target: mathPrefix; property: "text"; value: Config.options.search.prefix.math; when: !mathPrefix.activeFocus }
                 onEditingFinished: root.commitPrefix("math", text)
             }
@@ -243,11 +238,10 @@ SettingsSubPage {
             icon: "terminal"
             title: Services.Translation.tr("Shell commands")
             description: root.prefixDescription("shellCommand", Services.Translation.tr("Prefix for explicitly running a shell command."))
-            MaterialTextArea {
+            MaterialTextField {
                 id: commandPrefix
                 Layout.preferredWidth: 100
                 implicitHeight: 42
-                wrapMode: TextEdit.NoWrap
                 Binding { target: commandPrefix; property: "text"; value: Config.options.search.prefix.shellCommand; when: !commandPrefix.activeFocus }
                 onEditingFinished: root.commitPrefix("shellCommand", text)
             }
@@ -257,11 +251,10 @@ SettingsSubPage {
             icon: "travel_explore"
             title: Services.Translation.tr("Web search")
             description: root.prefixDescription("webSearch", Services.Translation.tr("Prefix for explicit browser web search."))
-            MaterialTextArea {
+            MaterialTextField {
                 id: webPrefix
                 Layout.preferredWidth: 100
                 implicitHeight: 42
-                wrapMode: TextEdit.NoWrap
                 Binding { target: webPrefix; property: "text"; value: Config.options.search.prefix.webSearch; when: !webPrefix.activeFocus }
                 onEditingFinished: root.commitPrefix("webSearch", text)
             }

@@ -111,7 +111,7 @@ SettingsSubPage {
             description: root.batteryStatus()
 
             ColumnLayout {
-                width: 250
+                width: Math.min(250, Math.max(160, root.width * 0.42))
                 spacing: 2
 
                 StyledText {
@@ -142,7 +142,7 @@ SettingsSubPage {
             description: Translation.tr("Changes apply immediately.")
 
             StyledComboBox {
-                width: 250
+                width: Math.min(250, Math.max(160, root.width * 0.42))
                 textRole: "label"
                 model: root.supportedProfiles
                 currentIndex: root.supportedProfiles.findIndex(profile => profile.value === PowerProfiles.profile)
@@ -165,7 +165,7 @@ SettingsSubPage {
             description: root.powerSavingDescription("lock")
 
             StyledComboBox {
-                width: 250
+                width: Math.min(250, Math.max(160, root.width * 0.42))
                 textRole: "label"
                 model: root.powerSavingOptions
                 currentIndex: root.powerSavingIndex("lock")
@@ -179,7 +179,7 @@ SettingsSubPage {
             description: root.powerSavingDescription("dpms-off")
 
             StyledComboBox {
-                width: 250
+                width: Math.min(250, Math.max(160, root.width * 0.42))
                 textRole: "label"
                 model: root.powerSavingOptions
                 currentIndex: root.powerSavingIndex("dpms-off")
@@ -193,7 +193,7 @@ SettingsSubPage {
             description: root.powerSavingDescription("suspend")
 
             StyledComboBox {
-                width: 250
+                width: Math.min(250, Math.max(160, root.width * 0.42))
                 textRole: "label"
                 model: root.powerSavingOptions
                 currentIndex: root.powerSavingIndex("suspend")
@@ -233,30 +233,32 @@ SettingsSubPage {
         SettingsRow {
             icon: "warning"
             title: Translation.tr("Low warning")
-            description: Translation.tr("Battery percentage at which the first warning appears.")
+            description: Translation.tr("Battery percentage at which the first warning appears; must be at or above Critical.")
             keywords: "battery percent"
 
-            StyledSpinBox {
+            NumberInput {
                 value: Config.options.battery.low
-                from: Config.options.battery.critical
-                to: 100
-                stepSize: 5
-                onValueChanged: Config.options.battery.low = value
+                minimum: Config.options.battery.critical
+                maximum: 100
+                step: 5
+                unit: "%"
+                onTextCommitted: text => Config.options.battery.low = Number(text)
             }
         }
 
         SettingsRow {
             icon: "dangerous"
             title: Translation.tr("Critical warning")
-            description: Translation.tr("Battery percentage at which an urgent warning appears.")
+            description: Translation.tr("Battery percentage at which an urgent warning appears; must be at or above Suspend at and below Low warning.")
             keywords: "battery percent"
 
-            StyledSpinBox {
+            NumberInput {
                 value: Config.options.battery.critical
-                from: Config.options.battery.suspend
-                to: Config.options.battery.low
-                stepSize: 5
-                onValueChanged: Config.options.battery.critical = value
+                minimum: Config.options.battery.suspend
+                maximum: Config.options.battery.low
+                step: 5
+                unit: "%"
+                onTextCommitted: text => Config.options.battery.critical = Number(text)
             }
         }
 
@@ -266,12 +268,13 @@ SettingsSubPage {
             description: Translation.tr("Tells you when the battery reaches this level, so you can unplug.")
             keywords: "battery percent charge"
 
-            StyledSpinBox {
+            NumberInput {
                 value: Config.options.battery.full
-                from: Config.options.battery.low
-                to: 101
-                stepSize: 5
-                onValueChanged: Config.options.battery.full = value
+                minimum: Config.options.battery.low
+                maximum: 101
+                step: 5
+                unit: "%"
+                onTextCommitted: text => Config.options.battery.full = Number(text)
             }
         }
 
@@ -286,15 +289,16 @@ SettingsSubPage {
 
         SettingsSubRow {
             title: Translation.tr("Suspend at")
-            description: Translation.tr("Battery percentage that triggers the automatic suspend.")
+            description: Translation.tr("Battery percentage that triggers the automatic suspend; must be below Critical.")
             enabled: Config.options.battery.automaticSuspend
 
-            StyledSpinBox {
+            NumberInput {
                 value: Config.options.battery.suspend
-                from: 0
-                to: Config.options.battery.critical
-                stepSize: 5
-                onValueChanged: Config.options.battery.suspend = value
+                minimum: 0
+                maximum: Config.options.battery.critical
+                step: 5
+                unit: "%"
+                onTextCommitted: text => Config.options.battery.suspend = Number(text)
             }
         }
 

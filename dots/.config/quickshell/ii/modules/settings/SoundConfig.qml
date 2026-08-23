@@ -15,6 +15,8 @@ SettingsSubPage {
     readonly property var playbackStreams: Audio.outputAppNodes
     readonly property bool hasOutput: Audio.sink !== null
     readonly property bool hasInput: Audio.source !== null
+    readonly property var outputEntities: root.outputDevices.map(node => ({ id: node.id, name: root.deviceLabel(node), secondary: node.description || node.name || node.id, icon: "speaker" }))
+    readonly property var inputEntities: root.inputDevices.map(node => ({ id: node.id, name: root.deviceLabel(node), secondary: node.description || node.name || node.id, icon: "mic" }))
 
     function deviceLabel(node) {
         if (!node)
@@ -39,13 +41,12 @@ SettingsSubPage {
             title: Translation.tr("Output device")
             description: root.hasOutput ? root.deviceLabel(Audio.sink) : Translation.tr("No output device available")
 
-            StyledComboBox {
-                width: 280
-                model: root.outputDevices.map(node => root.deviceLabel(node))
-                currentIndex: root.outputDevices.findIndex(node => node.id === Audio.sink?.id)
+            EntityPicker {
+                entities: root.outputEntities
+                currentId: Audio.sink?.id ?? ""
                 enabled: root.outputDevices.length > 0
-                onActivated: index => {
-                    const node = root.outputDevices[index];
+                onSelected: entity => {
+                    const node = root.outputDevices.find(item => item.id === entity.id);
                     if (node)
                         Audio.setDefaultSink(node);
                 }
@@ -58,7 +59,7 @@ SettingsSubPage {
             description: root.hasOutput ? `${Math.round((Audio.sink.audio.volume ?? 0) * 100)}%` : Translation.tr("No output device available")
 
             RowLayout {
-                width: 280
+                width: Math.min(280, Math.max(160, root.width * 0.44))
                 spacing: 10
 
                 StyledSlider {
@@ -108,13 +109,12 @@ SettingsSubPage {
             title: Translation.tr("Input device")
             description: root.hasInput ? root.deviceLabel(Audio.source) : Translation.tr("No input device available")
 
-            StyledComboBox {
-                width: 280
-                model: root.inputDevices.map(node => root.deviceLabel(node))
-                currentIndex: root.inputDevices.findIndex(node => node.id === Audio.source?.id)
+            EntityPicker {
+                entities: root.inputEntities
+                currentId: Audio.source?.id ?? ""
                 enabled: root.inputDevices.length > 0
-                onActivated: index => {
-                    const node = root.inputDevices[index];
+                onSelected: entity => {
+                    const node = root.inputDevices.find(item => item.id === entity.id);
                     if (node)
                         Audio.setDefaultSource(node);
                 }
@@ -127,7 +127,7 @@ SettingsSubPage {
             description: root.hasInput ? `${Math.round((Audio.source.audio.volume ?? 0) * 100)}%` : Translation.tr("No input device available")
 
             RowLayout {
-                width: 280
+                width: Math.min(280, Math.max(160, root.width * 0.44))
                 spacing: 10
 
                 StyledSlider {
@@ -165,7 +165,7 @@ SettingsSubPage {
             description: root.hasInput ? Translation.tr("Live microphone activity") : Translation.tr("No input device available")
 
             Item {
-                width: 280
+                width: Math.min(280, Math.max(160, root.width * 0.44))
                 height: 36
                 opacity: root.hasInput ? 1 : 0.4
 
@@ -200,7 +200,7 @@ SettingsSubPage {
             minimumHeight: root.playbackStreams.length > 0 ? Math.max(72, 28 + root.playbackStreams.length * 64) : 60
 
             Column {
-                width: 280
+                width: Math.min(280, Math.max(160, root.width * 0.44))
                 spacing: 12
 
                 Repeater {
@@ -233,12 +233,13 @@ SettingsSubPage {
             description: Translation.tr("Limits one shortcut or scroll volume jump.")
             enabled: Config.options.audio.protection.enable
 
-            StyledSpinBox {
+            NumberInput {
                 value: Config.options.audio.protection.maxAllowedIncrease
-                from: 0
-                to: 100
-                stepSize: 2
-                onValueChanged: Config.options.audio.protection.maxAllowedIncrease = value
+                minimum: 0
+                maximum: 100
+                step: 2
+                unit: "%"
+                onTextCommitted: text => Config.options.audio.protection.maxAllowedIncrease = Number(text)
             }
         }
 
@@ -247,12 +248,13 @@ SettingsSubPage {
             description: Translation.tr("Prevents output volume going above this level.")
             enabled: Config.options.audio.protection.enable
 
-            StyledSpinBox {
+            NumberInput {
                 value: Config.options.audio.protection.maxAllowed
-                from: 0
-                to: 154
-                stepSize: 2
-                onValueChanged: Config.options.audio.protection.maxAllowed = value
+                minimum: 0
+                maximum: 154
+                step: 2
+                unit: "%"
+                onTextCommitted: text => Config.options.audio.protection.maxAllowed = Number(text)
             }
         }
     }

@@ -12,7 +12,6 @@ SettingsSubPage {
 
     property string query: ""
     property var selectedMime: null
-    property string candidateQuery: ""
     property bool pickerOpen: false
 
     readonly property var categories: ["Documents", "Images", "Audio", "Video", "Archives", "Text & Code", "Fonts", "Packages & Disk Images", "Other"]
@@ -67,7 +66,6 @@ SettingsSubPage {
 
     function openPicker(item) {
         root.selectedMime = item;
-        root.candidateQuery = "";
         root.pickerOpen = true;
     }
 
@@ -92,11 +90,6 @@ SettingsSubPage {
             if (aCurrent !== bCurrent) return aCurrent ? -1 : 1;
             return String(a.name || a.id).localeCompare(String(b.name || b.id));
         });
-    }
-
-    function filteredCandidates() {
-        const needle = root.candidateQuery.trim().toLowerCase();
-        return root.candidateEntries().filter(entry => !needle || `${entry.name || ""} ${entry.id || ""}`.toLowerCase().includes(needle));
     }
 
     function desktopFileId(entry) {
@@ -128,6 +121,7 @@ SettingsSubPage {
     }
 
     SettingsGroup {
+        visible: !root.pickerOpen
         title: Translation.tr("FILE ASSOCIATIONS")
 
         SettingsRow {
@@ -158,7 +152,7 @@ SettingsSubPage {
         }
 
         SettingsRow {
-            visible: MimeTypeInventory.loading
+        visible: !root.pickerOpen && MimeTypeInventory.loading
             icon: "hourglass_top"
             title: Translation.tr("Loading file types…")
             description: Translation.tr("Building the common MIME inventory.")
@@ -171,7 +165,7 @@ SettingsSubPage {
         SettingsGroup {
             required property string modelData
             readonly property string categoryName: modelData
-            visible: root.itemsForCategory(categoryName).length > 0
+            visible: !root.pickerOpen && root.itemsForCategory(categoryName).length > 0
             title: Translation.tr(categoryName)
 
             Repeater {
@@ -211,7 +205,7 @@ SettingsSubPage {
     }
 
     SettingsRow {
-        visible: MimeTypeInventory.ready && root.filteredItems.length === 0
+        visible: !root.pickerOpen && MimeTypeInventory.ready && root.filteredItems.length === 0
         icon: "search_off"
         title: root.query.length > 0 ? Translation.tr("No matching file types") : Translation.tr("No file types found")
         description: root.query.length > 0 ? Translation.tr("Try a different search.") : Translation.tr("No supported user-facing file types were detected.")
@@ -219,100 +213,21 @@ SettingsSubPage {
     }
 
     SettingsRow {
-        visible: MimeTypeInventory.error.length > 0
+        visible: !root.pickerOpen && MimeTypeInventory.error.length > 0
         icon: "error_outline"
         title: Translation.tr("File type information unavailable")
         description: MimeTypeInventory.error
         registerInSearch: false
     }
 
-    Popup {
-        id: picker
-        parent: Overlay.overlay
+    ApplicationPicker {
         visible: root.pickerOpen
-        modal: true
-        focus: true
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        width: Math.min(560, (root.Window.window?.width ?? 900) - 32)
-        height: Math.min(620, (root.Window.window?.height ?? 720) - 48)
-        anchors.centerIn: Overlay.overlay
-        padding: 16
-
-        onClosed: root.pickerOpen = false
-
-        background: Rectangle {
-            radius: Appearance.rounding.normal
-            color: Appearance.m3colors.m3surfaceContainerHigh
-            StyledRectangularShadow { target: parent }
-        }
-
-        ColumnLayout {
-            anchors.fill: parent
-            spacing: 12
-
-            StyledText {
-                Layout.fillWidth: true
-                text: root.selectedMime?.description || Translation.tr("Select application")
-                font.pixelSize: Appearance.font.pixelSize.title
-                color: Appearance.colors.colOnSurface
-            }
-
-            StyledText {
-                Layout.fillWidth: true
-                text: root.selectedMime ? `${(root.selectedMime.extensions || []).join(", ")} · ${root.selectedMime.id}` : ""
-                color: Appearance.colors.colOnSurfaceVariant
-                elide: Text.ElideRight
-            }
-
-            MaterialTextField {
-                Layout.fillWidth: true
-                placeholderText: Translation.tr("Search applications")
-                text: root.candidateQuery
-                onTextChanged: root.candidateQuery = text
-            }
-
-            StyledListView {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                spacing: 4
-                model: root.filteredCandidates()
-
-                delegate: ItemDelegate {
-                    required property var modelData
-                    width: ListView.view.width
-                    implicitHeight: 56
-                    enabled: !MimeAssociations.applying && !modelData.unavailable
-
-                    background: Rectangle {
-                        radius: Appearance.rounding.small
-                        color: modelData.id === root.currentId(root.selectedMime) ? Appearance.colors.colSecondaryContainer : "transparent"
-                    }
-
-                    contentItem: RowLayout {
-                        spacing: 12
-                        Image {
-                            source: Quickshell.iconPath(modelData.icon || "application-x-executable", "image-missing")
-                            sourceSize: Qt.size(32, 32)
-                            Layout.preferredWidth: 32
-                            Layout.preferredHeight: 32
-                        }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            StyledText { text: modelData.name || modelData.id; color: Appearance.colors.colOnSurface }
-                            StyledText { text: modelData.id === root.currentId(root.selectedMime) ? Translation.tr("Current") : modelData.id; color: Appearance.colors.colOnSurfaceVariant; font.pixelSize: Appearance.font.pixelSize.smaller }
-                        }
-                    }
-
-                    onClicked: root.chooseCandidate(modelData)
-                }
-            }
-
-            StyledText {
-                visible: root.filteredCandidates().length === 0
-                text: Translation.tr("No compatible applications found.")
-                color: Appearance.colors.colOnSurfaceVariant
-            }
-        }
+        title: root.selectedMime?.description || Translation.tr("Select application")
+        applications: root.candidateEntries()
+        currentId: root.selectedMime ? root.currentId(root.selectedMime) : ""
+        loading: MimeTypeInventory.loading || MimeAssociations.applying
+        noResultsText: Translation.tr("No compatible applications found.")
+        onSelected: application => root.chooseCandidate(application)
+        onCanceled: root.pickerOpen = false
     }
 }
