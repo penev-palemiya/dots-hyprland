@@ -2042,26 +2042,7 @@ SettingsPage {
 
     Component {
         id: screenRecordingPage
-
-        SettingsSubPage {
-            SettingsGroup {
-                title: Translation.tr("Save path")
-
-                SettingsRow {
-                    icon: "folder"
-                    title: Translation.tr("Video Recording Path")
-                    description: Translation.tr("Where screen recordings are saved.")
-
-                    MaterialTextArea {
-                        Layout.preferredWidth: 280
-                        implicitHeight: 42
-                        text: Config.options.screenRecord.savePath
-                        wrapMode: TextEdit.NoWrap
-                        onTextChanged: Config.options.screenRecord.savePath = text
-                    }
-                }
-            }
-        }
+        ScreenRecordingConfig {}
     }
 
     Component {

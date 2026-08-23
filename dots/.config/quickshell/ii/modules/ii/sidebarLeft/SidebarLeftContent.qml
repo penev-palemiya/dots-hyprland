@@ -39,7 +39,7 @@ Item {
             QuickToggleButton {
                 visible: Config.options.bar.utilButtons.showScreenRecord
                 buttonIcon: "videocam"
-                onClicked: Quickshell.execDetached([Directories.recordScriptPath])
+                onClicked: ScreenRecording.toggle("region", false)
                 StyledToolTip {
                     text: Translation.tr("Screen record")
                 }

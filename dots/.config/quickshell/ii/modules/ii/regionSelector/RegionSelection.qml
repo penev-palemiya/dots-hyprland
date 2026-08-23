@@ -183,25 +183,15 @@ PanelWindow {
         screenshotDir: root.screenshotDir
         screenshotPath: root.screenshotPath
         onExited: (exitCode, exitStatus) => {
-            root.preparationDone = !checkRecordingProc.running;
+            root.preparationDone = true;
         }
     }
     property bool isRecording: root.action === RegionSelection.SnipAction.Record || root.action === RegionSelection.SnipAction.RecordWithSound
-    property bool recordingShouldStop: false
-    Process {
-        id: checkRecordingProc
-        running: isRecording
-        command: ["pidof", "wf-recorder"]
-        onExited: (exitCode, exitStatus) => {
-            root.preparationDone = !screenshotProc.running
-            root.recordingShouldStop = (exitCode === 0);
-        }
-    }
     property bool preparationDone: false
     onPreparationDoneChanged: {
         if (!preparationDone) return;
-        if (root.isRecording && root.recordingShouldStop) {
-            Quickshell.execDetached([Directories.recordScriptPath]);
+        if (root.isRecording && ScreenRecording.active) {
+            ScreenRecording.stop();
             root.dismiss();
             return;
         }
@@ -254,7 +244,10 @@ PanelWindow {
         const captureY = root.regionY * root.monitorScale;
         const captureWidth = root.regionWidth * root.monitorScale;
         const captureHeight = root.regionHeight * root.monitorScale;
-        if (screenshotAction === ScreenshotAction.Action.Copy) {
+        if (screenshotAction === ScreenshotAction.Action.Record || screenshotAction === ScreenshotAction.Action.RecordWithSound) {
+            ScreenRecording.start("region", screenshotAction === ScreenshotAction.Action.RecordWithSound,
+                                  `${captureX},${captureY} ${captureWidth}x${captureHeight}`);
+        } else if (screenshotAction === ScreenshotAction.Action.Copy) {
             ScreenshotAction.captureRegion(root.screenshotPath, captureX, captureY,
                                            captureWidth, captureHeight);
         } else {

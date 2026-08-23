@@ -40,7 +40,7 @@ Item {
             visible: Config.options.bar.utilButtons.showScreenRecord
             sourceComponent: CircleUtilButton {
                 Layout.alignment: Qt.AlignVCenter
-                onClicked: Quickshell.execDetached([Directories.recordScriptPath])
+                onClicked: ScreenRecording.toggle("region", false)
                 MaterialSymbol {
                     horizontalAlignment: Qt.AlignHCenter
                     fill: 1

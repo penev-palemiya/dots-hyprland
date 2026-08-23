@@ -41,6 +41,8 @@ Singleton {
     property string wallpaperSwitchScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/colors/switchwall.sh`)
     property string userActions: FileUtils.trimFileProtocol(`${Directories.shellConfig}/actions`)
     property string recordScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/videos/record.sh`)
+    readonly property string screenRecordingRuntimeDirectory: `${Quickshell.env("XDG_RUNTIME_DIR") || "/tmp"}/illogical-impulse`
+    readonly property string screenRecordingStatePath: `${screenRecordingRuntimeDirectory}/screen-recording.state`
     property string screenshotOutputScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/images/screenshot-output.sh`)
     property string userAvatarPathAccountsService: FileUtils.trimFileProtocol(`/var/lib/AccountsService/icons/${SystemInfo.username}`)
     property string userAvatarPathRicersAndWeirdSystems: FileUtils.trimFileProtocol(`${Directories.home}.face`)

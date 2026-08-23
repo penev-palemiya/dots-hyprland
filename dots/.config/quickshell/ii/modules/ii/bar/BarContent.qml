@@ -183,6 +183,13 @@ Item { // Bar content region
                     WeatherBar {}
                 }
             }
+
+            Loader {
+                active: ScreenRecording.active
+                sourceComponent: BarGroup {
+                    RecordingIndicator {}
+                }
+            }
         }
     }
 

@@ -58,7 +58,7 @@ StyledOverlayWidget {
                     name: "Record screen"
                     onClicked: {
                         GlobalStates.overlayOpen = false;
-                        Quickshell.execDetached([Directories.recordScriptPath, "--fullscreen", "--sound"]);
+                        ScreenRecording.toggle("monitor", true);
                     }
                 }
             }
@@ -72,7 +72,7 @@ StyledOverlayWidget {
                 colRipple: Appearance.colors.colLayer3Active
                 onClicked: {
                     GlobalStates.overlayOpen = false;
-                    Qt.openUrlExternally(`file://${Config.options.screenRecord.savePath}`);
+                    Qt.openUrlExternally(`file://${Config.options.screenRecord.saveDirectory}`);
                 }
                 contentItem: Row {
                     anchors.centerIn: parent

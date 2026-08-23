@@ -514,7 +514,9 @@ Singleton {
             }
 
             property JsonObject screenRecord: JsonObject {
-                property string savePath: Directories.videos.replace("file://","") // strip "file://"
+                // savePath is retained only for one-time migration of older configs.
+                property string savePath: ""
+                property string saveDirectory: Directories.videos.replace("file://","")
             }
 
             property JsonObject screenSnip: JsonObject {

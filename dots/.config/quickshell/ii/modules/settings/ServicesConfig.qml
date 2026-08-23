@@ -68,21 +68,6 @@ ContentPage {
         
     }
 
-    ContentSection {
-        icon: "file_open"
-        title: Translation.tr("Save paths")
-
-        MaterialTextArea {
-            Layout.fillWidth: true
-            placeholderText: Translation.tr("Video Recording Path")
-            text: Config.options.screenRecord.savePath
-            wrapMode: TextEdit.Wrap
-            onTextChanged: {
-                Config.options.screenRecord.savePath = text;
-            }
-        }
-    }
-
     // There's no update indicator in ii for now so we shouldn't show this yet
     // ContentSection {
     //     icon: "deployed_code_update"
