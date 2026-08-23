@@ -74,6 +74,8 @@ SettingsPage {
         case "desktop-shell-shortcuts": return shortcutsPage;
         case "apps-default-apps": return defaultAppsPage;
         case "apps-startup-apps": return startupAppsPage;
+        case "apps-installed-apps": return installedAppsPage;
+        case "apps-permissions": return appPermissionsPage;
         case "connectivity-wifi": return wifiPage;
         case "connectivity-ethernet": return ethernetPage;
         case "connectivity-bluetooth": return bluetoothPage;
@@ -198,6 +200,16 @@ SettingsPage {
     Component {
         id: startupAppsPage
         StartupAppsConfig {}
+    }
+
+    Component {
+        id: installedAppsPage
+        InstalledAppsConfig {}
+    }
+
+    Component {
+        id: appPermissionsPage
+        AppPermissionsConfig {}
     }
 
     Component {

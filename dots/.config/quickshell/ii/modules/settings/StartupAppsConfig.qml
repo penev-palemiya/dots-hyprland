@@ -33,6 +33,13 @@ SettingsSubPage {
             .sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
     }
 
+    function addCandidate(entry) {
+        if (!entry)
+            return;
+        Autostart.add(root.desktopId(entry));
+        root.pickerOpen = false;
+    }
+
     Component.onCompleted: Autostart.refresh()
 
     SettingsGroup {
@@ -143,6 +150,7 @@ SettingsSubPage {
                 placeholderText: Translation.tr("Search applications")
                 text: root.pickerQuery
                 onTextChanged: root.pickerQuery = text
+                Keys.onReturnPressed: root.addCandidate(root.candidates()[0])
             }
 
             ScrollView {
@@ -161,10 +169,7 @@ SettingsSubPage {
                             title: modelData.name || modelData.id
                             description: modelData.id
                             clickable: true
-                            onClicked: {
-                                Autostart.add(root.desktopId(modelData));
-                                root.pickerOpen = false;
-                            }
+                            onClicked: root.addCandidate(modelData)
                         }
                     }
                 }

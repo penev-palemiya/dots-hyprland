@@ -110,7 +110,7 @@ ApplicationWindow {
             entries: [
                 { key: "apps-default-apps", name: Translation.tr("Default Apps"), icon: "select_window" },
                 { key: "apps-startup-apps", name: Translation.tr("Startup Apps"), icon: "rocket_launch" },
-                { key: "apps-installed", name: Translation.tr("Installed Apps"), icon: "deployed_code" },
+                { key: "apps-installed-apps", name: Translation.tr("Installed Apps"), icon: "deployed_code" },
                 { key: "apps-permissions", name: Translation.tr("App Permissions"), icon: "admin_panel_settings" },
                 { key: "apps-file-associations", name: Translation.tr("File Associations"), icon: "file_present" }
             ],
@@ -237,6 +237,20 @@ ApplicationWindow {
     visible: (Config.ready && MaterialThemeLoader.themeApplied) || root.forceShow
     onClosing: root.closeRequested()
     title: "illogical-impulse Settings"
+    onVisibleChanged: {
+        if (!visible)
+            return;
+        // ApplicationWindow can be mapped before the compositor has accepted
+        // the new surface. Activate on the next event turn so pointer and
+        // keyboard input are delivered to Settings (including standalone
+        // settings.qml, which has no SettingsHost activation hook).
+        Qt.callLater(() => {
+            if (root.visible) {
+                root.raise();
+                root.requestActivate();
+            }
+        });
+    }
 
     Timer {
         interval: 1500
