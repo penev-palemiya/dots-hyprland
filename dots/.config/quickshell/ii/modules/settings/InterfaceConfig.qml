@@ -100,61 +100,6 @@ ContentPage {
         }
     }
     ContentSection {
-        icon: "lock"
-        title: Translation.tr("Lock screen")
-
-        ConfigSwitch {
-            buttonIcon: "water_drop"
-            text: Translation.tr('Use Hyprlock (instead of Quickshell)')
-            checked: Config.options.lock.useHyprlock
-            onCheckedChanged: {
-                Config.options.lock.useHyprlock = checked;
-            }
-            StyledToolTip {
-                text: Translation.tr("If you want to somehow use fingerprint unlock...")
-            }
-        }
-
-        ConfigSwitch {
-            buttonIcon: "account_circle"
-            text: Translation.tr('Launch on startup')
-            checked: Config.options.lock.launchOnStartup
-            onCheckedChanged: {
-                Config.options.lock.launchOnStartup = checked;
-            }
-        }
-
-        ContentSubsection {
-            title: Translation.tr("Security")
-
-            ConfigSwitch {
-                buttonIcon: "settings_power"
-                text: Translation.tr('Require password to power off/restart')
-                checked: Config.options.lock.security.requirePasswordToPower
-                onCheckedChanged: {
-                    Config.options.lock.security.requirePasswordToPower = checked;
-                }
-                StyledToolTip {
-                    text: Translation.tr("Remember that on most devices one can always hold the power button to force shutdown\nThis only makes it a tiny bit harder for accidents to happen")
-                }
-            }
-
-            ConfigSwitch {
-                buttonIcon: "key_vertical"
-                text: Translation.tr('Also unlock keyring')
-                checked: Config.options.lock.security.unlockKeyring
-                onCheckedChanged: {
-                    Config.options.lock.security.unlockKeyring = checked;
-                }
-                StyledToolTip {
-                    text: Translation.tr("This is usually safe and needed for your browser and AI sidebar anyway\nMostly useful for those who use lock on startup instead of a display manager that does it (GDM, SDDM, etc.)")
-                }
-            }
-        }
-
-    }
-
-    ContentSection {
         icon: "notifications"
         title: Translation.tr("Notifications")
 

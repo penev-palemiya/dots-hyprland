@@ -132,34 +132,10 @@ ApplicationWindow {
         {
             key: "privacy-security",
             name: Translation.tr("Privacy & Security"),
-            subtitle: Translation.tr("Lock, auth, privacy"),
+            subtitle: Translation.tr("Screen lock and keyring"),
             icon: "shield_lock",
             entries: [
-                { key: "privacy-security-screen-lock", name: Translation.tr("Screen Lock"), icon: "lock" },
-                { key: "privacy-security-authentication", name: Translation.tr("Authentication"), icon: "passkey" },
-                { key: "privacy-security-fingerprint", name: Translation.tr("Fingerprint"), icon: "fingerprint" },
-                { key: "privacy-security-keyring", name: Translation.tr("Keyring"), icon: "key" },
-                { key: "privacy-security-location", name: Translation.tr("Location"), icon: "location_on" },
-                { key: "privacy-security-camera", name: Translation.tr("Camera"), icon: "photo_camera" },
-                { key: "privacy-security-microphone", name: Translation.tr("Microphone"), icon: "mic" },
-                { key: "privacy-security-screen-capture", name: Translation.tr("Screen Capture"), icon: "capture" },
-                { key: "privacy-security-activity-history", name: Translation.tr("Activity & History"), icon: "history" },
-                { key: "privacy-security-privacy", name: Translation.tr("Privacy"), icon: "privacy_tip" }
-            ],
-            component: "modules/settings/SettingsCatalog.qml"
-        },
-        {
-            key: "accessibility",
-            name: Translation.tr("Accessibility"),
-            subtitle: Translation.tr("Vision, input, motion"),
-            icon: "accessibility_new",
-            entries: [
-                { key: "accessibility-vision", name: Translation.tr("Vision"), icon: "visibility" },
-                { key: "accessibility-hearing", name: Translation.tr("Hearing"), icon: "hearing" },
-                { key: "accessibility-keyboard", name: Translation.tr("Keyboard"), icon: "keyboard" },
-                { key: "accessibility-pointer", name: Translation.tr("Pointer"), icon: "ads_click" },
-                { key: "accessibility-text-scaling", name: Translation.tr("Text & Scaling"), icon: "format_size" },
-                { key: "accessibility-motion", name: Translation.tr("Motion"), icon: "animation" }
+                { key: "privacy-security-screen-lock", name: Translation.tr("Screen Lock"), icon: "lock" }
             ],
             component: "modules/settings/SettingsCatalog.qml"
         },

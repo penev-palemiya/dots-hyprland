@@ -97,7 +97,7 @@ SettingsPage {
         case "search-tools-clipboard": return clipboardPage;
         case "search-tools-screenshots": return screenshotsPage;
         case "search-tools-screen-recording": return screenRecordingPage;
-        case "privacy-security-location": return locationPage;
+        case "privacy-security-screen-lock": return screenLockSecurityPage;
         case "advanced-diagnostics": return diagnosticsPage;
         case "advanced-configuration": return configurationPage;
         case "about-support": return supportPage;
@@ -2019,6 +2019,11 @@ SettingsPage {
     }
 
     Component {
+        id: screenLockSecurityPage
+        ScreenLockSecurityConfig {}
+    }
+
+    Component {
         id: effectsAnimationsPage
         EffectsAnimationsConfig {}
     }
@@ -2041,60 +2046,6 @@ SettingsPage {
     Component {
         id: screenRecordingPage
         ScreenRecordingConfig {}
-    }
-
-    Component {
-        id: locationPage
-
-        SettingsSubPage {
-            SettingsGroup {
-                title: Translation.tr("Weather location")
-
-                SettingsToggleRow {
-                    icon: "assistant_navigation"
-                    title: Translation.tr("Enable GPS based location")
-                    description: Translation.tr("Use GPS location as the weather source.")
-                    checked: Config.options.bar.weather.enableGPS
-                    onToggled: checked => Config.options.bar.weather.enableGPS = checked
-                }
-
-                SettingsToggleRow {
-                    icon: "thermometer"
-                    title: Translation.tr("Fahrenheit unit")
-                    description: Translation.tr("Use Fahrenheit for weather temperatures.")
-                    checked: Config.options.bar.weather.useUSCS
-                    onToggled: checked => Config.options.bar.weather.useUSCS = checked
-                }
-
-                SettingsRow {
-                    icon: "location_city"
-                    title: Translation.tr("City name")
-                    description: Translation.tr("Manual city used when GPS weather location is disabled.")
-
-                    MaterialTextArea {
-                        Layout.preferredWidth: 220
-                        implicitHeight: 42
-                        text: Config.options.bar.weather.city
-                        wrapMode: TextEdit.NoWrap
-                        onTextChanged: Config.options.bar.weather.city = text
-                    }
-                }
-
-                SettingsRow {
-                    icon: "av_timer"
-                    title: Translation.tr("Polling interval")
-                    description: Translation.tr("How often weather data is refreshed, in minutes.")
-
-                    StyledSpinBox {
-                        value: Config.options.bar.weather.fetchInterval
-                        from: 5
-                        to: 50
-                        stepSize: 5
-                        onValueChanged: Config.options.bar.weather.fetchInterval = value
-                    }
-                }
-            }
-        }
     }
 
     Component {
