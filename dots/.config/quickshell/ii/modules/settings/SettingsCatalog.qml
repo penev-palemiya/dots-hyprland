@@ -53,6 +53,10 @@ SettingsPage {
         case "desktop-shell-bar-tray": return barTrayPage;
         case "desktop-shell-dock": return dockPage;
         case "desktop-shell-workspaces": return workspacesPage;
+        case "desktop-shell-overview": return overviewPage;
+        case "desktop-shell-sidebars": return sidebarsPage;
+        case "desktop-shell-quick-settings": return quickSettingsPage;
+        case "desktop-shell-hot-corners": return hotCornersPage;
         case "connectivity-wifi": return wifiPage;
         case "connectivity-ethernet": return ethernetPage;
         case "connectivity-bluetooth": return bluetoothPage;
@@ -142,6 +146,26 @@ SettingsPage {
     Component {
         id: workspacesPage
         WorkspaceConfig {}
+    }
+
+    Component {
+        id: overviewPage
+        OverviewConfig {}
+    }
+
+    Component {
+        id: sidebarsPage
+        SidebarsConfig {}
+    }
+
+    Component {
+        id: quickSettingsPage
+        QuickSettingsConfig {}
+    }
+
+    Component {
+        id: hotCornersPage
+        HotCornersConfig {}
     }
 
     Component {
