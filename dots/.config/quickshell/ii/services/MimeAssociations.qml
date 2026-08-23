@@ -23,8 +23,12 @@ Singleton {
     signal refreshed(bool success)
     signal applied(bool success)
 
-    function query(mimes) {
-        if (root.loading || root.applying || !mimes || mimes.length === 0)
+    function sameMimes(mimes) {
+        return root.lastMimes.length === mimes.length && root.lastMimes.every((mime, index) => mime === mimes[index]);
+    }
+
+    function query(mimes, force = false) {
+        if (root.loading || root.applying || !mimes || mimes.length === 0 || (!force && root.ready && root.sameMimes(mimes)))
             return;
         root.loading = true;
         root.error = "";
@@ -33,8 +37,8 @@ Singleton {
         queryProc.running = true;
     }
 
-    function refresh(mimes) {
-        root.query(mimes);
+    function refresh(mimes, force = false) {
+        root.query(mimes, force);
     }
 
     function apply(desktopId, mimes) {
@@ -98,7 +102,7 @@ Singleton {
             if (code !== 0 && !root.error)
                 root.error = Translation.tr("Could not change the default application.");
             if (root.lastMimes.length > 0)
-                root.query(root.lastMimes);
+                root.query(root.lastMimes, true);
         }
     }
 

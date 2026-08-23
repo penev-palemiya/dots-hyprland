@@ -13,6 +13,7 @@ import qs.modules.settings.components
 SettingsPage {
     id: root
 
+
     property string pageKey: ""
     property var menuEntries: []
 

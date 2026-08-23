@@ -9,11 +9,24 @@ import sys
 import tempfile
 from pathlib import Path
 
+try:
+    import gi
+
+    gi.require_version("Gio", "2.0")
+    from gi.repository import Gio
+except Exception:  # pragma: no cover - fallback for minimal environments
+    Gio = None
 
 MIME_FILE = Path.home() / ".config" / "mimeapps.list"
 
 
 def query_one(mime: str) -> str:
+    if Gio is not None:
+        if mime.startswith("x-scheme-handler/"):
+            app = Gio.AppInfo.get_default_for_uri_scheme(mime.split("/", 1)[1])
+        else:
+            app = Gio.AppInfo.get_default_for_type(mime, False)
+        return app.get_id() if app is not None else ""
     result = subprocess.run(
         ["xdg-mime", "query", "default", mime],
         text=True,

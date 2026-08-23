@@ -121,13 +121,15 @@ SettingsSubPage {
             root.pickerOpen = false;
     }
 
-    Component.onCompleted: MimeAssociations.refresh(root.allMimes)
+    Component.onCompleted: {
+        MimeAssociations.refresh(root.allMimes);
+    }
 
     Connections {
         target: MimeAssociations
         function onRevisionChanged() {
             if (MimeAssociations.ready && !MimeAssociations.loading && !MimeAssociations.applying)
-                MimeAssociations.refresh(root.allMimes);
+                MimeAssociations.refresh(root.allMimes, true);
         }
         function onApplied(success) {
             if (success) MimeAssociations.refresh(root.allMimes);

@@ -144,7 +144,10 @@ StyledFlickable {
 
                 Layout.fillWidth: true
                 visible: root.currentSubPageKey === modelData.key
-                active: true
+                // Detail pages are intentionally lazy: expensive services
+                // belong to the destination the user opened, not Settings
+                // startup. Leaving the page destroys its page-local model.
+                active: root.currentSubPageKey === modelData.key
                 sourceComponent: modelData.content
 
                 onLoaded: {

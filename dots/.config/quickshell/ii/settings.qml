@@ -105,7 +105,7 @@ ApplicationWindow {
             subtitle: Translation.tr("Defaults, startup, permissions"),
             icon: "apps",
             entries: [
-                { key: "apps-default", name: Translation.tr("Default Apps"), icon: "select_window" },
+                { key: "apps-default-apps", name: Translation.tr("Default Apps"), icon: "select_window" },
                 { key: "apps-startup", name: Translation.tr("Startup Apps"), icon: "rocket_launch" },
                 { key: "apps-installed", name: Translation.tr("Installed Apps"), icon: "deployed_code" },
                 { key: "apps-permissions", name: Translation.tr("App Permissions"), icon: "admin_panel_settings" },
