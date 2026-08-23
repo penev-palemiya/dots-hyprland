@@ -58,6 +58,7 @@ SettingsPage {
         case "desktop-shell-quick-settings": return quickSettingsPage;
         case "desktop-shell-hot-corners": return hotCornersPage;
         case "desktop-shell-shortcuts": return shortcutsPage;
+        case "apps-default-apps": return defaultAppsPage;
         case "connectivity-wifi": return wifiPage;
         case "connectivity-ethernet": return ethernetPage;
         case "connectivity-bluetooth": return bluetoothPage;
@@ -172,6 +173,11 @@ SettingsPage {
     Component {
         id: shortcutsPage
         ShortcutsConfig {}
+    }
+
+    Component {
+        id: defaultAppsPage
+        DefaultAppsConfig {}
     }
 
     Component {
