@@ -1,0 +1,10 @@
+[Unit]
+Description=Illogical Impulse graphical session integration
+Requires=graphical-session.target
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/true
+RemainAfterExit=yes

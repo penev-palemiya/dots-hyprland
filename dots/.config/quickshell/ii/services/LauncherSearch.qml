@@ -63,6 +63,10 @@ Singleton {
 
     property var searchActions: [
         {
+            action: "settings",
+            execute: () => SettingsLauncher.open()
+        },
+        {
             action: "accentcolor",
             execute: args => {
                 Quickshell.execDetached([Directories.wallpaperSwitchScriptPath, "--noswitch", "--shell-only", "--color", ...(args != '' ? [`${args}`] : [])]);

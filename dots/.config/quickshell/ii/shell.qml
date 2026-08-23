@@ -9,6 +9,7 @@
 import "modules/common"
 import "services"
 import "panelFamilies"
+import qs.modules.settings
 
 import QtQuick
 import QtQuick.Window
@@ -19,8 +20,10 @@ import Quickshell.Hyprland
 ShellRoot {
     id: root
 
+
     // Stuff for every panel family
     ReloadPopup {}
+    SettingsHost {}
 
     Component.onCompleted: {
         MaterialThemeLoader.reapplyTheme()
