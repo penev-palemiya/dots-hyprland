@@ -10,6 +10,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Hyprland
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
@@ -22,6 +23,23 @@ ApplicationWindow {
 
     signal closeRequested()
     property string initialRoute: ""
+    // ApplicationWindow exposes a QScreen while WallpaperBackdrop needs the
+    // matching ShellScreen, whose geometry is in the compositor's global
+    // coordinate space. The dedicated tracker updates these only during a
+    // titlebar drag; HyprlandData remains a coarse fallback for external moves.
+    property real settingsGlobalX: root.x
+    property real settingsGlobalY: root.y
+    property real committedSettingsGlobalX: root.x
+    property real committedSettingsGlobalY: root.y
+    property int settingsMonitor: -1
+    readonly property var wallpaperScreen: {
+        return Quickshell.screens.find(screen => Hyprland.monitorFor(screen)?.id === root.settingsMonitor)
+            ?? Quickshell.screens.find(screen => screen.name === root.screen?.name)
+            ?? Quickshell.screens[0]
+            ?? null;
+    }
+    readonly property real wallpaperScreenX: root.settingsGlobalX - (root.wallpaperScreen?.x ?? 0)
+    readonly property real wallpaperScreenY: root.settingsGlobalY - (root.wallpaperScreen?.y ?? 0)
 
     property var pages: [
         {
@@ -208,18 +226,72 @@ ApplicationWindow {
     Component.onCompleted: {
         MaterialThemeLoader.reapplyTheme();
         Config.readWriteDelay = 0; // Settings app always only sets one var at a time so delay isn't needed
+        Qt.callLater(root.syncExternalPosition);
         if (root.initialRoute.length > 0)
             Qt.callLater(() => root.navigateToRoute(root.initialRoute));
+    }
+
+    SettingsWindowPositionTracker {
+        id: positionTracker
+        settingsTitle: root.title
+        onExactPositionUpdated: (globalX, globalY, monitorId) => {
+            root.settingsGlobalX = globalX;
+            root.settingsGlobalY = globalY;
+            root.committedSettingsGlobalX = globalX;
+            root.committedSettingsGlobalY = globalY;
+            root.settingsMonitor = monitorId;
+        }
+        onPredictedPositionUpdated: (globalX, globalY) => {
+            root.settingsGlobalX = globalX;
+            root.settingsGlobalY = globalY;
+        }
+    }
+
+    Connections {
+        target: HyprlandData
+        function onWindowListChanged() {
+            // External compositor/keybind moves retain the existing coarse
+            // refresh path. Never replace a live direct-IPC position mid-drag.
+            if (!positionTracker.tracking && !positionTracker.requestPending)
+                root.syncExternalPosition();
+        }
     }
 
     minimumWidth: 900
     minimumHeight: 600
     width: 1250
     height: 820
-    color: Appearance.m3colors.m3background
+    color: Config.options.appearance.transparency.enable ? "transparent" : Appearance.m3colors.m3background
+
+    // Keep normal windows on the same wallpaper-derived glass material as
+    // layer-shell popups. This is a rendered wallpaper crop, not compositor
+    // transparency, so another application's pixels can never show through.
+    Loader {
+        anchors.fill: parent
+        z: -1
+        active: Config.options.appearance.transparency.enable && root.wallpaperScreen !== null
+        asynchronous: true
+
+        sourceComponent: WallpaperBackdrop {
+            screen: root.wallpaperScreen
+            screenX: root.wallpaperScreenX
+            screenY: root.wallpaperScreenY
+        }
+    }
 
     function goToPage(index) {
         root.currentPage = Math.max(0, Math.min(index, root.pages.length - 1));
+    }
+
+    function syncExternalPosition() {
+        const client = HyprlandData.windowList.find(window => window.title === root.title);
+        if (!client?.at || client.at.length < 2)
+            return;
+        root.settingsGlobalX = client.at[0];
+        root.settingsGlobalY = client.at[1];
+        root.committedSettingsGlobalX = client.at[0];
+        root.committedSettingsGlobalY = client.at[1];
+        root.settingsMonitor = client.monitor ?? -1;
     }
 
     function navigateToRoute(route) {
@@ -319,6 +391,24 @@ ApplicationWindow {
         Item { // Header: title, search, window controls
             Layout.fillWidth: true
             implicitHeight: 78
+
+            MouseArea {
+                anchors {
+                    left: parent.left
+                    right: searchField.left
+                    top: parent.top
+                    bottom: parent.bottom
+                }
+                cursorShape: Qt.SizeAllCursor
+                onPressed: mouse => {
+                    positionTracker.begin(root.committedSettingsGlobalX, root.committedSettingsGlobalY, root.settingsMonitor);
+                    if (!root.startSystemMove())
+                        positionTracker.end();
+                    mouse.accepted = true;
+                }
+                onReleased: positionTracker.end()
+                onCanceled: positionTracker.end()
+            }
 
             StyledText {
                 anchors {
@@ -453,7 +543,9 @@ ApplicationWindow {
             Rectangle { // Content surface
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                color: Appearance.m3colors.m3surfaceContainerLowest
+                color: Config.options.appearance.transparency.enable
+                    ? Appearance.colors.colBackgroundSurfaceContainer
+                    : Appearance.m3colors.m3surfaceContainerLowest
                 radius: Appearance.rounding.windowRounding
                 clip: true
 

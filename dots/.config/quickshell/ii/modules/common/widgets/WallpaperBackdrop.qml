@@ -44,14 +44,32 @@ Item {
     property bool synchronous: false
 
     readonly property rect wallpaperRect: WallpaperGeometry.drawRectFor(root.screen)
+    // Only the wallpaper's own workspace parallax should glide. A surface can
+    // move independently (notably a normal ApplicationWindow being dragged),
+    // and its crop must follow that movement in the same frame.
+    property real animatedWallpaperX: root.wallpaperRect.x
+    property real animatedWallpaperY: root.wallpaperRect.y
+
+    Behavior on animatedWallpaperX {
+        NumberAnimation {
+            duration: WallpaperGeometry.panDuration
+            easing.type: WallpaperGeometry.panEasing
+        }
+    }
+    Behavior on animatedWallpaperY {
+        NumberAnimation {
+            duration: WallpaperGeometry.panDuration
+            easing.type: WallpaperGeometry.panEasing
+        }
+    }
 
     clip: true
 
     Image {
         // Positioned so the wallpaper lands where the desktop draws it, then
         // shifted into this surface's local space.
-        x: root.wallpaperRect.x - root.screenX
-        y: root.wallpaperRect.y - root.screenY
+        x: root.animatedWallpaperX - root.screenX
+        y: root.animatedWallpaperY - root.screenY
         width: root.wallpaperRect.width
         height: root.wallpaperRect.height
         source: WallpaperGeometry.path
@@ -59,20 +77,6 @@ Item {
         cache: true
         asynchronous: !root.synchronous
 
-        // Matches the desktop's own glide, so the glass pans in lockstep with
-        // the wallpaper behind it rather than snapping ahead of it.
-        Behavior on x {
-            NumberAnimation {
-                duration: WallpaperGeometry.panDuration
-                easing.type: WallpaperGeometry.panEasing
-            }
-        }
-        Behavior on y {
-            NumberAnimation {
-                duration: WallpaperGeometry.panDuration
-                easing.type: WallpaperGeometry.panEasing
-            }
-        }
     }
 
     Rectangle {

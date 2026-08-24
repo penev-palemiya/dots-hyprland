@@ -1,6 +1,9 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
+import Qt5Compat.GraphicalEffects
+import Quickshell
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
@@ -27,6 +30,16 @@ Popup {
     height: Math.min(inputMode ? 360 : 500, (Overlay.overlay ? Overlay.overlay.height : 700) - 32)
     padding: 24
     focus: true
+
+    readonly property var hostWindow: Window.window
+    readonly property var wallpaperScreen: root.hostWindow?.wallpaperScreen
+        ?? Quickshell.screens.find(screen => screen.name === root.hostWindow?.screen?.name)
+        ?? Quickshell.screens[0]
+        ?? null
+    readonly property real hostScreenX: root.hostWindow?.wallpaperScreenX
+        ?? (root.hostWindow?.x ?? 0) - (root.wallpaperScreen?.x ?? 0)
+    readonly property real hostScreenY: root.hostWindow?.wallpaperScreenY
+        ?? (root.hostWindow?.y ?? 0) - (root.wallpaperScreen?.y ?? 0)
 
     function hour12() { const value = root.draftHour % 12; return value === 0 ? 12 : value; }
     function period() { return root.draftHour >= 12 ? "PM" : "AM"; }
@@ -67,7 +80,33 @@ Popup {
             root.draftHour = root.format24Hour ? value : (root.period() === "PM" ? (value === 12 ? 12 : value + 12) : (value === 12 ? 0 : value));
     }
 
-    background: Rectangle { radius: Appearance.rounding.verylarge; color: Appearance.colors.colSurfaceContainerHigh; StyledRectangularShadow { target: parent } }
+    background: Rectangle {
+        id: modalBackground
+        radius: Appearance.rounding.verylarge
+        color: Config.options.appearance.transparency.enable
+            ? Appearance.colors.colBackgroundSurfaceContainer
+            : Appearance.colors.colSurfaceContainerHigh
+        clip: true
+        layer.enabled: Config.options.appearance.transparency.enable
+        layer.effect: OpacityMask {
+            maskSource: Rectangle {
+                width: modalBackground.width
+                height: modalBackground.height
+                radius: Math.min(modalBackground.radius, width / 2, height / 2)
+            }
+        }
+        Loader {
+            anchors.fill: parent
+            active: Config.options.appearance.transparency.enable && root.wallpaperScreen !== null
+            asynchronous: true
+            sourceComponent: WallpaperBackdrop {
+                screen: root.wallpaperScreen
+                screenX: root.hostScreenX + root.x
+                screenY: root.hostScreenY + root.y
+            }
+        }
+        StyledRectangularShadow { target: parent }
+    }
 
     component DisplayCell: Button {
         id: displayCell
