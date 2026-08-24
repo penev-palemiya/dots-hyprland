@@ -1780,6 +1780,7 @@ SettingsPage {
             property int editMinute: editingDate.getMinutes()
             property bool datePickerOpen: false
             property bool timePickerOpen: false
+            property bool timezonePickerOpen: false
 
             function syncEditor() {
                 const current = DateTime.clock.date;
@@ -1799,6 +1800,13 @@ SettingsPage {
                     && candidate.getMinutes() === editMinute;
             }
 
+            function timezoneOffsetLabel() {
+                const minutes = -new Date().getTimezoneOffset();
+                const sign = minutes >= 0 ? "+" : "-";
+                const absolute = Math.abs(minutes);
+                return `UTC${sign}${Math.floor(absolute / 60).toString().padStart(2, "0")}:${(absolute % 60).toString().padStart(2, "0")}`;
+            }
+
             function submitEditingDate() {
                 if (!validEditingDate()) {
                     TimeDate.error = Translation.tr("Enter a valid date and time.");
@@ -1816,17 +1824,39 @@ SettingsPage {
             }
 
             SettingsRow {
+                id: dateRow
+                visible: !dateTimeRoot.datePickerOpen && !dateTimeRoot.timePickerOpen && !dateTimeRoot.timezonePickerOpen
                 icon: "calendar_today"
-                title: Translation.tr("Current date")
+                title: Translation.tr("Date")
                 description: Qt.locale().toString(DateTime.clock.date, "dd MMMM yyyy")
                 registerInSearch: false
+                clickable: !TimeDate.ntpEnabled
+                enabled: !TimeDate.ntpEnabled && !TimeDate.operationPending
+                onClicked: dateTimeRoot.datePickerOpen = true
+
+                MaterialSymbol {
+                    text: "chevron_right"
+                    iconSize: Appearance.font.pixelSize.larger
+                    color: Appearance.colors.colOnSurfaceVariant
+                }
             }
 
             SettingsRow {
+                id: timeRow
+                visible: !dateTimeRoot.datePickerOpen && !dateTimeRoot.timePickerOpen && !dateTimeRoot.timezonePickerOpen
                 icon: "schedule"
-                title: Translation.tr("Current time")
+                title: Translation.tr("Time")
                 description: DateTime.time
                 registerInSearch: false
+                clickable: !TimeDate.ntpEnabled
+                enabled: !TimeDate.ntpEnabled && !TimeDate.operationPending
+                onClicked: dateTimeRoot.timePickerOpen = true
+
+                MaterialSymbol {
+                    text: "chevron_right"
+                    iconSize: Appearance.font.pixelSize.larger
+                    color: Appearance.colors.colOnSurfaceVariant
+                }
             }
 
             SettingsRow {
@@ -1852,35 +1882,6 @@ SettingsPage {
                 registerInSearch: false
             }
 
-            SettingsGroup {
-                visible: !TimeDate.ntpEnabled && !dateTimeRoot.datePickerOpen
-                title: Translation.tr("Manual date & time")
-
-                SettingsRow {
-                    icon: "calendar_today"
-                    title: Translation.tr("Date")
-                    description: Qt.locale().toString(dateTimeRoot.editingDate, "dd MMMM yyyy")
-                    clickable: true
-                    onClicked: dateTimeRoot.datePickerOpen = true
-
-                    StyledText {
-                        text: Translation.tr("Choose date")
-                        color: Appearance.colors.colOnSurfaceVariant
-                    }
-                }
-
-                SettingsRow {
-                    visible: !dateTimeRoot.timePickerOpen
-                    icon: "schedule"
-                    title: Translation.tr("Time")
-                    description: Translation.tr("Local time")
-                    clickable: true
-                    onClicked: dateTimeRoot.timePickerOpen = true
-
-                    StyledText { text: DateTime.time; color: Appearance.colors.colOnSurfaceVariant }
-                }
-            }
-
             DatePicker {
                 visible: !TimeDate.ntpEnabled && dateTimeRoot.datePickerOpen
                 enabled: !TimeDate.operationPending
@@ -1890,9 +1891,14 @@ SettingsPage {
                     dateTimeRoot.editYear = value.getFullYear();
                     dateTimeRoot.editMonth = value.getMonth() + 1;
                     dateTimeRoot.editDay = value.getDate();
+                    dateTimeRoot.submitEditingDate();
                     dateTimeRoot.datePickerOpen = false;
+                    Qt.callLater(() => dateRow.forceActiveFocus());
                 }
-                onCanceled: dateTimeRoot.datePickerOpen = false
+                onCanceled: {
+                    dateTimeRoot.datePickerOpen = false;
+                    Qt.callLater(() => dateRow.forceActiveFocus());
+                }
             }
 
             TimePicker {
@@ -1906,30 +1912,49 @@ SettingsPage {
                     dateTimeRoot.editMinute = minute;
                     dateTimeRoot.submitEditingDate();
                     dateTimeRoot.timePickerOpen = false;
+                    Qt.callLater(() => timeRow.forceActiveFocus());
                 }
-                onCanceled: dateTimeRoot.timePickerOpen = false
+                onCanceled: {
+                    dateTimeRoot.timePickerOpen = false;
+                    Qt.callLater(() => timeRow.forceActiveFocus());
+                }
+            }
+
+            TimezonePicker {
+                visible: dateTimeRoot.timezonePickerOpen
+                timezones: TimeDate.availableTimezones
+                currentTimezone: TimeDate.timezone
+                onSelected: value => {
+                    TimeDate.setTimezone(value);
+                    dateTimeRoot.timezonePickerOpen = false;
+                    Qt.callLater(() => timezoneRow.forceActiveFocus());
+                }
+                onCanceled: {
+                    dateTimeRoot.timezonePickerOpen = false;
+                    Qt.callLater(() => timezoneRow.forceActiveFocus());
+                }
             }
 
             SettingsGroup {
+                visible: !dateTimeRoot.timezonePickerOpen
                 title: Translation.tr("Time zone")
 
                 SettingsRow {
-                    icon: "public"
-                    title: Translation.tr("Current time zone")
-                    description: TimeDate.timezone || Translation.tr("Unavailable")
-                    registerInSearch: false
-                }
-
-                SettingsRow {
+                    id: timezoneRow
                     icon: "public"
                     title: Translation.tr("Time zone")
-                    description: Translation.tr("Choose the system time zone.")
+                    description: (TimeDate.timezone || Translation.tr("Unavailable")) + "\n" + dateTimeRoot.timezoneOffsetLabel()
+                    clickable: true
+                    enabled: TimeDate.ready && !TimeDate.operationPending
+                    onClicked: dateTimeRoot.timezonePickerOpen = true
 
-                    SearchableSelection {
-                        currentValue: TimeDate.timezone
-                        options: TimeDate.availableTimezones
-                        placeholder: Translation.tr("Select time zone")
-                        onSelected: value => TimeDate.setTimezone(value)
+                    RowLayout {
+                        spacing: 8
+                        MaterialSymbol {
+                            text: "chevron_right"
+                            iconSize: Appearance.font.pixelSize.larger
+                            color: Appearance.colors.colOnSurfaceVariant
+                        }
                     }
                 }
             }

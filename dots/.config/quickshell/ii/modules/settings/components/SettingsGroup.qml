@@ -20,6 +20,8 @@ ColumnLayout {
 
     StyledText {
         Layout.fillWidth: true
+        Layout.minimumWidth: 1
+        Layout.preferredWidth: 1
         Layout.leftMargin: 4
         visible: root.title.length > 0
         text: root.title

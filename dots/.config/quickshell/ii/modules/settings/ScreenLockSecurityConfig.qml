@@ -7,6 +7,7 @@ SettingsSubPage {
     id: root
 
     SettingsGroup {
+        width: root.width
         title: Translation.tr("Security")
 
         SettingsToggleRow {
@@ -27,6 +28,7 @@ SettingsSubPage {
     }
 
     SettingsGroup {
+        width: root.width
         title: Translation.tr("Status")
 
         SettingsRow {

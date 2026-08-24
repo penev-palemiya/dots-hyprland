@@ -184,6 +184,11 @@ Rectangle {
         ColumnLayout {
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignVCenter
+            // Keep a real text column even when the trailing slot is empty or
+            // its child reports only an implicit size. Without a preferred
+            // width some Qt layout passes can collapse this fill item to 0.
+            Layout.minimumWidth: 1
+            Layout.preferredWidth: 1
             spacing: 2
 
             StyledText {
