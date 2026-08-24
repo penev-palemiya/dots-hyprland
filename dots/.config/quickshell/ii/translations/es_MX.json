@@ -517,5 +517,19 @@
   "Tint app icons": "Colorear iconos de aplicaciones",
   "Weather": "Clima",
   "Font size": "Tamaño de fuente",
-  "Utility buttons": "Botones de utilidad"
+  "Utility buttons": "Botones de utilidad",
+  "Enter time": "Enter time",
+  "Hour": "Hour",
+  "Hours clock": "Hours clock",
+  "Minute": "Minute",
+  "Minutes clock": "Minutes clock",
+  "Next month": "Next month",
+  "Next years": "Next years",
+  "Previous month": "Previous month",
+  "Previous years": "Previous years",
+  "Select date": "Select date",
+  "Select month": "Select month",
+  "Select time": "Select time",
+  "Select year": "Select year",
+  "Use clock mode": "Use clock mode"
 }

@@ -185,5 +185,20 @@
   "Kill conflicting programs?": "Terminare programmi in conflitto?",
   "Conflicts with the shell's notification implementation": "In conflitto con il sistema di notifiche della shell",
   "Conflicts with the shell's system tray implementation": "In conflitto con l'area di notifica della shell",
-  "When enabled keeps the content of the right sidebar loaded to reduce the delay when opening,\nat the cost of around 15MB of consistent RAM usage. Delay significance depends on your system's performance.\nUsing a custom kernel like linux-cachyos might help": "Mantiene il contenuto della barra laterale destra in memoria per ridurne il tempo di apertura,\nrichiede circa 15MB di RAM. Il tempo di apertura dipende dalle performance del tuo sistema.\nUsare un custom kernel come linux-cachyos può migliorare la velocità"
+  "When enabled keeps the content of the right sidebar loaded to reduce the delay when opening,\nat the cost of around 15MB of consistent RAM usage. Delay significance depends on your system's performance.\nUsing a custom kernel like linux-cachyos might help": "Mantiene il contenuto della barra laterale destra in memoria per ridurne il tempo di apertura,\nrichiede circa 15MB di RAM. Il tempo di apertura dipende dalle performance del tuo sistema.\nUsare un custom kernel come linux-cachyos può migliorare la velocità",
+  "Enter time": "Enter time",
+  "Hour": "Hour",
+  "Hours clock": "Hours clock",
+  "Minute": "Minute",
+  "Minutes clock": "Minutes clock",
+  "Next month": "Next month",
+  "Next years": "Next years",
+  "OK": "OK",
+  "Previous month": "Previous month",
+  "Previous years": "Previous years",
+  "Select date": "Select date",
+  "Select month": "Select month",
+  "Select time": "Select time",
+  "Select year": "Select year",
+  "Use clock mode": "Use clock mode"
 }

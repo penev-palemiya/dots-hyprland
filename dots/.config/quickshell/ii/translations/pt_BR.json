@@ -504,5 +504,19 @@
   "Tint app icons": "Colorir ícones de app",
   "Color picker": "Seletor de cores",
   "Night Light | Right-click to toggle Auto mode": "Luz Noturna | Botão direito para alternar modo Auto",
-  "Inactive": "Inativo"
+  "Inactive": "Inativo",
+  "Enter time": "Enter time",
+  "Hour": "Hour",
+  "Hours clock": "Hours clock",
+  "Minute": "Minute",
+  "Minutes clock": "Minutes clock",
+  "Next month": "Next month",
+  "Next years": "Next years",
+  "Previous month": "Previous month",
+  "Previous years": "Previous years",
+  "Select date": "Select date",
+  "Select month": "Select month",
+  "Select time": "Select time",
+  "Select year": "Select year",
+  "Use clock mode": "Use clock mode"
 }

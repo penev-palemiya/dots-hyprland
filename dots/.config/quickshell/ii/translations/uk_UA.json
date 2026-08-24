@@ -742,5 +742,19 @@
   "Disconnecting…": "Відключення…",
   "%1 nearby": "%1 поруч",
   "%1 connected": "Підключено: %1",
-  "Nothing connected": "Нічого не підключено"
+  "Nothing connected": "Нічого не підключено",
+  "Enter time": "Ввести час",
+  "Hour": "Година",
+  "Hours clock": "Годинний циферблат",
+  "Minute": "Хвилина",
+  "Minutes clock": "Хвилинний циферблат",
+  "Next month": "Наступний місяць",
+  "Next years": "Наступні роки",
+  "Previous month": "Попередній місяць",
+  "Previous years": "Попередні роки",
+  "Select date": "Вибрати дату",
+  "Select month": "Вибрати місяць",
+  "Select time": "Вибрати час",
+  "Select year": "Вибрати рік",
+  "Use clock mode": "Використати режим годинника"
 }
