@@ -139,7 +139,21 @@ hl.layer_rule({ match = { namespace = "osk[0-9]*" }, ignore_alpha = 0.6})
 -- Quickshell: illogical-impulse
 hl.layer_rule({ match = { namespace = "quickshell:.*" }, blur_popups = true})
 hl.layer_rule({ match = { namespace = "quickshell:.*" }, blur = true})
-hl.layer_rule({ match = { namespace = "quickshell:.*" }, ignore_alpha = 0.79})
+-- The threshold means "do not blur pixels less opaque than this".
+--
+-- 0.79 was the old value, and it was picked to sit just ABOVE these surfaces'
+-- own alpha: transparentize() leaves them at 1 - backgroundTransparency, and
+-- that is clamped to a maximum of 0.22, so the glass is never less opaque than
+-- 0.78. At 0.79 the compositor skipped them entirely, which is what the shell
+-- wanted while it painted its own wallpaper crop.
+--
+-- It must now be below 0.78 so the glass does get blurred - but not far below:
+-- each popup carries a soft drop shadow in its elevation margin, and once the
+-- threshold drops under that shadow's alpha the compositor blurs the shadow
+-- band too, which reads as a bright halo tracing the popup's outline.
+-- 0.6 clears the glass and leaves the shadow alone, and matches what the bar,
+-- dock and overview already use.
+hl.layer_rule({ match = { namespace = "quickshell:.*" }, ignore_alpha = 0.6})
 hl.layer_rule({ match = { namespace = "quickshell:bar" }, animation = "slide"})
 hl.layer_rule({ match = { namespace = "quickshell:actionCenter" }, no_anim = true})
 hl.layer_rule({ match = { namespace = "quickshell:cheatsheet" }, animation = "slide bottom"})
@@ -152,9 +166,12 @@ hl.layer_rule({ match = { namespace = "quickshell:overlay" }, ignore_alpha = 1})
 hl.layer_rule({ match = { namespace = "quickshell:overview" }, no_anim = true})
 hl.layer_rule({ match = { namespace = "quickshell:osk" }, animation = "slide bottom"})
 hl.layer_rule({ match = { namespace = "quickshell:polkit" }, no_anim = true})
-hl.layer_rule({ match = { namespace = "quickshell:popup" }, xray = false}) -- No weird color for bar tooltips (this in theory should suffice)
-hl.layer_rule({ match = { namespace = "quickshell:popup" }, ignore_alpha = 1}) -- No weird color for bar tooltips (but somehow this is necessary)
-hl.layer_rule({ match = { namespace = "quickshell:mediaControls" }, ignore_alpha = 1}) -- Same as above
+-- These two namespaces used to opt OUT of blur entirely: ignore_alpha = 1 skips
+-- every pixel, and xray = false would have sampled the windows behind. Both
+-- existed because the surfaces painted their own wallpaper crop, and blurring
+-- that again gave "weird colour". They are now genuinely translucent and this
+-- blur is what fills them in, so the opt-outs have to go - and xray must stay
+-- on, or a popup would show whatever app happens to be underneath it.
 hl.layer_rule({ match = { namespace = "quickshell:reloadPopup" }, animation = "slide"})
 hl.layer_rule({ match = { namespace = "quickshell:regionSelector" }, no_anim = true})
 hl.layer_rule({ match = { namespace = "quickshell:screenshot" }, no_anim = true})

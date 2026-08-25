@@ -117,6 +117,19 @@ Singleton {
         // Layer 0
         property color colLayer0Base: ColorUtils.mix(m3colors.m3background, m3colors.m3primary, Config.options.appearance.extraBackgroundTint ? 0.99 : 1)
         property color colLayer0: ColorUtils.transparentize(colLayer0Base, root.backgroundTransparency)
+
+        // The tint laid over compositor-blurred glass. THE one definition of
+        // it: the material has to read the same on every translucent surface,
+        // and it used to be written out by hand inside WallpaperBackdrop.
+        //
+        // Its job is legibility, not decoration. Blur alone does not bound
+        // luminance - blurred bright wallpaper is still bright - so text over
+        // bare glass becomes unreadable wherever the picture happens to be
+        // light. A dark base at ~89% opacity lets roughly a tenth of the
+        // wallpaper through: enough to read as glass, never enough to lose the
+        // text on top. Lower the divisor to let more wallpaper through, raise
+        // it for more contrast.
+        property color colGlassTint: ColorUtils.transparentize(colLayer0Base, root.backgroundTransparency / 2)
         property color colOnLayer0: m3colors.m3onBackground
         property color colLayer0Hover: ColorUtils.transparentize(ColorUtils.mix(colLayer0, colOnLayer0, 0.9, root.contentTransparency))
         property color colLayer0Active: ColorUtils.transparentize(ColorUtils.mix(colLayer0, colOnLayer0, 0.8, root.contentTransparency))

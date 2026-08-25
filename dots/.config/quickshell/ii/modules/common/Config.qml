@@ -95,6 +95,20 @@ Singleton {
                 property JsonObject transparency: JsonObject {
                     property bool enable: false
                     property bool automatic: true
+                    // Let the compositor blur translucent surfaces instead of
+                    // each one drawing its own crop of the wallpaper.
+                    //
+                    // The compositor knows where every surface is at the moment
+                    // it composites, so the glass is registered by construction
+                    // - including while a window is being dragged, which a
+                    // client can never get right because it does not know its
+                    // own position when it renders a frame.
+                    //
+                    // Needs Hyprland's decoration:blur enabled, blur:xray on so
+                    // only the wallpaper is sampled, and the layer rules in
+                    // hypr/hyprland/rules.lua that allow blur for these
+                    // surfaces. Turn off to fall back to WallpaperBackdrop.
+                    property bool compositorBlur: true
                     property real backgroundTransparency: 0.11
                     property real contentTransparency: 0.57
                 }

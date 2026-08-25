@@ -27,7 +27,13 @@ dir=${2:-}
 # is indistinguishable from full size and a fraction of the bytes.
 BLUR_SCALE="25%"
 BLUR_SIGMA="0x20"
-PARAMS="v1:${BLUR_SCALE}:${BLUR_SIGMA}"
+# Heavy blur flattens the picture into gradients so gradual that 8 bits per
+# channel cannot represent them: the result quantises into wide flat bands,
+# which upscaling to screen size then makes ~20px wide and plainly visible.
+# A trace of noise dithers those bands away. 16-bit output measures better but
+# does not help - the texture is converted back to 8 bits on upload anyway.
+BLUR_DITHER="0.015"
+PARAMS="v2:${BLUR_SCALE}:${BLUR_SIGMA}:${BLUR_DITHER}"
 
 mkdir -p "$dir" || exit 1
 
@@ -69,7 +75,8 @@ esac
 copy="$dir/source.$ext"
 
 cp -- "$src" "$copy" || exit 1
-if ! magick "$copy" -resize "$BLUR_SCALE" -blur "$BLUR_SIGMA" -strip "$dir/blur.png"; then
+if ! magick "$copy" -resize "$BLUR_SCALE" -blur "$BLUR_SIGMA" \
+        -attenuate "$BLUR_DITHER" +noise Gaussian -strip "$dir/blur.png"; then
     # Keep the copy even if blurring failed: the resilience half still works,
     # and callers fall back to blurring live.
     rm -f "$dir/blur.png"

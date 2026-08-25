@@ -276,7 +276,21 @@ ApplicationWindow {
     minimumHeight: 600
     width: 1250
     height: 820
-    color: Config.options.appearance.transparency.enable ? "transparent" : Appearance.m3colors.m3background
+    // The tint that guarantees legibility, not decoration. It used to live
+    // inside WallpaperBackdrop and covered the whole window; when the backdrop
+    // was replaced by compositor blur it went with it, and the sidebar and
+    // header - which have no surface of their own - were left as bare glass.
+    // Over a dark stretch of wallpaper that looked fine; over a bright one the
+    // labels became unreadable.
+    //
+    // Same recipe as the old backdrop used, so the material is unchanged: a
+    // dark base at roughly 89% opacity, letting about a tenth of the blurred
+    // wallpaper through. Enough to read as glass, never enough to lose text.
+    color: !Config.options.appearance.transparency.enable
+        ? Appearance.m3colors.m3background
+        : Config.options.appearance.transparency.compositorBlur
+            ? Appearance.colors.colGlassTint
+            : "transparent"
 
     // Keep normal windows on the same wallpaper-derived glass material as
     // layer-shell popups. This is a rendered wallpaper crop, not compositor

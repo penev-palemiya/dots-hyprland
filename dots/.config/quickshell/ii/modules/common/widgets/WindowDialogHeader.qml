@@ -48,7 +48,7 @@ RowLayout {
             Layout.fillWidth: true
             visible: text.length > 0
             text: root.subtitle
-            color: Appearance.colors.colOutline
+            color: Appearance.colors.colOnSurfaceVariant
             elide: Text.ElideRight
             font.pixelSize: Appearance.font.pixelSize.smaller
         }

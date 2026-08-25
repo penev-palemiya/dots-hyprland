@@ -42,6 +42,8 @@ LazyLoader {
     property real popupBackgroundMargin: 0
     property bool shown: false
 
+    readonly property bool useCompositorBlur: Config.options.appearance.transparency.compositorBlur
+
     // Opt-in staggered content reveal. When false (the default) the content
     // fades in as one block, which is all a small popup needs.
     property bool staggerContent: false
@@ -285,7 +287,9 @@ LazyLoader {
                 // In transparent mode the masked backdrop below is the one
                 // surface. Keeping a second opaque Rectangle underneath it
                 // makes two anti-aliased radii blend at the edge.
-                color: Config.options.appearance.transparency.enable ? "transparent" : Appearance.m3colors.m3surfaceContainer
+                color: !Config.options.appearance.transparency.enable
+                    ? Appearance.m3colors.m3surfaceContainer
+                    : (root.useCompositorBlur ? Appearance.colors.colGlassTint : "transparent")
                 radius: Appearance.rounding.small
                 // The content is full-size from the start; the surface growing
                 // over it is what reveals it. Rounded corners stay correct
@@ -309,7 +313,7 @@ LazyLoader {
                 // the island's own version of the same idea.
                 Loader {
                     anchors.fill: parent
-                    active: Config.options.appearance.transparency.enable
+                    active: Config.options.appearance.transparency.enable && !root.useCompositorBlur
                     asynchronous: true
 
                     // Keep final dimensions while popupBackground grows; its

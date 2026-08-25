@@ -228,7 +228,7 @@ WindowDialog {
                 opacity: root.sectionOpacity(2)
                 visible: root.connectedDevices.length === 0 && root.savedDevices.length === 0 && root.nearbyDevices.length === 0
                 text: root.discovering ? Translation.tr("Scanning…") : Translation.tr("No devices found")
-                color: Appearance.colors.colOutline
+                color: Appearance.colors.colOnSurfaceVariant
                 font.pixelSize: Appearance.font.pixelSize.smaller
             }
         }

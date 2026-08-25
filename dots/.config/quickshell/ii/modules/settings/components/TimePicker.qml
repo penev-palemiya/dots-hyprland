@@ -1,9 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Window
-import Qt5Compat.GraphicalEffects
-import Quickshell
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
@@ -31,15 +28,6 @@ Popup {
     padding: 24
     focus: true
 
-    readonly property var hostWindow: Window.window
-    readonly property var wallpaperScreen: root.hostWindow?.wallpaperScreen
-        ?? Quickshell.screens.find(screen => screen.name === root.hostWindow?.screen?.name)
-        ?? Quickshell.screens[0]
-        ?? null
-    readonly property real hostScreenX: root.hostWindow?.wallpaperScreenX
-        ?? (root.hostWindow?.x ?? 0) - (root.wallpaperScreen?.x ?? 0)
-    readonly property real hostScreenY: root.hostWindow?.wallpaperScreenY
-        ?? (root.hostWindow?.y ?? 0) - (root.wallpaperScreen?.y ?? 0)
 
     function hour12() { const value = root.draftHour % 12; return value === 0 ? 12 : value; }
     function period() { return root.draftHour >= 12 ? "PM" : "AM"; }
@@ -81,30 +69,15 @@ Popup {
     }
 
     background: Rectangle {
-        id: modalBackground
         radius: Appearance.rounding.verylarge
-        color: Config.options.appearance.transparency.enable
-            ? Appearance.colors.colBackgroundSurfaceContainer
-            : Appearance.colors.colSurfaceContainerHigh
-        clip: true
-        layer.enabled: Config.options.appearance.transparency.enable
-        layer.effect: OpacityMask {
-            maskSource: Rectangle {
-                width: modalBackground.width
-                height: modalBackground.height
-                radius: Math.min(modalBackground.radius, width / 2, height / 2)
-            }
-        }
-        Loader {
-            anchors.fill: parent
-            active: Config.options.appearance.transparency.enable && root.wallpaperScreen !== null
-            asynchronous: true
-            sourceComponent: WallpaperBackdrop {
-                screen: root.wallpaperScreen
-                screenX: root.hostScreenX + root.x
-                screenY: root.hostScreenY + root.y
-            }
-        }
+        // A modal dialog inside an already-blurred window is a plain surface,
+        // not a second sheet of glass. The compositor blurs what is behind the
+        // *window*; this sits on top of the window's own content, so imitating
+        // wallpaper glass here meant hand-cropping the wallpaper and tracking
+        // the host window's position to keep the crop aligned - which is late
+        // by construction and went stale the moment that tracking was removed.
+        // Opaque is also what M3 and the ChromeOS reference specify for dialogs.
+        color: Appearance.m3colors.m3surfaceContainerHigh
         StyledRectangularShadow { target: parent }
     }
 

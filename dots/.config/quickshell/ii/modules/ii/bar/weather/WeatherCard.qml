@@ -12,7 +12,7 @@ Rectangle {
     topRightRadius: root.corners ? root.corners.topRight : root.radius
     bottomLeftRadius: root.corners ? root.corners.bottomLeft : root.radius
     bottomRightRadius: root.corners ? root.corners.bottomRight : root.radius
-    color: Appearance.colors.colSurfaceContainerHigh
+    color: Appearance.colors.colSurfaceContainerHighest
     
     Layout.fillWidth: true
     implicitWidth: mainRow.implicitWidth + 32
@@ -79,7 +79,7 @@ Rectangle {
                     pixelSize: Appearance.font.pixelSize.smaller * 0.92
                     weight: Font.Normal
                 }
-                color: Appearance.colors.colOutline
+                color: Appearance.colors.colOnSurfaceVariant
                 elide: Text.ElideRight
             }
 

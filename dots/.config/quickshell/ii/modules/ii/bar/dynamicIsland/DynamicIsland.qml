@@ -217,8 +217,18 @@ Item {
         topRightRadius: Appearance.rounding.small
         bottomLeftRadius: root.mergedWithOverlay ? 0 : Appearance.rounding.small
         bottomRightRadius: root.mergedWithOverlay ? 0 : Appearance.rounding.small
-        color: (Config.options.appearance.transparency.enable && root.mergedWithOverlay) ? "transparent" : root.mergedWithOverlay ? root.expandedSurfaceColor : root.pillSurfaceColor
+        // With compositor blur the surface stays genuinely translucent and
+        // Hyprland fills it in; without it, "transparent" means the backdrop
+        // Loader below is the visible surface.
+        color: {
+            if (!Config.options.appearance.transparency.enable || !root.mergedWithOverlay)
+                return root.mergedWithOverlay ? root.expandedSurfaceColor : root.pillSurfaceColor;
+            return Config.options.appearance.transparency.compositorBlur
+                ? Appearance.colors.colGlassTint
+                : "transparent";
+        }
         layer.enabled: Config.options.appearance.transparency.enable && root.mergedWithOverlay
+            && !Config.options.appearance.transparency.compositorBlur
         layer.effect: OpacityMask {
             maskSource: Rectangle {
                 width: pillBackground.width
@@ -257,6 +267,7 @@ Item {
             // finished wallpaper+tint material. That is the "two different
             // materials" seam. Visibility, not existence, is what toggles.
             active: Config.options.appearance.transparency.enable
+                && !Config.options.appearance.transparency.compositorBlur
             // Not asynchronous: an item that appears after the pill's layer
             // texture has been rendered never gets into it (see the Image's
             // own comment in WallpaperBackdrop.qml).

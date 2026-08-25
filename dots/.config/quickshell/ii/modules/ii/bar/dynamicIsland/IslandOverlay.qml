@@ -141,7 +141,10 @@ LazyLoader {
             // Flattened in DynamicIsland from "pill over bar background" into
             // the single color this separate surface must paint to match the
             // inline pill visually.
-            color: Config.options.appearance.transparency.enable ? "transparent" : root.surfaceColor
+            color: !Config.options.appearance.transparency.enable ? root.surfaceColor
+                : Config.options.appearance.transparency.compositorBlur
+                    ? Appearance.colors.colGlassTint
+                    : "transparent"
             // Flat against the pill above (see class comment) — only the
             // bottom corners round, matching the pill's own shape while merged.
             topLeftRadius: 0
@@ -204,6 +207,7 @@ LazyLoader {
                 }
                 height: contentLoader.implicitHeight + overlayBackground.contentPadding * 2
                 active: Config.options.appearance.transparency.enable
+                    && !Config.options.appearance.transparency.compositorBlur
                 asynchronous: true
 
                 sourceComponent: WallpaperBackdrop {

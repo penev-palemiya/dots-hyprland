@@ -64,7 +64,7 @@ Rectangle {
                         pixelSize: Appearance.font.pixelSize.smaller
                         weight: Font.Normal
                     }
-                    color: Appearance.colors.colOutline
+                    color: Appearance.colors.colOnSurfaceVariant
                     elide: Text.ElideRight
                 }
 
@@ -92,7 +92,7 @@ Rectangle {
                         pixelSize: Appearance.font.pixelSize.smaller
                         weight: Font.Normal
                     }
-                    color: Appearance.colors.colOutline
+                    color: Appearance.colors.colOnSurfaceVariant
                     elide: Text.ElideRight
                 }
 
@@ -104,7 +104,7 @@ Rectangle {
                         pixelSize: Appearance.font.pixelSize.smaller
                         weight: Font.Normal
                     }
-                    color: Appearance.colors.colOutline
+                    color: Appearance.colors.colOnSurfaceVariant
                     elide: Text.ElideRight
                 }
             }

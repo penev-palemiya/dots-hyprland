@@ -31,7 +31,7 @@ StyledPopup {
                 Layout.fillWidth: true
                 implicitHeight: heroContent.implicitHeight + 24
                 radius: Appearance.rounding.small
-                color: Appearance.colors.colSurfaceContainerHigh
+                color: Appearance.colors.colSurfaceContainerHighest
                 opacity: root.sectionOpacity(0)
                 transform: Translate { y: root.sectionOffset(0) }
 
@@ -58,7 +58,7 @@ StyledPopup {
                                 weight: Font.Normal
                                 pixelSize: Appearance.font.pixelSize.smaller
                             }
-                            color: Appearance.colors.colOutline
+                            color: Appearance.colors.colOnSurfaceVariant
                             elide: Text.ElideRight
                         }
 
@@ -80,7 +80,7 @@ StyledPopup {
                                 weight: Font.Normal
                                 pixelSize: Appearance.font.pixelSize.smaller
                             }
-                            color: Appearance.colors.colOutline
+                            color: Appearance.colors.colOnSurfaceVariant
                             elide: Text.ElideRight
                         }
                     }
@@ -113,7 +113,7 @@ StyledPopup {
                 Layout.fillWidth: true
                 implicitHeight: 72
                 radius: Appearance.rounding.small
-                color: Appearance.colors.colSurfaceContainerHigh
+                color: Appearance.colors.colSurfaceContainerHighest
                 opacity: root.sectionOpacity(1)
                 transform: Translate { y: root.sectionOffset(1) }
 
@@ -147,7 +147,7 @@ StyledPopup {
                                     horizontalAlignment: Text.AlignHCenter
                                     text: parent.parent.modelData.time
                                     font.pixelSize: Appearance.font.pixelSize.smaller * 0.92
-                                    color: Appearance.colors.colOutline
+                                    color: Appearance.colors.colOnSurfaceVariant
                                     elide: Text.ElideRight
                                 }
 
@@ -275,7 +275,7 @@ StyledPopup {
                     weight: Font.Normal
                     pixelSize: Appearance.font.pixelSize.smaller
                 }
-                color: Appearance.colors.colOutline
+                color: Appearance.colors.colOnSurfaceVariant
             }
         }
     }
