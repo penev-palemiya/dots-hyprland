@@ -78,17 +78,28 @@ SettingsSubPage {
         return role.description;
     }
 
-    function entrySupports(entry, role) {
-        if (!entry || entry.hidden || entry.noDisplay) return false;
-        const supported = entry.supportedMimeTypes || [];
-        return role.mimes.every(mime => supported.includes(mime));
+    // Quickshell's DesktopEntry exposes no MIME information - there is no
+    // supportedMimeTypes property on it, so reading one silently yielded
+    // undefined, every() over an empty list was false for every application,
+    // and the picker was permanently empty. The mapping comes from the XDG
+    // index instead, via the mime_associations helper.
+    // Counted within the role, not across every role at once: candidates are
+    // fetched for all roles in one go, so a browser that opens both images and
+    // video would otherwise outrank a dedicated viewer everywhere.
+    function coverageFor(entry, role) {
+        if (!entry || entry.noDisplay || !role) return 0;
+        const handled = MimeAssociations.candidates[entry.id] || [];
+        return role.mimes.filter(mime => handled.includes(mime)).length;
     }
 
     function candidatesFor(role) {
         if (!role) return [];
         const entries = DesktopEntries.applications.values || [];
         const state = root.roleState(role);
-        const candidates = entries.filter(entry => root.entrySupports(entry, role));
+        // Anything that handles at least one of the role's types is a
+        // candidate; requiring all of them would exclude every real image
+        // viewer, since almost none declares the full set.
+        const candidates = entries.filter(entry => root.coverageFor(entry, role) > 0);
         const current = state.desktopId ? root.entryFor(state.desktopId) : null;
         if (current && !current.hidden && !current.noDisplay && !candidates.some(entry => entry.id === current.id))
             candidates.push(current);
@@ -98,6 +109,10 @@ SettingsSubPage {
             const aCurrent = a.id === state.desktopId;
             const bCurrent = b.id === state.desktopId;
             if (aCurrent !== bCurrent) return aCurrent ? -1 : 1;
+            // Then by how much of the role each one actually covers, so a
+            // dedicated viewer outranks a browser that merely opens PNGs.
+            const coverage = root.coverageFor(b, role) - root.coverageFor(a, role);
+            if (coverage !== 0) return coverage;
             return String(a.name || a.id).localeCompare(String(b.name || b.id));
         });
     }

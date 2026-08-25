@@ -18,6 +18,12 @@ Singleton {
     property bool ready: false
     property string error: ""
     property int revision: 0
+    // {desktopId: [mimes it declares]} for the last set of mimes asked about.
+    // Quickshell's DesktopEntry carries no MIME information, so this cannot be
+    // derived in QML - it has to come from the XDG index.
+    property var candidates: ({})
+    property bool candidatesLoading: false
+    property list<string> lastCandidateMimes: []
     property list<string> lastMimes: []
 
     signal refreshed(bool success)
@@ -39,6 +45,40 @@ Singleton {
 
     function refresh(mimes, force = false) {
         root.query(mimes, force);
+        root.queryCandidates(mimes, force);
+    }
+
+    function queryCandidates(mimes, force = false) {
+        if (root.candidatesLoading || !mimes || mimes.length === 0)
+            return;
+        if (!force && root.lastCandidateMimes.length === mimes.length
+            && root.lastCandidateMimes.every((mime, index) => mime === mimes[index]))
+            return;
+        root.candidatesLoading = true;
+        root.lastCandidateMimes = mimes;
+        candidatesProc.command = ["python3", root.helperPath, "candidates", ...mimes];
+        candidatesProc.running = true;
+    }
+
+    Process {
+        id: candidatesProc
+        stdout: StdioCollector {
+            id: candidatesCollector
+            onStreamFinished: {
+                try {
+                    root.candidates = JSON.parse(candidatesCollector.text);
+                } catch (error) {
+                    root.candidates = ({});
+                }
+                root.candidatesLoading = false;
+            }
+        }
+        onExited: exitCode => {
+            if (exitCode !== 0) {
+                root.candidates = ({});
+                root.candidatesLoading = false;
+            }
+        }
     }
 
     function apply(desktopId, mimes) {

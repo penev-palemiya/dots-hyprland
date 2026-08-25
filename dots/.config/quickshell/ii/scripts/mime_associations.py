@@ -94,6 +94,48 @@ def apply(desktop_id: str, mimes: list[str]) -> None:
         print(json.dumps({"ok": False, "error": str(error), "rolledBack": True}))
 
 
+def candidates(mimes: list[str]) -> None:
+    """Which applications declare support for each of these MIME types.
+
+    Quickshell's DesktopEntry exposes no MIME information at all, so this cannot
+    be answered in QML - filtering DesktopEntries on a supportedMimeTypes
+    property silently matched nothing, which is why the picker came up empty.
+
+    Read from mimeinfo.cache rather than parsing `gio mime` output: it is the
+    same index gio itself consults, and unlike gio's human-readable output it
+    is neither localised nor liable to reformatting.
+
+    Emits {desktopId: [mimes it handles]} so the caller can rank an application
+    by how much of the role it actually covers.
+    """
+    dirs = [Path(d) / "applications" for d in (
+        os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local" / "share")),
+        *os.environ.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share").split(":"),
+    ) if d]
+
+    wanted = set(mimes)
+    found: dict[str, set[str]] = {}
+    for directory in dirs:
+        cache = directory / "mimeinfo.cache"
+        if not cache.is_file():
+            continue
+        try:
+            lines = cache.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            mime, sep, ids = line.partition("=")
+            if not sep or mime not in wanted:
+                continue
+            for desktop_id in ids.split(";"):
+                desktop_id = desktop_id.strip()
+                if desktop_id:
+                    found.setdefault(desktop_id, set()).add(mime)
+
+    print(json.dumps(
+        {k: sorted(v) for k, v in sorted(found.items())}, separators=(",", ":")))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -102,9 +144,13 @@ def main() -> int:
     apply_parser = subparsers.add_parser("apply")
     apply_parser.add_argument("desktop_id")
     apply_parser.add_argument("mimes", nargs="+")
+    candidates_parser = subparsers.add_parser("candidates")
+    candidates_parser.add_argument("mimes", nargs="+")
     args = parser.parse_args()
     if args.command == "query":
         query(args.mimes)
+    elif args.command == "candidates":
+        candidates(args.mimes)
     else:
         apply(args.desktop_id, args.mimes)
     return 0

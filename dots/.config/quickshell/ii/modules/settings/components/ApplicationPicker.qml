@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Controls
 import Quickshell
 import qs.services
 import qs.modules.common
@@ -40,40 +39,60 @@ ColumnLayout {
             return list.filter(app => `${root.displayName(app)} ${root.idOf(app)} ${app && app.description || ""}`.toLowerCase().includes(needle));
     }
 
+    // Deliberately smaller than the page title above it. This is a state
+    // within the page, not a second page, and rendering it at page-title size
+    // made two competing headers. Properly it should replace the page's own
+    // header - that needs the nested-navigation mechanism described in
+    // docs/design/settings-app.md, which does not exist yet.
     RowLayout {
         Layout.fillWidth: true
+        Layout.bottomMargin: 4
         spacing: 8
 
-        ToolButton {
-            display: AbstractButton.IconOnly
+        RippleButton {
+            implicitWidth: 36
+            implicitHeight: 36
+            buttonRadius: Appearance.rounding.full
             Accessible.name: Translation.tr("Back")
+            colBackground: "transparent"
+            colBackgroundHover: Appearance.colors.colSurfaceContainerHighestHover
+            colRipple: Appearance.colors.colSurfaceContainerHighestActive
             onClicked: root.canceled()
-            contentItem: MaterialSymbol { text: "arrow_back"; iconSize: Appearance.font.pixelSize.larger; color: Appearance.colors.colOnSurface }
+            contentItem: MaterialSymbol {
+                text: "arrow_back"
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                iconSize: Appearance.font.pixelSize.larger
+                color: Appearance.colors.colOnSurface
+            }
         }
         StyledText {
             Layout.fillWidth: true
             text: root.title
-            font.pixelSize: Appearance.font.pixelSize.title
+            font.pixelSize: Appearance.font.pixelSize.large
+            font.weight: Font.Medium
             color: Appearance.colors.colOnSurface
+            elide: Text.ElideRight
         }
     }
 
-    MaterialTextField {
+    SettingsSearchField {
         id: searchField
         Layout.fillWidth: true
         placeholderText: root.searchPlaceholder
         text: root.query
-        Accessible.name: root.searchPlaceholder
         onTextChanged: root.query = text
-        Keys.onEscapePressed: root.canceled()
+        onEscaped: root.canceled()
     }
 
     StyledListView {
         id: list
+        readonly property bool hasRows: root.filteredApplications().length > 0
+        visible: hasRows
         Layout.fillWidth: true
-        Layout.fillHeight: true
-        Layout.minimumHeight: 240
-        implicitHeight: Math.min(contentHeight, 420)
+        Layout.fillHeight: hasRows
+        Layout.preferredHeight: hasRows ? Math.min(contentHeight, 420) : 0
+        spacing: 4
         clip: true
         focus: false
         activeFocusOnTab: true
