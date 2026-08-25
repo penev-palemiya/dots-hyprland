@@ -12,22 +12,29 @@ SettingsSubPage {
     property real scrollFactorDraft: PointerSettings.touchpadScrollFactor
     property bool sensitivityPending: false
     property bool scrollFactorPending: false
+    property bool sensitivityDragging: false
+    property bool scrollFactorDragging: false
 
-    function scheduleSensitivity() { sensitivityPending = true; sensitivityTimer.restart(); }
-    function scheduleScrollFactor() { scrollFactorPending = true; scrollFactorTimer.restart(); }
-
-    Timer {
-        id: sensitivityTimer
-        interval: 300
-        onTriggered: {
+    // Dragging only edits a local draft. Commit once on release, not after a
+    // brief pause mid-drag. Keyboard steps have no pressed state, so they are
+    // committed immediately from onMoved below.
+    function commitSensitivity() {
+        root.sensitivityPending = true;
+        root.flushPendingChanges();
+    }
+    function commitScrollFactor() {
+        root.scrollFactorPending = true;
+        root.flushPendingChanges();
+    }
+    function flushPendingChanges() {
+        if (PointerSettings.applying)
+            return;
+        if (root.sensitivityPending) {
             root.sensitivityPending = false;
             PointerSettings.applyField("sensitivity", Math.round(root.sensitivityDraft * 20) / 20);
+            return;
         }
-    }
-    Timer {
-        id: scrollFactorTimer
-        interval: 300
-        onTriggered: {
+        if (root.scrollFactorPending) {
             root.scrollFactorPending = false;
             PointerSettings.applyField("touchpad_scroll_factor", Math.round(root.scrollFactorDraft * 20) / 20);
         }
@@ -38,6 +45,10 @@ SettingsSubPage {
         function onStateChanged() {
             if (!root.sensitivityPending) root.sensitivityDraft = PointerSettings.sensitivity;
             if (!root.scrollFactorPending) root.scrollFactorDraft = PointerSettings.touchpadScrollFactor;
+        }
+        function onApplyingChanged() {
+            if (!PointerSettings.applying)
+                root.flushPendingChanges();
         }
     }
 
@@ -53,15 +64,26 @@ SettingsSubPage {
                 width: 300
                 StyledSlider {
                     Layout.fillWidth: true
-                    enabled: PointerSettings.ready && !PointerSettings.applying
+                    // Disabling a focused Slider clears its focus. Writes are
+                    // committed below, so keep it usable while they complete.
+                    enabled: PointerSettings.ready
                     from: -1
                     to: 1
                     stepSize: 0.05
                     value: root.sensitivityDraft
                     usePercentTooltip: false
+                    tooltipDecimalPlaces: 2
                     onMoved: {
                         root.sensitivityDraft = Math.max(-1, Math.min(1, Math.round(value * 20) / 20));
-                        root.scheduleSensitivity();
+                        if (!pressed) root.commitSensitivity();
+                    }
+                    onPressedChanged: {
+                        if (pressed)
+                            root.sensitivityDragging = true;
+                        else if (root.sensitivityDragging) {
+                            root.sensitivityDragging = false;
+                            root.commitSensitivity();
+                        }
                     }
                 }
             }
@@ -150,15 +172,24 @@ SettingsSubPage {
                 width: 300
                 StyledSlider {
                     Layout.fillWidth: true
-                    enabled: PointerSettings.ready && !PointerSettings.applying
+                    enabled: PointerSettings.ready
                     from: 0.2
                     to: 2
                     stepSize: 0.05
                     value: root.scrollFactorDraft
                     usePercentTooltip: false
+                    tooltipDecimalPlaces: 2
                     onMoved: {
                         root.scrollFactorDraft = Math.max(0.2, Math.min(2, Math.round(value * 20) / 20));
-                        root.scheduleScrollFactor();
+                        if (!pressed) root.commitScrollFactor();
+                    }
+                    onPressedChanged: {
+                        if (pressed)
+                            root.scrollFactorDragging = true;
+                        else if (root.scrollFactorDragging) {
+                            root.scrollFactorDragging = false;
+                            root.commitScrollFactor();
+                        }
                     }
                 }
             }

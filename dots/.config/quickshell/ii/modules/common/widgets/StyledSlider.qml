@@ -49,7 +49,11 @@ Slider {
     property real dividerMargins: 2
     property real trackDotSize: 3
     property bool usePercentTooltip: true
-    property string tooltipContent: usePercentTooltip ? `${Math.round(((value - from) / (to - from)) * 100)}%` : `${Math.round(value)}`
+    // Non-percent sliders often represent fractional system values. Keep the
+    // default integer display, but let callers expose the same precision as
+    // their accompanying setting value.
+    property int tooltipDecimalPlaces: 0
+    property string tooltipContent: usePercentTooltip ? `${Math.round(((value - from) / (to - from)) * 100)}%` : Number(value).toFixed(tooltipDecimalPlaces)
     property bool wavy: configuration === StyledSlider.Configuration.Wavy // If true, the progress bar will have a wavy fill effect
     property bool animateWave: true
     property real waveAmplitudeMultiplier: wavy ? 0.5 : 0
@@ -97,8 +101,8 @@ Slider {
 
     background: Item {
         id: background
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: root.verticalCenter
+        anchors.horizontalCenter: root.horizontalCenter
         width: root.width
         implicitHeight: trackWidth
         property var normalized: root.dividerValues.map(v => (v - root.from) / (root.to - root.from))
