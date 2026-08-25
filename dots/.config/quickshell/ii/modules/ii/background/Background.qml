@@ -41,7 +41,9 @@ Variants {
         property int totalWorkspaces: Math.ceil(lastWorkspaceId / workspaceChunkSize) * workspaceChunkSize
         // Wallpaper
         property bool wallpaperIsVideo: Config.options.background.wallpaperPath.endsWith(".mp4") || Config.options.background.wallpaperPath.endsWith(".webm") || Config.options.background.wallpaperPath.endsWith(".mkv") || Config.options.background.wallpaperPath.endsWith(".avi") || Config.options.background.wallpaperPath.endsWith(".mov")
-        property string wallpaperPath: wallpaperIsVideo ? Config.options.background.thumbnailPath : Config.options.background.wallpaperPath
+        // Our own copy, so deleting or moving the original no longer blanks the
+        // desktop. Resolves video to its thumbnail exactly as before.
+        property string wallpaperPath: WallpaperGeometry.renderPath
         readonly property real parallaxRation: Config.options.background.parallax.workspaceZoom
         property real minSuitableScale: 1 // Some reasonable init, to be updated
         property real effectiveWallpaperScale: minSuitableScale * parallaxRation

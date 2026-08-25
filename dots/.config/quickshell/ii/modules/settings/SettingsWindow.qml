@@ -23,14 +23,27 @@ ApplicationWindow {
 
     signal closeRequested()
     property string initialRoute: ""
+
+    // Hyprland blurs this window at composite time - see the no_blur exception
+    // in hypr/hyprland/rules.lua. That is registered with the wallpaper by
+    // construction, including mid-drag, because the compositor knows where the
+    // window is at the moment it composites; a client never does.
+    //
+    // Everything below guarded by this - the wallpaper backdrop and the whole
+    // position tracker - is the client-side imitation of that, kept only for
+    // compositors that will not do it. Flip to false to compare.
+    readonly property bool useCompositorBlur: true
     // ApplicationWindow exposes a QScreen while WallpaperBackdrop needs the
     // matching ShellScreen, whose geometry is in the compositor's global
     // coordinate space. The dedicated tracker updates these only during a
     // titlebar drag; HyprlandData remains a coarse fallback for external moves.
-    property real settingsGlobalX: root.x
-    property real settingsGlobalY: root.y
-    property real committedSettingsGlobalX: root.x
-    property real committedSettingsGlobalY: root.y
+    // ONE property, not an x and a y. Assigning two separately notifies twice,
+    // and for the frame in between the backdrop is drawn at a position that
+    // never existed - new horizontal, stale vertical. At drag rates that lands
+    // as visible jitter. The same trap is documented on WallpaperGeometry's
+    // naturalSize; it applies to every coordinate pair updated per frame.
+    property point settingsGlobalPos: Qt.point(root.x, root.y)
+    property point committedSettingsGlobalPos: Qt.point(root.x, root.y)
     property int settingsMonitor: -1
     readonly property var wallpaperScreen: {
         return Quickshell.screens.find(screen => Hyprland.monitorFor(screen)?.id === root.settingsMonitor)
@@ -38,8 +51,8 @@ ApplicationWindow {
             ?? Quickshell.screens[0]
             ?? null;
     }
-    readonly property real wallpaperScreenX: root.settingsGlobalX - (root.wallpaperScreen?.x ?? 0)
-    readonly property real wallpaperScreenY: root.settingsGlobalY - (root.wallpaperScreen?.y ?? 0)
+    readonly property real wallpaperScreenX: root.settingsGlobalPos.x - (root.wallpaperScreen?.x ?? 0)
+    readonly property real wallpaperScreenY: root.settingsGlobalPos.y - (root.wallpaperScreen?.y ?? 0)
 
     property var pages: [
         {
@@ -234,16 +247,18 @@ ApplicationWindow {
     SettingsWindowPositionTracker {
         id: positionTracker
         settingsTitle: root.title
+        // Only the wallpaper crop needs the live position, so don't poll when
+        // there is no backdrop to keep aligned or nobody is looking.
+        watchExternalMoves: root.visible && !root.useCompositorBlur
+            && Config.options.appearance.transparency.enable
         onExactPositionUpdated: (globalX, globalY, monitorId) => {
-            root.settingsGlobalX = globalX;
-            root.settingsGlobalY = globalY;
-            root.committedSettingsGlobalX = globalX;
-            root.committedSettingsGlobalY = globalY;
+            root.settingsGlobalPos = Qt.point(globalX, globalY);
+            root.committedSettingsGlobalPos = Qt.point(globalX, globalY);
             root.settingsMonitor = monitorId;
         }
+        // Only fires when the tracker is configured to chase during a drag.
         onPredictedPositionUpdated: (globalX, globalY) => {
-            root.settingsGlobalX = globalX;
-            root.settingsGlobalY = globalY;
+            root.settingsGlobalPos = Qt.point(globalX, globalY);
         }
     }
 
@@ -269,7 +284,9 @@ ApplicationWindow {
     Loader {
         anchors.fill: parent
         z: -1
-        active: Config.options.appearance.transparency.enable && root.wallpaperScreen !== null
+        active: !root.useCompositorBlur
+            && Config.options.appearance.transparency.enable
+            && root.wallpaperScreen !== null
         asynchronous: true
 
         sourceComponent: WallpaperBackdrop {
@@ -279,6 +296,7 @@ ApplicationWindow {
         }
     }
 
+
     function goToPage(index) {
         root.currentPage = Math.max(0, Math.min(index, root.pages.length - 1));
     }
@@ -287,10 +305,8 @@ ApplicationWindow {
         const client = HyprlandData.windowList.find(window => window.title === root.title);
         if (!client?.at || client.at.length < 2)
             return;
-        root.settingsGlobalX = client.at[0];
-        root.settingsGlobalY = client.at[1];
-        root.committedSettingsGlobalX = client.at[0];
-        root.committedSettingsGlobalY = client.at[1];
+        root.settingsGlobalPos = Qt.point(client.at[0], client.at[1]);
+        root.committedSettingsGlobalPos = Qt.point(client.at[0], client.at[1]);
         root.settingsMonitor = client.monitor ?? -1;
     }
 
@@ -401,7 +417,7 @@ ApplicationWindow {
                 }
                 cursorShape: Qt.SizeAllCursor
                 onPressed: mouse => {
-                    positionTracker.begin(root.committedSettingsGlobalX, root.committedSettingsGlobalY, root.settingsMonitor);
+                    positionTracker.begin(root.committedSettingsGlobalPos.x, root.committedSettingsGlobalPos.y, root.settingsMonitor);
                     if (!root.startSystemMove())
                         positionTracker.end();
                     mouse.accepted = true;

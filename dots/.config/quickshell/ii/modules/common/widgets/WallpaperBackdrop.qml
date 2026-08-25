@@ -43,6 +43,18 @@ Item {
     // is trying to animate open — so it stays off.
     property bool synchronous: false
 
+    // The frost itself. Without this the material is a tinted wallpaper crop,
+    // which reads as a flat photo behind the content rather than as glass.
+    //
+    // Blurred through a downscaled layer texture on purpose: the wallpaper rect
+    // is the whole monitor, and several of these surfaces can be on screen at
+    // once, so a full-resolution FBO each costs far more than it buys. The
+    // result is blurred anyway, so nothing visible survives the downscale.
+    // Raise blurDownscale if a large monitor stutters; lower it if edges of
+    // high-contrast wallpapers look stepped.
+    property bool blurEnabled: true
+    property real blurDownscale: 4
+
     readonly property rect wallpaperRect: WallpaperGeometry.drawRectFor(root.screen)
     // Only the wallpaper's own workspace parallax should glide. A surface can
     // move independently (notably a normal ApplicationWindow being dragged),
@@ -66,17 +78,30 @@ Item {
     clip: true
 
     Image {
+        id: wallpaperImage
         // Positioned so the wallpaper lands where the desktop draws it, then
         // shifted into this surface's local space.
         x: root.animatedWallpaperX - root.screenX
         y: root.animatedWallpaperY - root.screenY
         width: root.wallpaperRect.width
         height: root.wallpaperRect.height
-        source: WallpaperGeometry.path
+        // Pre-blurred copy when it exists, otherwise the picture itself with a
+        // live blur over it - see blurEnabled below.
+        source: WallpaperGeometry.blurredReady ? WallpaperGeometry.blurredPath : WallpaperGeometry.renderPath
         fillMode: Image.PreserveAspectCrop
         cache: true
         asynchronous: !root.synchronous
 
+        // Only while the pre-blurred copy is still being built. Doing this per
+        // surface, every frame, is exactly what the cache exists to avoid.
+        layer.enabled: root.blurEnabled && !WallpaperGeometry.blurredReady
+        layer.smooth: true
+        layer.textureSize: Qt.size(
+            Math.max(1, Math.round(wallpaperImage.width / root.blurDownscale)),
+            Math.max(1, Math.round(wallpaperImage.height / root.blurDownscale)))
+        layer.effect: StyledBlurEffect {
+            source: wallpaperImage
+        }
     }
 
     Rectangle {

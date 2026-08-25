@@ -6,6 +6,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import qs.modules.common
+import qs.modules.common.functions
 
 /**
  * The single source of truth for WHERE the wallpaper is drawn on a screen.
@@ -34,6 +35,52 @@ Singleton {
     }
     readonly property string path: root.wallpaperIsVideo ? Config.options.background.thumbnailPath : Config.options.background.wallpaperPath
 
+    // A private copy of the current wallpaper plus its pre-blurred variant,
+    // rebuilt by scripts/wallpaper/material.sh whenever `path` changes.
+    //
+    // Everything that draws the wallpaper should use `renderPath`, not `path`:
+    // rendering from our own copy is what stops a deleted or moved original
+    // from taking the wallpaper down with it.
+    //
+    // `blurredPath` exists so the frosted surfaces stop each running their own
+    // live blur of the same picture. Until it resolves they fall back to
+    // blurring themselves, so a wallpaper change is never visibly unfrosted.
+    readonly property string materialDir: FileUtils.trimFileProtocol(`${Directories.state}/user/generated/wallpaper/material`)
+    property string cachedSourcePath: ""
+    property string blurredPath: ""
+    readonly property bool blurredReady: root.blurredPath.length > 0
+    readonly property string renderPath: root.cachedSourcePath.length > 0 ? root.cachedSourcePath : root.path
+
+    function refreshMaterial() {
+        if (root.path && root.path.length > 0)
+            materialProc.running = true;
+    }
+
+    Process {
+        id: materialProc
+        command: [
+            "bash",
+            `${FileUtils.trimFileProtocol(Quickshell.shellPath("scripts"))}/wallpaper/material.sh`,
+            root.path,
+            root.materialDir
+        ]
+        stdout: StdioCollector {
+            id: materialCollector
+            onStreamFinished: {
+                const lines = materialCollector.text.trim().split("\n").map(line => line.trim());
+                root.cachedSourcePath = lines[0] ?? "";
+                root.blurredPath = lines[1] ?? "";
+            }
+        }
+        onExited: (exitCode) => {
+            if (exitCode !== 0) {
+                // No copy available: fall back to the original path everywhere.
+                root.cachedSourcePath = "";
+                root.blurredPath = "";
+            }
+        }
+    }
+
     // Natural (unscaled) wallpaper dimensions; zero until `magick` answers, and
     // consumers fall back to screen-sized behaviour until then. Deliberately
     // ONE property rather than a width and a height: assigning two separately
@@ -46,17 +93,23 @@ Singleton {
     readonly property int panDuration: 600
     readonly property int panEasing: Easing.OutCubic
 
-    onPathChanged: root.refreshNaturalSize()
-    Component.onCompleted: root.refreshNaturalSize()
+    onPathChanged: root.refreshMaterial()
+    // Natural size is measured from whatever is actually drawn, so geometry
+    // keeps working when the original is gone.
+    onRenderPathChanged: root.refreshNaturalSize()
+    Component.onCompleted: {
+        root.refreshMaterial();
+        root.refreshNaturalSize();
+    }
 
     function refreshNaturalSize() {
-        if (root.path && root.path.length > 0)
+        if (root.renderPath && root.renderPath.length > 0)
             sizeProc.running = true;
     }
 
     Process {
         id: sizeProc
-        command: ["magick", "identify", "-format", "%w %h", root.path]
+        command: ["magick", "identify", "-format", "%w %h", root.renderPath]
         stdout: StdioCollector {
             id: sizeCollector
             onStreamFinished: {

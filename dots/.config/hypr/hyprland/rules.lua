@@ -6,6 +6,14 @@ hl.window_rule({match = {class = "^()$", title = "^()$" },                   no_
 -- Disable blur for every window
 hl.window_rule({match = {class = ".*" }, no_blur = true })
 
+-- ...except the shell's own Settings window, which is drawn translucent on
+-- purpose. Letting the compositor blur it is the only way the glass can stay
+-- registered with the wallpaper while the window is being dragged: a client
+-- cannot know its own position at the moment it renders a frame, so any
+-- client-side version of this is late by construction. With blur:xray on, only
+-- the wallpaper is sampled, never the windows behind.
+hl.window_rule({match = {title = "^(illogical-impulse Settings)$" },         no_blur = false })
+
 -- Floating
 hl.window_rule({match = {title = "^(Open File)(.*)$" },                      center = true})
 hl.window_rule({match = {title = "^(Open File)(.*)$" },                      float = true})
