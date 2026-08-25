@@ -14,6 +14,7 @@ ColumnLayout {
     property string searchPlaceholder: Translation.tr("Search applications")
     property string query: ""
     property bool loading: false
+    property string error: ""
     property string emptyText: Translation.tr("No applications are available.")
     property string noResultsText: Translation.tr("No matching applications found.")
     property string unavailableText: Translation.tr("Current application unavailable")
@@ -138,7 +139,14 @@ ColumnLayout {
         registerInSearch: false
     }
     SettingsRow {
-        visible: !root.loading && root.applications.length === 0
+        visible: !root.loading && root.error.length > 0
+        icon: "error_outline"
+        title: Translation.tr("Applications unavailable")
+        description: root.error
+        registerInSearch: false
+    }
+    SettingsRow {
+        visible: !root.loading && root.error.length === 0 && root.applications.length === 0
         icon: "apps"
         title: root.emptyText
         description: Translation.tr("No candidate applications were provided.")

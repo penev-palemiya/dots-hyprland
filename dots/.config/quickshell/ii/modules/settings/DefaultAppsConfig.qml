@@ -200,7 +200,11 @@ SettingsSubPage {
         title: root.roleFor(root.selectedRoleId)?.title || Translation.tr("Select default application")
         applications: root.candidatesFor(root.roleFor(root.selectedRoleId))
         currentId: root.roleState(root.roleFor(root.selectedRoleId)).desktopId
-        loading: MimeAssociations.loading || MimeAssociations.applying
+        // Candidate discovery reads MIME indexes in a separate process. Do not
+        // render an empty-state in the gap after association lookup finishes
+        // but before that process returns its compatible desktop IDs.
+        loading: MimeAssociations.loading || MimeAssociations.candidatesLoading || MimeAssociations.applying
+        error: MimeAssociations.candidatesError
         noResultsText: Translation.tr("No compatible applications found.")
         onSelected: application => root.chooseCandidate(application)
         onCanceled: root.pickerOpen = false

@@ -23,6 +23,7 @@ Singleton {
     // derived in QML - it has to come from the XDG index.
     property var candidates: ({})
     property bool candidatesLoading: false
+    property string candidatesError: ""
     property list<string> lastCandidateMimes: []
     property list<string> lastMimes: []
 
@@ -55,6 +56,7 @@ Singleton {
             && root.lastCandidateMimes.every((mime, index) => mime === mimes[index]))
             return;
         root.candidatesLoading = true;
+        root.candidatesError = "";
         root.lastCandidateMimes = mimes;
         candidatesProc.command = ["python3", root.helperPath, "candidates", ...mimes];
         candidatesProc.running = true;
@@ -67,15 +69,23 @@ Singleton {
             onStreamFinished: {
                 try {
                     root.candidates = JSON.parse(candidatesCollector.text);
-                } catch (error) {
+                } catch (exception) {
                     root.candidates = ({});
+                    root.candidatesError = Translation.tr("Could not find compatible applications.");
                 }
                 root.candidatesLoading = false;
+            }
+        }
+        stderr: StdioCollector {
+            onStreamFinished: {
+                if (text.trim().length > 0)
+                    root.candidatesError = text.trim();
             }
         }
         onExited: exitCode => {
             if (exitCode !== 0) {
                 root.candidates = ({});
+                root.candidatesError = root.candidatesError || Translation.tr("Could not find compatible applications.");
                 root.candidatesLoading = false;
             }
         }
