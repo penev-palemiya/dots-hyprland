@@ -117,6 +117,13 @@ Rectangle {
     // spreading across a 16px-cornered group edge looks wrong.
     Rectangle { // Hover/press state layer
         anchors.fill: parent
+        // SettingsCard assigns outer corners to the first/last row and inner
+        // corners between rows. The state layer must mirror them exactly;
+        // rectangular clipping would visibly square off the hover treatment.
+        topLeftRadius: root.topLeftRadius
+        topRightRadius: root.topRightRadius
+        bottomLeftRadius: root.bottomLeftRadius
+        bottomRightRadius: root.bottomRightRadius
         color: Appearance.colors.colOnSurface
         visible: root.clickable && root.enabled
         opacity: rowMouseArea.containsMouse ? (rowMouseArea.pressed ? 0.1 : 0.06) : 0
@@ -129,6 +136,10 @@ Rectangle {
     MouseArea {
         id: rowMouseArea
         anchors.fill: parent
+        // This must be above the trailing controls. Otherwise a Qt Control
+        // such as StyledSwitch can receive hover while the row's state layer
+        // remains owned by a neighbouring row.
+        z: 3
         hoverEnabled: root.clickable
         enabled: root.clickable && root.enabled
         cursorShape: root.clickable ? Qt.PointingHandCursor : Qt.ArrowCursor
