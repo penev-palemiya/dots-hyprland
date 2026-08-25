@@ -12,6 +12,8 @@ SpinBox {
     property real baseHeight: 35
     property real radius: Appearance.rounding.small
     property real innerButtonRadius: Appearance.rounding.unsharpen
+    readonly property bool canDecrease: root.enabled && root.value > root.from
+    readonly property bool canIncrease: root.enabled && root.value < root.to
     editable: true
 
     opacity: root.enabled ? 1 : 0.4
@@ -52,8 +54,11 @@ SpinBox {
         topRightRadius: root.innerButtonRadius
         bottomRightRadius: root.innerButtonRadius
 
-        color: root.down.pressed ? Appearance.colors.colLayer2Active : 
-            root.down.hovered ? Appearance.colors.colLayer2Hover : 
+        // The attached down/up objects do not expose range availability
+        // reliably with this Qt style, so derive it from the actual bounds.
+        opacity: root.canDecrease ? 1 : 0.38
+        color: root.canDecrease && root.down.pressed ? Appearance.colors.colLayer2Active :
+            root.canDecrease && root.down.hovered ? Appearance.colors.colLayer2Hover :
             ColorUtils.transparentize(Appearance.colors.colLayer2)
         Behavior on color {
             animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
@@ -79,8 +84,9 @@ SpinBox {
         topLeftRadius: root.innerButtonRadius
         bottomLeftRadius: root.innerButtonRadius
 
-        color: root.up.pressed ? Appearance.colors.colLayer2Active : 
-            root.up.hovered ? Appearance.colors.colLayer2Hover : 
+        opacity: root.canIncrease ? 1 : 0.38
+        color: root.canIncrease && root.up.pressed ? Appearance.colors.colLayer2Active :
+            root.canIncrease && root.up.hovered ? Appearance.colors.colLayer2Hover :
             ColorUtils.transparentize(Appearance.colors.colLayer2)
         Behavior on color {
             animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)

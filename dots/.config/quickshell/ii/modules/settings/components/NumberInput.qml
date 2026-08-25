@@ -72,8 +72,12 @@ RowLayout {
         required property string symbol
         required property real delta
         required property string accessibleName
+        property bool canStep: false
 
-        readonly property bool actionable: stepButton.enabled && root.enabled
+        // Do not use Item.enabled for a range boundary: unlike a Control it
+        // has no built-in disabled visual. Keep the limit explicit so the
+        // icon, cursor, state layer and pointer input always agree.
+        readonly property bool actionable: root.enabled && stepButton.canStep
 
         implicitWidth: 40
         implicitHeight: 40
@@ -110,7 +114,7 @@ RowLayout {
             anchors.fill: parent
             hoverEnabled: true
             enabled: stepButton.actionable
-            cursorShape: Qt.PointingHandCursor
+            cursorShape: stepButton.actionable ? Qt.PointingHandCursor : Qt.ArrowCursor
             onClicked: root.stepBy(stepButton.delta)
 
             // Press-and-hold to run through a range instead of clicking 20 times.
@@ -155,7 +159,7 @@ RowLayout {
                 symbol: "remove"
                 delta: -1
                 accessibleName: Translation.tr("Decrease")
-                enabled: root.value > root.minimum
+                canStep: root.value > root.minimum
             }
 
             // The value and its unit travel together as one centred block, so
@@ -216,7 +220,7 @@ RowLayout {
                 symbol: "add"
                 delta: 1
                 accessibleName: Translation.tr("Increase")
-                enabled: root.value < root.maximum
+                canStep: root.value < root.maximum
             }
         }
     }
