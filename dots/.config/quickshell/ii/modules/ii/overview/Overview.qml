@@ -75,13 +75,12 @@ Scope {
             // what the overlay looked like when this was too short: the exit
             // visibly cut off partway instead of playing out.
             //
-            // Two things make the exit longer than a single token's duration.
-            // The blocks now leave on elementMoveSmall (350ms, not the 200ms
-            // elementMoveExit this used to read), and gridProgress carries a
-            // PauseAnimation in front of its NumberAnimation. Both are
-            // accounted for here so the timer cannot undercut the motion
-            // again.
-            interval: (Appearance.animation.elementMoveSmall.duration + panelWindow.staggerStep) * panelWindow.slowMo + 40
+            // Reads the same token the exit Behaviors do (elementMoveExit),
+            // plus gridProgress's PauseAnimation, so the two cannot drift
+            // apart - which is precisely how the cut-off appeared: the exit
+            // curve was changed while this interval kept quoting the previous
+            // token's duration.
+            interval: (Appearance.animation.elementMoveExit.duration + panelWindow.staggerStep) * panelWindow.slowMo + 40
             onTriggered: panelWindow.exiting = false
         }
 
@@ -160,25 +159,47 @@ Scope {
         // assigned once".
         property real motionProgress: GlobalStates.overviewOpen && panelWindow.built ? 1 : 0
 
-        // Spatial motion gets a spring, the same pairing the dynamic island
-        // uses for its height (IslandOverlay.qml): elementMove on the way in
-        // (500ms, expressiveDefaultSpatial, ~21% overshoot - the hero moment)
-        // and elementMoveSmall on the way out (350ms, expressiveFastSpatial -
-        // exits need less attention than whatever comes next).
+        // M3 Expressive spatial, at the "slow" speed level: this is a
+        // full-screen takeover, which is exactly the case the slow tier
+        // exists for (fast = checkboxes and chips, default = view containers,
+        // slow = full-screen takeovers). Using the fast tier here - as an
+        // earlier revision did - animated a whole-screen surface on a
+        // 350ms small-component curve.
         //
-        // An earlier version of this file deliberately avoided these tokens,
-        // because the overshoot was driving `scale` on a full-screen surface
-        // and read as the whole screen wobbling. That no longer applies: the
-        // motion is now a vertical slide per block, where the overshoot reads
-        // as a spring settling into place, which is the point.
+        // Entry keeps the overshoot: spatial properties may overshoot in the
+        // Expressive scheme, and the settle is the point.
+        //
+        // Exit deliberately does NOT overshoot: expressiveSlowSpatial peaks
+        // at 1.29 and the fast curve at 1.67, and an overshoot on the way out
+        // springs the block back *towards* the screen before it leaves.
+        //
+        // It also must not accelerate. emphasizedAccel spends 80% of its
+        // duration covering only 48% of the distance, so the block hangs on
+        // screen almost fully visible and then vanishes in the last instant -
+        // and because the two blocks finish at different times (the stagger),
+        // that residue appeared, disappeared and reappeared. Plotted:
+        // t=0.80 -> progress 0.485.
+        //
+        // emphasizedDecel is the correct shape for something leaving: it
+        // covers half the distance in the first 7% of the time and eases into
+        // the end, so the block commits immediately and lands softly with no
+        // visible remnant (t=0.07 -> 0.525, t=0.56 -> 0.963).
         //
         // One static NumberAnimation varying its own duration/curve - a
         // Behavior's `animation` can only be assigned once.
         Behavior on motionProgress {
-            NumberAnimation {
-                duration: (GlobalStates.overviewOpen ? Appearance.animation.elementMove.duration : Appearance.animation.elementMoveSmall.duration) * panelWindow.slowMo
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: GlobalStates.overviewOpen ? Appearance.animation.elementMove.bezierCurve : Appearance.animation.elementMoveSmall.bezierCurve
+            SequentialAnimation {
+                // Mirror of gridProgress's pause: nothing on the way in (the
+                // search field leads the entry), one stagger step on the way
+                // out (it trails the exit).
+                PauseAnimation {
+                    duration: (GlobalStates.overviewOpen ? 0 : panelWindow.staggerStep) * panelWindow.slowMo
+                }
+                NumberAnimation {
+                    duration: (GlobalStates.overviewOpen ? Appearance.animation.elementMoveLarge.duration : Appearance.animation.elementMoveExit.duration) * panelWindow.slowMo
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: GlobalStates.overviewOpen ? Appearance.animation.elementMoveLarge.bezierCurve : Appearance.animationCurves.emphasizedDecel
+                }
             }
         }
 
@@ -200,13 +221,18 @@ Scope {
 
         Behavior on gridProgress {
             SequentialAnimation {
+                // Enter: the grid follows the search field, so it waits.
+                // Exit: the grid *leads*, so it waits for nothing - the delay
+                // moves to the search field's own Behavior instead. Reversing
+                // the order on the way out is what keeps the two directions
+                // from looking like the same animation played backwards.
                 PauseAnimation {
                     duration: (GlobalStates.overviewOpen ? panelWindow.staggerStep : 0) * panelWindow.slowMo
                 }
                 NumberAnimation {
-                    duration: (GlobalStates.overviewOpen ? Appearance.animation.elementMove.duration : Appearance.animation.elementMoveSmall.duration) * panelWindow.slowMo
+                    duration: (GlobalStates.overviewOpen ? Appearance.animation.elementMoveLarge.duration : Appearance.animation.elementMoveExit.duration) * panelWindow.slowMo
                     easing.type: Easing.BezierSpline
-                    easing.bezierCurve: GlobalStates.overviewOpen ? Appearance.animation.elementMove.bezierCurve : Appearance.animation.elementMoveSmall.bezierCurve
+                    easing.bezierCurve: GlobalStates.overviewOpen ? Appearance.animation.elementMoveLarge.bezierCurve : Appearance.animationCurves.emphasizedDecel
                 }
             }
         }
@@ -223,7 +249,18 @@ Scope {
             // does.
             // Either driver still in flight keeps it rendered; both at rest
             // means nothing is on screen and the whole tree can be skipped.
-            visible: panelWindow.motionProgress > 0 || panelWindow.gridProgress > 0
+            // Driven by the shell's own open state, not by the two progress
+            // values.
+            //
+            // Reading `motionProgress > 0 || gridProgress > 0` made
+            // visibility flicker at the end of the exit: the two drivers
+            // finish at different times (the grid has no pause on the way
+            // out, the search field has one), so the condition flipped as
+            // each crossed zero, and whichever block still held a fraction of
+            // a percent of travel was briefly shown again. `exiting` is
+            // cleared by exitTimer only after both have finished, so it drops
+            // exactly once.
+            visible: GlobalStates.overviewOpen || panelWindow.exiting
             anchors {
                 horizontalCenter: parent.horizontalCenter
                 top: parent.top

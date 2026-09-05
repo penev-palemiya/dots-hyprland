@@ -299,6 +299,24 @@ Singleton {
             }
         }
 
+        // M3 "slow" spatial: full-screen takeovers and complex structural
+        // reorganisations, as opposed to elementMove's "default" (view
+        // containers) and elementMoveSmall's "fast" (small components and
+        // rapid state toggles).
+        property QtObject elementMoveLarge: QtObject {
+            property int duration: animationCurves.expressiveSlowSpatialDuration
+            property int type: Easing.BezierSpline
+            property list<real> bezierCurve: animationCurves.expressiveSlowSpatial
+            property int velocity: 650
+            property Component numberAnimation: Component {
+                NumberAnimation {
+                    duration: root.animation.elementMoveLarge.duration
+                    easing.type: root.animation.elementMoveLarge.type
+                    easing.bezierCurve: root.animation.elementMoveLarge.bezierCurve
+                }
+            }
+        }
+
         property QtObject elementMoveSmall: QtObject {
             property int duration: animationCurves.expressiveFastSpatialDuration
             property int type: Easing.BezierSpline
