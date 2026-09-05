@@ -83,13 +83,88 @@ Singleton {
         updateAll();
     }
 
+    // Hyprland fires a burst of events for one user action - opening one
+    // terminal produced 18 raw events in testing (windowtitle fired 3 times
+    // as the shell inside it settled its title), and each used to trigger a
+    // full updateAll(): 5 separate `hyprctl` processes and a re-parse of every
+    // JSON source, whether or not that source actually changed. That is what
+    // made opening/closing an app visibly stall the bar.
+    //
+    // Two independent fixes, both required - neither alone is enough:
+    //
+    // 1. Coalesce a burst into one update. pendingSources accumulates which
+    //    sources are dirty; the timer fires once after the burst goes quiet
+    //    and processes all of them together, so 8 activewindow events in
+    //    166ms cost one flush instead of 8.
+    // 2. Only refresh the source(s) an event can actually affect. A
+    //    windowtitle change cannot move a monitor or create a workspace -
+    //    refreshing monitors/layers/workspaces for it was pure waste.
+    //
+    // debounceInterval trades latency for coalescing: raise it if bursts are
+    // still visible, lower it if UI updates feel delayed after a real change.
+    property int debounceInterval: 50
+    property var pendingSources: ({})
+
+    function markDirty(sources) {
+        for (var i = 0; i < sources.length; ++i)
+            root.pendingSources[sources[i]] = true;
+        debounceTimer.restart();
+    }
+
+    // Maps each Hyprland event to the source(s) it can actually change.
+    // "all" covers configreloaded, where the safe assumption is that anything
+    // could be different. Events absent here (openlayer/closelayer/screencast,
+    // as before, plus purely informational ones like activelayout/submap/bind)
+    // are not layer-shell/config concerns of this service and are ignored.
+    readonly property var eventSources: ({
+        // Window-level changes: only the window list can be affected.
+        openwindow: ["windows"], closewindow: ["windows"],
+        movewindow: ["windows"], movewindowv2: ["windows"],
+        windowtitle: ["windows"], windowtitlev2: ["windows"],
+        activewindow: ["windows"], activewindowv2: ["windows"],
+        changefloatingmode: ["windows"], fullscreen: ["windows"],
+        pin: ["windows"], minimize: ["windows"], urgent: ["windows"],
+        togglegroup: ["windows"], moveintogroup: ["windows"],
+        moveintogroupv2: ["windows"], moveoutofgroup: ["windows"],
+        ignoregrouplock: ["windows"], lockgroups: ["windows"],
+        // Workspace-level changes: windows can move with a workspace switch
+        // (a window's own `workspace` field changes), so both refresh together.
+        workspace: ["workspaces", "windows"], workspacev2: ["workspaces", "windows"],
+        createworkspace: ["workspaces"], createworkspacev2: ["workspaces"],
+        destroyworkspace: ["workspaces"], destroyworkspacev2: ["workspaces"],
+        moveworkspace: ["workspaces", "windows"], moveworkspacev2: ["workspaces", "windows"],
+        renameworkspace: ["workspaces"], activespecial: ["workspaces"],
+        focusedmon: ["workspaces"],
+        // Monitor topology changes: workspaces are reassigned across monitors
+        // when one appears or disappears, so refresh both.
+        monitoradded: ["monitors", "workspaces"], monitoraddedv2: ["monitors", "workspaces"],
+        monitorremoved: ["monitors", "workspaces"], monitorremovedv2: ["monitors", "workspaces"],
+        // Config can change anything about how any of this is reported.
+        configreloaded: ["all"]
+    })
+
     Connections {
         target: Hyprland
 
         function onRawEvent(event) {
             // console.log("Hyprland raw event:", event.name);
-            if (["openlayer", "closelayer", "screencast"].includes(event.name)) return;
-            updateAll()
+            const sources = root.eventSources[event.name];
+            if (sources === undefined) return;
+            root.markDirty(sources);
+        }
+    }
+
+    Timer {
+        id: debounceTimer
+        interval: root.debounceInterval
+        repeat: false
+        onTriggered: {
+            const sources = root.pendingSources;
+            root.pendingSources = ({});
+            if (sources.all || sources.windows) root.updateWindowList();
+            if (sources.all || sources.monitors) root.updateMonitors();
+            if (sources.all || sources.layers) root.updateLayers();
+            if (sources.all || sources.workspaces) root.updateWorkspaces();
         }
     }
 
