@@ -15,6 +15,10 @@ RowLayout {
     property alias searchInput: searchInput
     property string searchingText
 
+    // Set by SearchWidget to an Item whose Keys.onPressed gets first refusal
+    // on this field's key events. Null disables forwarding entirely.
+    property var navigationHandler: null
+
     function forceFocus() {
         searchInput.forceActiveFocus();
     }
@@ -89,6 +93,13 @@ RowLayout {
                 }
             }
         }
+
+        // Lets the parent SearchWidget see keys before this field consumes
+        // them - specifically Up/Down, which a TextField always treats as its
+        // own and would otherwise swallow before any grid navigation could run.
+        // Whatever the forwarded target does not accept is handled here as
+        // normal.
+        Keys.forwardTo: root.navigationHandler ? [root.navigationHandler] : []
 
         Keys.onPressed: event => {
             if (event.key === Qt.Key_Tab) {

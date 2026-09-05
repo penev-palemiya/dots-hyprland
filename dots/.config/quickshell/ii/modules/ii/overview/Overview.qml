@@ -108,6 +108,7 @@ Scope {
             target: GlobalStates
             function onOverviewOpenChanged() {
                 if (!GlobalStates.overviewOpen) {
+                    searchWidget.workspaceGrid?.clearSelection();
                     searchWidget.disableExpandAnimation();
                     overviewScope.dontAutoCancelSearch = false;
                     GlobalFocusGrab.dismiss();
@@ -340,6 +341,9 @@ Scope {
                     screen: panelWindow.screen
                     visible: (panelWindow.searchingText == "")
                 }
+                // Hand the grid to the search field so an empty query can
+                // steer it with the arrow keys.
+                onLoaded: searchWidget.workspaceGrid = item
             }
         }
     }

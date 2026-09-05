@@ -28,6 +28,50 @@ Item {
     property real scale: Config.options.overview.scale
     property color activeBorderColor: Appearance.colors.colSecondary
 
+    // Keyboard workspace selection.
+    //
+    // -1 means "nothing selected": the grid shows only the usual focused
+    // indicator and arrow keys are free for whatever else wants them. The
+    // first arrow press seeds the cursor at the currently focused workspace
+    // rather than at cell 0, so navigation starts where the user already is.
+    //
+    // Only meaningful while the search field is empty - SearchWidget owns that
+    // condition and simply stops forwarding keys once there is a query, so
+    // this component needs no knowledge of the search state.
+    property int selectedWorkspace: -1
+
+    function seedSelection() {
+        if (root.selectedWorkspace === -1)
+            root.selectedWorkspace = root.effectiveActiveWorkspaceId;
+    }
+
+    function clearSelection() {
+        root.selectedWorkspace = -1;
+    }
+
+    // Moves the cursor by one cell. Clamped rather than wrapping: the grid is
+    // a spatial map of workspaces, and wrapping from the last column back to
+    // the first would jump the user across the screen.
+    function moveSelection(dCol, dRow) {
+        root.seedSelection();
+        const cols = Config.options.overview.columns;
+        const rows = Config.options.overview.rows;
+        const groupBase = root.workspaceGroup * root.workspacesShown;
+        let ri = getWsRow(root.selectedWorkspace);
+        let ci = getWsColumn(root.selectedWorkspace);
+        ri = Math.max(0, Math.min(rows - 1, ri + dRow));
+        ci = Math.max(0, Math.min(cols - 1, ci + dCol));
+        root.selectedWorkspace = groupBase + getWsInCell(ri, ci);
+    }
+
+    function activateSelection() {
+        if (root.selectedWorkspace === -1)
+            return false;
+        Hyprland.dispatch(`hl.dsp.focus({ workspace = ${root.selectedWorkspace} })`);
+        GlobalStates.overviewOpen = false;
+        return true;
+    }
+
     property real workspaceImplicitWidth: (monitorData?.transform % 2 === 1) ? 
         ((monitor.height - monitorData?.reserved[0] - monitorData?.reserved[2]) * root.scale / monitor.scale) :
         ((monitor.width - monitorData?.reserved[0] - monitorData?.reserved[2]) * root.scale / monitor.scale)
@@ -300,6 +344,38 @@ Item {
                             text: `${windowData?.title}\n[${windowData?.class}] ${windowData?.xwayland ? "[XWayland] " : ""}`
                         }
                     }
+                }
+            }
+
+            Rectangle { // Keyboard selection indicator
+                id: selectionIndicator
+                visible: root.selectedWorkspace !== -1
+                property int rowIndex: visible ? getWsRow(root.selectedWorkspace) : 0
+                property int colIndex: visible ? getWsColumn(root.selectedWorkspace) : 0
+                x: (root.workspaceImplicitWidth + workspaceSpacing) * colIndex
+                y: (root.workspaceImplicitHeight + workspaceSpacing) * rowIndex
+                z: root.windowZ + 1
+                width: root.workspaceImplicitWidth
+                height: root.workspaceImplicitHeight
+                color: ColorUtils.transparentize(Appearance.colors.colPrimary, 0.88)
+                property bool workspaceAtLeft: colIndex === 0
+                property bool workspaceAtRight: colIndex === Config.options.overview.columns - 1
+                property bool workspaceAtTop: rowIndex === 0
+                property bool workspaceAtBottom: rowIndex === Config.options.overview.rows - 1
+                topLeftRadius: (workspaceAtLeft && workspaceAtTop) ? root.largeWorkspaceRadius : root.smallWorkspaceRadius
+                topRightRadius: (workspaceAtRight && workspaceAtTop) ? root.largeWorkspaceRadius : root.smallWorkspaceRadius
+                bottomLeftRadius: (workspaceAtLeft && workspaceAtBottom) ? root.largeWorkspaceRadius : root.smallWorkspaceRadius
+                bottomRightRadius: (workspaceAtRight && workspaceAtBottom) ? root.largeWorkspaceRadius : root.smallWorkspaceRadius
+                border.width: 2
+                border.color: Appearance.colors.colPrimary
+
+                // Same curve as the focused indicator below, so the two read as
+                // the same kind of object moving.
+                Behavior on x {
+                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                }
+                Behavior on y {
+                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
                 }
             }
 

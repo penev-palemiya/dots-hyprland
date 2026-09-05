@@ -65,9 +65,76 @@ Item { // Wrapper
         LauncherSearch.query = text;
     }
 
+    // Set by Overview.qml to the loaded OverviewWidget, so an empty search
+    // field can steer the workspace grid. Null while the grid is not loaded.
+    property var workspaceGrid: null
+
+    // Arrow keys drive the workspace grid, but only while the search field is
+    // empty - once there is a query the arrows belong to the result list,
+    // which is what the user is actually looking at.
+    //
+    // Returns true when the event was consumed.
+    function handleGridNavigation(event) {
+        if (root.showResults || !root.workspaceGrid)
+            return false;
+        switch (event.key) {
+        case Qt.Key_Left:
+            root.workspaceGrid.moveSelection(-1, 0);
+            event.accepted = true;
+            return true;
+        case Qt.Key_Right:
+            root.workspaceGrid.moveSelection(1, 0);
+            event.accepted = true;
+            return true;
+        case Qt.Key_Up:
+            root.workspaceGrid.moveSelection(0, -1);
+            event.accepted = true;
+            return true;
+        case Qt.Key_Down:
+            root.workspaceGrid.moveSelection(0, 1);
+            event.accepted = true;
+            return true;
+        case Qt.Key_Return:
+        case Qt.Key_Enter:
+            // activateSelection() reports whether anything was selected; if
+            // not, report the event as unhandled so Enter keeps its normal
+            // meaning (launching the first search result).
+            if (root.workspaceGrid.activateSelection()) {
+                event.accepted = true;
+                return true;
+            }
+            return false;
+        }
+        return false;
+    }
+
+    // The TextField inside SearchBar holds active focus whenever the overview
+    // is open, and a text editor treats Up/Down as its own (line navigation)
+    // and accepts them, so they never bubble out to this Item's
+    // Keys.onPressed. Left/Right only arrived by accident: an empty field has
+    // no caret to move, so the TextField declined them.
+    //
+    // Keys.forwardTo puts this Item ahead of the TextField's own handling, so
+    // the grid sees the arrows first while the query is empty. Anything
+    // handleGridNavigation() does not consume falls through to the field
+    // untouched, so typing and caret movement in a non-empty query behave
+    // exactly as before.
+    Item {
+        id: searchNavHandler
+        Keys.onPressed: event => root.handleGridNavigation(event)
+    }
+
     Keys.onPressed: event => {
         // Prevent Esc and Backspace from registering
-        if (event.key === Qt.Key_Escape)
+        if (event.key === Qt.Key_Escape) {
+            // Escape still closes the overview (Overview.qml handles that);
+            // it only clears the cursor on the way past, so reopening starts
+            // clean rather than resuming an old selection.
+            root.workspaceGrid?.clearSelection();
+            return;
+        }
+
+        if (root.handleGridNavigation(event))
             return;
 
         // Handle Backspace: focus and delete character if not focused
@@ -157,6 +224,9 @@ Item { // Wrapper
 
             SearchBar {
                 id: searchBar
+                // Gives the grid-navigation handler first refusal on this
+                // field's key events - see searchNavHandler above.
+                navigationHandler: searchNavHandler
                 property real verticalPadding: 4
                 Layout.fillWidth: true
                 Layout.leftMargin: 10
