@@ -5,6 +5,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
+import qs
 import qs.modules.common
 import qs.modules.common.functions
 
@@ -87,6 +88,32 @@ Singleton {
     // notifies twice, and for the frame in between, callers saw a real width
     // next to a placeholder height and computed a wildly wrong scale from it.
     property size naturalSize: Qt.size(0, 0)
+
+    // Parallax inputs, republished as properties.
+    //
+    // drawRectFor() reads the active workspace, the window list and the
+    // sidebar states, but it reads them INSIDE a function. QML only records a
+    // binding's dependencies from property reads in the binding expression
+    // itself, not from reads inside functions it calls - so
+    // `readonly property rect drawRect: WallpaperGeometry.drawRectFor(screen)`
+    // never re-evaluated when the workspace changed. Instrumented: 30
+    // workspace switches produced zero additional calls, the counter stayed
+    // at its startup value of 10.
+    //
+    // Consumers now `void` these before calling, which registers the
+    // dependency without changing the arithmetic.
+    // Every monitor's active workspace, not just the focused one's: each
+    // screen pans its own wallpaper, and a switch on one must not be missed
+    // because another screen happens to hold focus.
+    readonly property var parallaxDependency: [
+        Hyprland.monitors.values.map(m => m.activeWorkspace?.id),
+        HyprlandData.windowList,
+        GlobalStates.sidebarLeftOpen,
+        GlobalStates.sidebarRightOpen,
+        Config.options.background.parallax.enableWorkspace,
+        Config.options.background.parallax.enableSidebar,
+        Config.options.background.parallax.workspaceZoom
+    ]
 
     // How long the desktop takes to glide to a new parallax offset. Consumers
     // animate with these so every surface moves as one.

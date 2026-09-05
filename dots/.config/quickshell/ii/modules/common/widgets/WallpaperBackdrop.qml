@@ -55,7 +55,12 @@ Item {
     property bool blurEnabled: true
     property real blurDownscale: 4
 
-    readonly property rect wallpaperRect: WallpaperGeometry.drawRectFor(root.screen)
+    readonly property rect wallpaperRect: {
+        // See Background.qml: the parallax inputs are read inside
+        // drawRectFor(), so they must be touched here to be tracked.
+        void WallpaperGeometry.parallaxDependency;
+        return WallpaperGeometry.drawRectFor(root.screen);
+    }
     // Only the wallpaper's own workspace parallax should glide. A surface can
     // move independently (notably a normal ApplicationWindow being dragged),
     // and its crop must follow that movement in the same frame.

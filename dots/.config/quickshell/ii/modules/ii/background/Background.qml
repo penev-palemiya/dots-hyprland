@@ -157,7 +157,13 @@ Variants {
                 // computed here, so the frosted surfaces elsewhere in the shell
                 // (WallpaperBackdrop) pan and zoom with exactly this picture
                 // instead of each keeping their own copy of the arithmetic.
-                readonly property rect drawRect: WallpaperGeometry.drawRectFor(bgRoot.screen)
+                readonly property rect drawRect: {
+                    // Registers the parallax inputs as dependencies of this
+                    // binding - drawRectFor() reads them inside its body,
+                    // where QML's binding tracker cannot see them.
+                    void WallpaperGeometry.parallaxDependency;
+                    return WallpaperGeometry.drawRectFor(bgRoot.screen);
+                }
 
                 x: drawRect.x
                 y: drawRect.y
