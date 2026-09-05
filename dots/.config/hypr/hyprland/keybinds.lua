@@ -223,12 +223,51 @@ for i = 1, 10 do
     end)
 end
 
+--#/# bind = SUPER+SHIFT, Hash,, -- Move to workspace -- (1, 2, 3,...)
+--# Takes the window AND the user to the target workspace (follow = true).
+--# This is the "move me and my window there" action, as opposed to the
+--# SUPER+ALT+number bindings above, which send a window away and leave focus
+--# where it is. Having both is deliberate: they are genuinely different
+--# intentions, and each is one keystroke.
+for i = 1, 10 do
+    hl.bind("SUPER + SHIFT + " .. (i % 10), function()
+        hl.dispatch(hl.dsp.window.move({ workspace = workspace_in_group(i), follow = true }))
+    end, { description = "Window: Move to workspace " .. i })
+end
+--# Raw keycodes too, because some keyboard layouts report number keys as
+--# different characters - same reasoning as the focus bindings further down.
+for i = 1, 10 do
+    local numberkey = { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }
+    hl.bind("SUPER + SHIFT + code:" .. numberkey[i], function()
+        hl.dispatch(hl.dsp.window.move({ workspace = workspace_in_group(i), follow = true }))
+    end)
+end
+
 --# #/# bind = SUPER+SHIFT, Scroll ↑/↓,, -- Send to workspace left/right
 for i = 1, 4 do
     local key = { "SUPER + SHIFT + mouse_", "SUPER + ALT + mouse_" }
     local keycombos = { key[1] .. "down", key[1] .. "up", key[2] .. "down", key[2] .. "up" }
     local prefix = { "r-", "r+", "r-", "r+" }
     hl.bind(keycombos[i], hl.dsp.window.move({ workspace = prefix[i] .. "1" }))
+end
+
+--#/# bind = SUPER+ALT, ←/→,, -- Move to workspace left/right
+--# Arrow-key form of "take this window one workspace over, and go with it".
+--# follow = true to match the SUPER+SHIFT+number bindings above - both are the
+--# "move me and my window" action, just addressed differently (relative here,
+--# absolute there).
+--#
+--# Deliberately NOT on SUPER+SHIFT+arrow: that combination already moves a
+--# window *within* the current workspace's tiling layout (see "Move in
+--# direction" above), and rebinding it would break directional window
+--# movement entirely.
+for i = 1, 2 do
+    local arrowkey = { "Left", "Right" }
+    local prefix = { "-", "+" }
+    local descdir = { "left", "right" }
+    hl.bind("SUPER + ALT + " .. arrowkey[i],
+        hl.dsp.window.move({ workspace = prefix[i] .. "1", follow = true }),
+        { description = "Window: Move to workspace " .. descdir[i] })
 end
 
 --#/# bind = SUPER+SHIFT, Page_↑/↓,, -- Send to workspace left/right
