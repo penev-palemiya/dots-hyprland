@@ -84,7 +84,12 @@ Item { // Bar content region
             }
 
             ActiveWindow {
-                Layout.leftMargin: 10 + (leftSidebarButton.visible ? 0 : Appearance.rounding.screenRounding)
+                // When the sidebar button is hidden (e.g. translator disabled,
+                // the default), it takes up no layout space at all, so this
+                // was the only margin standing between the bar's rounded
+                // corner and the icon/text - and the full screenRounding
+                // value read as a big empty gap rather than corner clearance.
+                Layout.leftMargin: 10 + (leftSidebarButton.visible ? 0 : Appearance.rounding.screenRounding - 6)
                 Layout.rightMargin: Appearance.rounding.screenRounding
                 Layout.fillWidth: true
                 Layout.fillHeight: true

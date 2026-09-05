@@ -21,7 +21,12 @@ Item {
     readonly property var shownAppAliases: root.appAliases(root.shownAppName, root.shownWindow?.appId ?? "", root.shownWindow?.class ?? "")
     readonly property string shownTitle: root.cleanWindowTitle(root.shownWindow?.title ?? `${Translation.tr("Workspace")} ${monitor?.activeWorkspace?.id ?? 1}`, root.shownAppAliases)
 
-    implicitWidth: colLayout.implicitWidth
+    // AppSearch.guessIcon (used by Workspaces.qml for the same purpose) needs
+    // an app id/class string, whereas shownDesktopEntry is already resolved
+    // via the shell's own heuristic lookup - reuse it rather than re-deriving.
+    readonly property string shownIconSource: Quickshell.iconPath(root.shownDesktopEntry?.icon || "application-x-executable", "image-missing")
+
+    implicitWidth: rowLayout.implicitWidth
 
     function displayAppName(appName, appId, appClass) {
         const name = String(appName ?? "").trim();
@@ -57,29 +62,46 @@ Item {
         return text;
     }
 
-    ColumnLayout {
-        id: colLayout
+    RowLayout {
+        id: rowLayout
 
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: parent.left
         anchors.right: parent.right
-        spacing: -4
+        spacing: 6
 
-        StyledText {
-            Layout.fillWidth: true
-            font.pixelSize: Appearance.font.pixelSize.smallest
-            color: Appearance.colors.colSubtext
-            elide: Text.ElideRight
-            text: root.shownAppName
-
+        AppIcon {
+            id: appIcon
+            Layout.alignment: Qt.AlignVCenter
+            // Matched to the two-line text block's actual height (not its two
+            // font sizes summed, which made the icon taller than the text).
+            implicitSize: Appearance.font.pixelSize.smallest + Appearance.font.pixelSize.smaller * 0.6
+            source: root.shownIconSource
+            animated: true
         }
 
-        StyledText {
+        ColumnLayout {
+            id: colLayout
             Layout.fillWidth: true
-            font.pixelSize: Appearance.font.pixelSize.smaller
-            color: Appearance.colors.colOnLayer0
-            elide: Text.ElideRight
-            text: root.shownTitle
+            spacing: -4
+
+            StyledText {
+                Layout.fillWidth: true
+                font.pixelSize: Appearance.font.pixelSize.smallest
+                color: Appearance.colors.colSubtext
+                elide: Text.ElideRight
+                text: root.shownAppName
+
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colOnLayer0
+                elide: Text.ElideRight
+                text: root.shownTitle
+            }
+
         }
 
     }
