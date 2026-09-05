@@ -33,13 +33,31 @@ Item { // Wrapper
     }
 
     function disableExpandAnimation() {
+        // Cancel any pending re-enable too: without this, a fast close->open
+        // (spamming Super) could fire the timer part-way into the next entry
+        // and reintroduce the competing width animation.
+        expandAnimationTimer.stop();
         searchBar.animateWidth = false;
     }
 
     function cancelSearch() {
         searchBar.searchInput.selectAll();
         LauncherSearch.query = "";
-        searchBar.animateWidth = true;
+        // Deliberately NOT re-enabled here. cancelSearch() runs at the *start*
+        // of the overview's entry animation, and it clears the query - which
+        // collapses implicitWidth from searchWidth to searchWidthCollapsed.
+        // With the Behavior live, that collapse played as a 300ms width
+        // animation on its own curve, on top of the overlay scaling in: a
+        // second, competing motion on the most prominent element on screen.
+        // expandAnimationTimer turns it back on once entry has settled,
+        // so user-driven expansion (typing) still animates as intended.
+        expandAnimationTimer.restart();
+    }
+
+    Timer {
+        id: expandAnimationTimer
+        interval: Appearance.animation.elementMoveEnter.duration
+        onTriggered: searchBar.animateWidth = true
     }
 
     function setSearchingText(text) {

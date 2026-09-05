@@ -187,6 +187,8 @@ Item {
                 delegate: OverviewWindow {
                     id: window
                     required property var modelData
+                    required property int index
+                    captureIndex: index
                     property int monitorId: windowData?.monitor
                     property var monitor: HyprlandData.monitors.find(m => m.id == monitorId)
                     property var address: `0x${modelData.HyprlandToplevel.address}`
