@@ -20,14 +20,11 @@ ButtonMouseArea {
         monitor: root.monitor
     }
 
-    property bool superPressAndHeld: false // Relevant modifications at bottom of file
-
     property real workspaceButtonWidth: 26
     property real activeWorkspaceMargin: 2
     property real activeWorkspaceSize: workspaceButtonWidth - activeWorkspaceMargin * 2
     property real workspaceIconSize: workspaceButtonWidth * 0.69
     property real workspaceIconSizeShrinked: workspaceButtonWidth * 0.55
-    property real workspaceIconOpacityShrinked: 1
     property real workspaceIconMarginShrinked: -4
     property int workspaceIndexInGroup: (monitor?.activeWorkspace?.id - 1) % wsModel.shownCount
     property real specialTextSize: workspaceButtonWidth * 0.5
@@ -242,66 +239,44 @@ ButtonMouseArea {
                 model: wsModel.shownCount
                 delegate: WorkspaceItem {
                     id: wsApp
+                    property var windows: wsModel.windows[index] ?? []
                     property var biggestWindow: wsModel.biggestWindow[index]
-                    property var mainAppIconSource: Quickshell.iconPath(AppSearch.guessIcon(biggestWindow?.class), "image-missing")
 
-                    AppIcon {
-                        id: appIcon
-                        property real cornerMargin: (!root.superPressAndHeld && Config.options?.bar.workspaces.showAppIcons && wsApp.biggestWindow) ? (root.workspaceButtonWidth - root.workspaceIconSize) / 2 : root.workspaceIconMarginShrinked
+                    // ONE grid for every window count, 0 included - not a
+                    // single-icon path that gets swapped out for SplitIconGrid
+                    // once a second window shows up. That swap used to be an
+                    // instant cut between two different components (an
+                    // AppIcon+Colorizer here, SplitIconGrid there), which
+                    // could never be smoothed no matter how well the split
+                    // grid's own internal 2<->3<->4 transitions animate.
+                    // SplitIconGrid already collapses cleanly to one full
+                    // circle at count<=1 (all four corners show window 0), so
+                    // routing every count through it is what makes 1<->2 just
+                    // another corner-resize like 2<->3, not a special case.
+                    SplitIconGrid {
+                        id: splitGrid
+                        property real cornerMargin: (Config.options?.bar.workspaces.showAppIcons && wsApp.biggestWindow) ? (root.workspaceButtonWidth - root.workspaceIconSize) / 2 : root.workspaceIconMarginShrinked
                         anchors {
                             bottom: parent.bottom
                             right: parent.right
                             bottomMargin: (parent.implicitHeight - root.workspaceButtonWidth) / 2 + cornerMargin
                             rightMargin: (parent.implicitWidth - root.workspaceButtonWidth) / 2 + cornerMargin
                         }
+                        diameter: NumberUtils.roundToEven(root.workspaceIconSize)
+                        windows: wsApp.windows
 
-                        animated: !wsApp.biggestWindow // Prevent the "image-missing" icon
-                        visible: false // Prevent dupe: the colorizer already copies the icon
-
-                        source: wsApp.mainAppIconSource
-                        implicitSize: NumberUtils.roundToEven(root.workspaceIconSize)
+                        opacity: !root.slotShowsIcon(wsApp.index) ? 0 : 1
+                        visible: opacity > 0
+                        scale: Config.options?.bar.workspaces.showAppIcons ? 1 : (root.workspaceIconSizeShrinked / root.workspaceIconSize)
 
                         Behavior on opacity {
                             animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
                         }
-                        Behavior on cornerMargin {
+                        Behavior on scale {
                             animation: Appearance.animation.elementMoveSmall.numberAnimation.createObject(this)
                         }
-                    }
-
-                    Circle {
-                        id: iconMask
-                        visible: false
-                        layer.enabled: true
-                        diameter: appIcon.implicitSize
-                    }
-
-                    Loader { // Somehow putting this multieffect in a loader prevents it from not showing up
-                        id: colorizer
-                        anchors.fill: appIcon
-                        sourceComponent: Colorizer {
-                            implicitWidth: appIcon.implicitWidth
-                            implicitHeight: appIcon.implicitHeight
-                            colorizationColor: Appearance.m3colors.darkmode ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnPrimary
-                            colorization: Config.options.bar.workspaces.monochromeIcons ? 0.8 : 0.5
-                            brightness: 0
-                            source: appIcon
-
-                            opacity: !root.slotShowsIcon(wsApp.index) ? 0 : (!root.superPressAndHeld ? 1 : root.workspaceIconOpacityShrinked)
-                            visible: opacity > 0
-                            scale: ((!root.superPressAndHeld && Config.options?.bar.workspaces.showAppIcons) ? root.workspaceIconSize : root.workspaceIconSizeShrinked) / root.workspaceIconSize
-
-                            Behavior on opacity {
-                                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
-                            }
-                            Behavior on scale {
-                                animation: Appearance.animation.elementMoveSmall.numberAnimation.createObject(this)
-                            }
-
-                            maskEnabled: true
-                            maskSource: iconMask
-                            maskThresholdMin: 0.5
-                            maskSpreadAtMin: 1
+                        Behavior on cornerMargin {
+                            animation: Appearance.animation.elementMoveSmall.numberAnimation.createObject(this)
                         }
                     }
                 }
@@ -340,31 +315,6 @@ ButtonMouseArea {
         }
     }
 
-    /////////////////// Super key press handling ///////////////////
-    Timer {
-        id: superPressAndHeldTimer
-        interval: (Config?.options.bar.autoHide.showWhenPressingSuper.delay ?? 100)
-        repeat: false
-        onTriggered: {
-            root.superPressAndHeld = true;
-        }
-    }
-    Connections {
-        target: GlobalStates
-        function onSuperDownChanged() {
-            if (!Config?.options.bar.autoHide.showWhenPressingSuper.enable)
-                return;
-            if (GlobalStates.superDown)
-                superPressAndHeldTimer.restart();
-            else {
-                superPressAndHeldTimer.stop();
-                root.superPressAndHeld = false;
-            }
-        }
-        function onSuperReleaseMightTriggerChanged() {
-            superPressAndHeldTimer.stop();
-        }
-    }
 
     component WorkspaceLayout: Box {
         anchors {
@@ -389,8 +339,6 @@ ButtonMouseArea {
         property int wsId: wsModel.getWorkspaceIdAt(index)
         property color contentColor: (wsModel.occupied[wsNum.index] && wsId !== wsModel.fakeWorkspace) ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1Inactive
         property bool showingNumbers: {
-            if (root.superPressAndHeld)
-                return true;
             if (GlobalStates.screenLocked)
                 return false;
             if (Config.options?.bar.workspaces.alwaysShowNumbers && (!Config.options?.bar.workspaces.showAppIcons || !wsNum.hasBiggestWindow))
