@@ -81,6 +81,62 @@ Item {
         }
     }
 
+    // Reaches the window's currently ACTIVE pane (FileExplorerWindow.pane
+    // already resolves "which of possibly several tabs/split panes is
+    // active" down to one FileExplorerPane). Named distinctly from the
+    // "fileExplorer" target above for the same reason as the old
+    // services/FileExplorer.qml comment explained: two IpcHandlers sharing
+    // one target don't error, they silently keep only the first and warn
+    // about the second.
+    //
+    // Addressing a SPECIFIC tab/pane rather than always "whichever is
+    // active" isn't wired up yet - not a concern current callers (tests,
+    // external tooling) have needed.
+    IpcHandler {
+        target: "fileExplorerService"
+
+        function setDirectory(path: string): void {
+            explorerLoader.item?.pane?.setDirectory(path);
+        }
+
+        function clearSelection(): void {
+            explorerLoader.item?.pane?.clearSelection();
+        }
+
+        function openFile(path: string): void {
+            FileExplorer.openFile(path);
+        }
+
+        function selectAll(): void {
+            const pane = explorerLoader.item?.pane;
+            if (!pane) return;
+            pane.selectedPaths = pane.entries.slice();
+        }
+
+        function deleteSelection(): void {
+            explorerLoader.item?.pane?.deleteSelection();
+        }
+
+        function copySelection(): void {
+            const pane = explorerLoader.item?.pane;
+            if (pane) FileExplorer.copySelectionToClipboard(pane);
+        }
+
+        function cutSelection(): void {
+            const pane = explorerLoader.item?.pane;
+            if (pane) FileExplorer.cutSelectionToClipboard(pane);
+        }
+
+        function paste(): void {
+            const pane = explorerLoader.item?.pane;
+            if (pane) FileExplorer.pasteClipboard(pane);
+        }
+
+        function renameEntry(oldPath: string, newName: string): void {
+            explorerLoader.item?.pane?.renameEntry(oldPath, newName);
+        }
+    }
+
     GlobalShortcut {
         name: "fileExplorerToggle"
         description: "Toggle file explorer"

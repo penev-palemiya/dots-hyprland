@@ -16,6 +16,12 @@ MouseArea {
     required property var fileModelData
     property bool isDirectory: fileModelData.fileIsDir
     property bool useThumbnail: !isDirectory && Images.isValidImageByName(fileModelData.fileName)
+    // Whether the caller's selection model currently includes this entry -
+    // read-only from here, set by whoever creates this delegate (the same
+    // place colBackground/colText are already driven from that selection
+    // state). Used only to decide the right-click "select first?" behaviour
+    // below.
+    property bool isSelectedForMenu: false
 
     property alias colBackground: background.color
     property alias colText: itemName.color
@@ -50,11 +56,33 @@ MouseArea {
     // but there's no reason to court it).
     signal selectRequested(modifiers: int)
     signal activated()
+    // (x, y) in this item's own coordinate space, for the caller to open a
+    // context menu at.
+    signal contextMenuRequested(x: real, y: real)
 
     hoverEnabled: true
     acceptedButtons: Qt.LeftButton
     onClicked: mouse => root.selectRequested(mouse.modifiers)
     onDoubleClicked: root.activated()
+
+    // A separate TapHandler for the right-click, rather than adding
+    // Qt.RightButton to acceptedButtons above: MouseArea's onClicked doesn't
+    // distinguish which button triggered it without checking mouse.button
+    // itself, and right-click here means "open a menu", never "select" -
+    // keeping it a wholly separate handler means the left-click selection
+    // logic above needs no button-checking added to it at all.
+    TapHandler {
+        acceptedButtons: Qt.RightButton
+        onTapped: eventPoint => {
+            // A right-click on an unselected item selects it first, matching
+            // Nautilus/Explorer: right-clicking file B while A is selected
+            // should act on B, not silently run "delete/copy/etc." against
+            // the previous selection the user can no longer see highlighted.
+            if (!root.isSelectedForMenu)
+                root.selectRequested(0);
+            root.contextMenuRequested(eventPoint.position.x, eventPoint.position.y);
+        }
+    }
 
     Rectangle {
         id: background

@@ -13,8 +13,15 @@ import Quickshell.Io
 // bar, quick-access sidebar, keyboard navigation, filter field); the
 // wallpaper-only pieces (thumbnail generation, "select this as wallpaper",
 // dark/light toggle) are gone. `activated()` opens directories, and opens
-// files with `gio open` - see FileExplorer.qml's doc comment for what else
-// is not implemented yet (multi-select, copy/move/delete/rename).
+// files with `gio open`.
+//
+// Displays one FileExplorerPane (`pane`), passed in by whatever hosts this -
+// a plain single window today, a split pane or tab once those exist. All
+// directory/history/selection state lives on that pane, not here or in a
+// global singleton, so several instances of this component can coexist
+// showing different folders. The one thing genuinely shared across every
+// pane is the copy/cut clipboard and openFile(), both on the FileExplorer
+// singleton - see its doc comment for why those two stayed shared.
 //
 // Hosted in a normal ApplicationWindow (FileExplorerWindow.qml), not a
 // layer-shell overlay - so closing means emitting closeRequested() for the
@@ -24,10 +31,24 @@ import Quickshell.Io
 // navigating would be a surprise this component shouldn't spring on its own.
 MouseArea {
     id: root
+    // The pane this content displays - directory, history, selection all
+    // come from here rather than a global singleton, so multiple instances
+    // of this component (split view, tabs) each show their own independent
+    // view. See FileExplorerPane.qml for why this had to move out of the
+    // old services/FileExplorer.qml Singleton.
+    required property FileExplorerPane pane
     property int columns: 4
     property real previewCellAspectRatio: 4 / 3
 
     signal closeRequested()
+    // Fired on any pointer activity over this pane - used by
+    // FileExplorerSplitView to track which side of a split is "active"
+    // (gets keyboard shortcuts, determines the window title). A HoverHandler
+    // below drives this rather than requiring an actual click: this
+    // MouseArea's own acceptedButtons is deliberately just Back/Forward (see
+    // onPressed below), so a plain left click never reaches an onPressed
+    // here at all - it falls through to the grid/delegates underneath.
+    signal pointerActive()
 
     function handleFilePasting(event) {
         // The explorer's own copy/cut clipboard (FileExplorer.clipboardPaths)
@@ -37,14 +58,14 @@ MouseArea {
         // "navigate to this path instead" would silently discard a pending
         // file operation the user very deliberately just queued.
         if (FileExplorer.clipboardPaths.length > 0) {
-            FileExplorer.pasteClipboard();
+            FileExplorer.pasteClipboard(root.pane);
             event.accepted = true;
             return;
         }
         const currentClipboardEntry = Cliphist.entries[0];
         if (/^\d+\tfile:\/\/\S+/.test(currentClipboardEntry)) {
             const url = StringUtils.cleanCliphistEntry(currentClipboardEntry);
-            FileExplorer.setDirectory(FileUtils.trimFileProtocol(decodeURIComponent(url)));
+            root.pane.setDirectory(FileUtils.trimFileProtocol(decodeURIComponent(url)));
             event.accepted = true;
         } else {
             event.accepted = false; // No path, let text pasting proceed
@@ -54,7 +75,7 @@ MouseArea {
     function activateEntry(fileModelData) {
         if (!fileModelData) return;
         if (fileModelData.fileIsDir) {
-            FileExplorer.setDirectory(fileModelData.filePath);
+            root.pane.setDirectory(fileModelData.filePath);
             filterField.text = "";
         } else {
             FileExplorer.openFile(fileModelData.filePath);
@@ -64,9 +85,9 @@ MouseArea {
     acceptedButtons: Qt.BackButton | Qt.ForwardButton
     onPressed: event => {
         if (event.button === Qt.BackButton) {
-            FileExplorer.navigateBack();
+            root.pane.navigateBack();
         } else if (event.button === Qt.ForwardButton) {
-            FileExplorer.navigateForward();
+            root.pane.navigateForward();
         }
     }
 
@@ -74,13 +95,13 @@ MouseArea {
         if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_V) { // Intercept Ctrl+V to handle "paste to go to" in pickers
             root.handleFilePasting(event);
         } else if (event.modifiers & Qt.AltModifier && event.key === Qt.Key_Up) {
-            FileExplorer.navigateUp();
+            root.pane.navigateUp();
             event.accepted = true;
         } else if (event.modifiers & Qt.AltModifier && event.key === Qt.Key_Left) {
-            FileExplorer.navigateBack();
+            root.pane.navigateBack();
             event.accepted = true;
         } else if (event.modifiers & Qt.AltModifier && event.key === Qt.Key_Right) {
-            FileExplorer.navigateForward();
+            root.pane.navigateForward();
             event.accepted = true;
         } else if (event.key === Qt.Key_Left) {
             grid.moveSelection(-1, event.modifiers & Qt.ShiftModifier);
@@ -95,16 +116,16 @@ MouseArea {
             grid.moveSelection(grid.columns, event.modifiers & Qt.ShiftModifier);
             event.accepted = true;
         } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_A) {
-            FileExplorer.selectedPaths = FileExplorer.entries.slice();
+            root.pane.selectedPaths = root.pane.entries.slice();
             event.accepted = true;
         } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_C) {
-            FileExplorer.copySelectionToClipboard();
+            FileExplorer.copySelectionToClipboard(root.pane);
             event.accepted = true;
         } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_X) {
-            FileExplorer.cutSelectionToClipboard();
+            FileExplorer.cutSelectionToClipboard(root.pane);
             event.accepted = true;
         } else if (event.key === Qt.Key_Delete) {
-            FileExplorer.deleteSelection();
+            root.pane.deleteSelection();
             event.accepted = true;
         } else if (event.key === Qt.Key_F2) {
             grid.beginRenameCurrent();
@@ -136,6 +157,10 @@ MouseArea {
 
     implicitHeight: mainLayout.implicitHeight
     implicitWidth: mainLayout.implicitWidth
+
+    HoverHandler {
+        onHoveredChanged: if (hovered) root.pointerActive()
+    }
 
     // No StyledRectangularShadow/elevationMargin here, unlike
     // WallpaperSelectorContent: those exist to make an overlay floating on
@@ -224,8 +249,8 @@ MouseArea {
                                 left: parent.left
                                 right: parent.right
                             }
-                            onClicked: FileExplorer.setDirectory(quickDirButton.modelData.path)
-                            toggled: FileExplorer.directory === Qt.resolvedUrl(modelData.path)
+                            onClicked: root.pane.setDirectory(quickDirButton.modelData.path)
+                            toggled: root.pane.directory === Qt.resolvedUrl(modelData.path)
                             colBackgroundToggled: Appearance.colors.colSecondaryContainer
                             colBackgroundToggledHover: Appearance.colors.colSecondaryContainerHover
                             colRippleToggled: Appearance.colors.colSecondaryContainerActive
@@ -256,14 +281,21 @@ MouseArea {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
-                AddressBar {
+                FileExplorerAddressBar {
                     id: addressBar
                     Layout.margins: 4
                     Layout.fillWidth: true
                     Layout.fillHeight: false
-                    directory: FileExplorer.effectiveDirectory
+                    directory: root.pane.effectiveDirectory
+                    canGoBack: root.pane.folderModel.currentFolderHistoryIndex > 0
+                    canGoForward: root.pane.folderModel.currentFolderHistoryIndex < root.pane.folderModel.folderHistory.length - 1
                     onNavigateToDirectory: path => {
-                        FileExplorer.setDirectory(path.length == 0 ? "/" : path);
+                        root.pane.setDirectory(path.length == 0 ? "/" : path);
+                    }
+                    onNavigateBack: root.pane.navigateBack()
+                    onNavigateForward: root.pane.navigateForward()
+                    onPasteIntoRequested: path => {
+                        FileExplorer.pasteClipboard(root.pane, path);
                     }
                     radius: Appearance.rounding.normal
                 }
@@ -275,7 +307,7 @@ MouseArea {
 
                     GridView {
                         id: grid
-                        visible: FileExplorer.folderModel.count > 0
+                        visible: root.pane.folderModel.count > 0
 
                         readonly property int columns: root.columns
                         readonly property int rows: Math.max(1, Math.ceil(count / columns))
@@ -306,9 +338,9 @@ MouseArea {
                             const path = grid.model.get(currentIndex, "filePath");
                             if (!path) return;
                             if (shiftHeld) {
-                                FileExplorer.selectRange(currentIndex);
+                                root.pane.selectRange(currentIndex);
                             } else {
-                                FileExplorer.selectOnly(path, currentIndex);
+                                root.pane.selectOnly(path, currentIndex);
                             }
                         }
 
@@ -333,7 +365,7 @@ MouseArea {
                             grid.renamingPath = "";
                             if (newName.length === 0) return;
                             if (newName === FileUtils.fileNameForPath(oldPath)) return;
-                            FileExplorer.renameEntry(oldPath, newName);
+                            root.pane.renameEntry(oldPath, newName);
                         }
 
                         function cancelRename() {
@@ -365,10 +397,10 @@ MouseArea {
                                     if (path) selected.push(path);
                                 }
                             }
-                            FileExplorer.selectedPaths = selected;
+                            root.pane.selectedPaths = selected;
                         }
 
-                        model: FileExplorer.folderModel
+                        model: root.pane.folderModel
                         onModelChanged: currentIndex = 0
                         delegate: FileExplorerDirectoryItem {
                             id: delegateRoot
@@ -376,17 +408,36 @@ MouseArea {
                             required property int index
                             fileModelData: modelData
                             // Bound to selectedPaths, not just to a locally
-                            // toggled bool: FileExplorer.selectedPaths is the
+                            // toggled bool: pane.selectedPaths is the
                             // one selection model both this grid and any
                             // future context menu / operations act on.
-                            property bool isSelected: FileExplorer.selectedPaths.indexOf(fileModelData.filePath) !== -1
+                            property bool isSelected: root.pane.selectedPaths.indexOf(fileModelData.filePath) !== -1
+                            isSelectedForMenu: isSelected
                             width: grid.cellWidth
                             height: grid.cellHeight
                             // Selected takes precedence over hover/keyboard-
                             // cursor - a selected item stays visibly selected
                             // while the mouse merely passes over a neighbour.
+                            //
+                            // Hover (containsMouse) and keyboard cursor
+                            // (grid.currentIndex) are two separate states with
+                            // separate lifetimes, checked independently rather
+                            // than merged into one via onEntered writing into
+                            // currentIndex as this used to do. That write had
+                            // no matching reset: MouseArea has onEntered for
+                            // "the pointer arrived here" but nothing fires for
+                            // "the pointer left and landed on nothing", so
+                            // currentIndex kept pointing at the last-hovered
+                            // tile after the mouse moved off the grid
+                            // entirely (off the window, or onto the sidebar/
+                            // toolbar/address bar) - and that tile stayed lit
+                            // forever, which is exactly the reported bug.
+                            // containsMouse doesn't have this gap: Qt clears
+                            // it the instant the pointer leaves each
+                            // delegate, unconditionally, so it needs no
+                            // explicit reset here at all.
                             colBackground: isSelected ? Appearance.colors.colPrimary
-                                : (index === grid?.currentIndex || containsMouse) ? Appearance.colors.colSecondaryContainer
+                                : (index === grid.currentIndex || containsMouse) ? Appearance.colors.colSecondaryContainer
                                 : ColorUtils.transparentize(Appearance.colors.colPrimaryContainer)
                             colText: isSelected ? Appearance.colors.colOnPrimary
                                 : (index === grid.currentIndex || containsMouse) ? Appearance.colors.colOnSecondaryContainer
@@ -395,23 +446,64 @@ MouseArea {
                             onRenameCommitted: newName => grid.commitRename(fileModelData.filePath, newName)
                             onRenameCancelled: grid.cancelRename()
 
-                            onEntered: {
-                                grid.currentIndex = index;
-                            }
-
                             onSelectRequested: modifiers => {
                                 grid.currentIndex = index;
                                 if (modifiers & Qt.ShiftModifier) {
-                                    FileExplorer.selectRange(index);
+                                    root.pane.selectRange(index);
                                 } else if (modifiers & Qt.ControlModifier) {
-                                    FileExplorer.toggleSelection(fileModelData.filePath, index);
+                                    root.pane.toggleSelection(fileModelData.filePath, index);
                                 } else {
-                                    FileExplorer.selectOnly(fileModelData.filePath, index);
+                                    root.pane.selectOnly(fileModelData.filePath, index);
                                 }
                             }
 
                             onActivated: {
                                 root.activateEntry(fileModelData);
+                            }
+
+                            onContextMenuRequested: (x, y) => {
+                                // isSelected has just been forced true by
+                                // FileExplorerDirectoryItem itself (see its
+                                // right-click handler) if it wasn't already,
+                                // so pane.selectedPaths reflects "this entry,
+                                // plus whatever else was already selected"
+                                // by the time this runs. currentIndex is
+                                // moved here regardless of whether selection
+                                // changed, so Rename always acts on the
+                                // right-clicked entry rather than whatever
+                                // the keyboard cursor last pointed at.
+                                grid.currentIndex = index;
+                                const multiple = root.pane.selectedPaths.length > 1;
+                                fileContextMenu.actions = [
+                                    {
+                                        text: Translation.tr("Open"),
+                                        icon: "open_in_new",
+                                        enabled: !multiple,
+                                        onTriggered: () => root.activateEntry(fileModelData)
+                                    },
+                                    {
+                                        text: Translation.tr("Rename"),
+                                        icon: "edit",
+                                        enabled: !multiple,
+                                        onTriggered: () => grid.beginRenameCurrent()
+                                    },
+                                    {
+                                        text: Translation.tr("Copy"),
+                                        icon: "content_copy",
+                                        onTriggered: () => FileExplorer.copySelectionToClipboard(root.pane)
+                                    },
+                                    {
+                                        text: Translation.tr("Cut"),
+                                        icon: "content_cut",
+                                        onTriggered: () => FileExplorer.cutSelectionToClipboard(root.pane)
+                                    },
+                                    {
+                                        text: Translation.tr("Delete"),
+                                        icon: "delete",
+                                        onTriggered: () => root.pane.deleteSelection()
+                                    },
+                                ];
+                                fileContextMenu.openAt(x, y, delegateRoot);
                             }
                         }
 
@@ -448,12 +540,57 @@ MouseArea {
                         anchors.fill: parent
                         z: 1
                         preventStealing: true
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
                         property real originX: 0
                         property real originY: 0
                         property bool dragging: false
 
                         onPressed: mouse => {
-                            if (mouse.button !== Qt.LeftButton || grid.itemAt(mouse.x, mouse.y)) {
+                            if (mouse.button === Qt.RightButton) {
+                                // Right-click on empty grid space: only makes
+                                // sense over a genuinely empty spot (itemAt
+                                // null), for the same content/viewport
+                                // coordinate reason as the left-click branch
+                                // below - a right-click that landed on a
+                                // delegate is this delegate's own menu to
+                                // handle, not this background's.
+                                if (grid.itemAt(mouse.x, mouse.y + grid.contentY)) {
+                                    mouse.accepted = false;
+                                    return;
+                                }
+                                emptySpaceContextMenu.actions = [
+                                    {
+                                        text: Translation.tr("Paste"),
+                                        icon: "content_paste",
+                                        enabled: FileExplorer.clipboardPaths.length > 0,
+                                        onTriggered: () => FileExplorer.pasteClipboard(root.pane)
+                                    },
+                                    {
+                                        text: Translation.tr("Select all"),
+                                        icon: "select_all",
+                                        onTriggered: () => root.pane.selectedPaths = root.pane.entries.slice()
+                                    },
+                                ];
+                                emptySpaceContextMenu.openAt(mouse.x, mouse.y, rubberBandArea);
+                                return;
+                            }
+                            // itemAt() takes CONTENT-space coordinates (it
+                            // accounts for scrolling), while mouse.x/y here
+                            // are in this MouseArea's own viewport space -
+                            // the same content-vs-viewport distinction
+                            // documented on selectWithinRubberBand below.
+                            // Without adding contentY, this matched
+                            // selectWithinRubberBand's coordinates only by
+                            // accident whenever the grid happened to be
+                            // scrolled to the top; scrolled any further, it
+                            // could return null for a point actually on a
+                            // delegate (letting a real click start a rubber
+                            // band instead) or return a delegate for empty
+                            // space (silently declining a click that should
+                            // have cleared the selection) - which is exactly
+                            // the "click empty space, selection doesn't
+                            // clear" symptom this was reported as.
+                            if (mouse.button !== Qt.LeftButton || grid.itemAt(mouse.x, mouse.y + grid.contentY)) {
                                 mouse.accepted = false;
                                 return;
                             }
@@ -494,7 +631,7 @@ MouseArea {
                                 // selection, matching every other file
                                 // manager's "click nothing to deselect
                                 // everything" behaviour.
-                                FileExplorer.clearSelection();
+                                root.pane.clearSelection();
                             }
                             rubberBandArea.dragging = false;
                             grid.interactive = true;
@@ -509,6 +646,14 @@ MouseArea {
                             border.width: 1
                             border.color: Appearance.colors.colPrimary
                         }
+
+                        FileExplorerContextMenu {
+                            id: emptySpaceContextMenu
+                        }
+                    }
+
+                    FileExplorerContextMenu {
+                        id: fileContextMenu
                     }
 
                     Row {
@@ -530,7 +675,7 @@ MouseArea {
 
                                 // Search
                                 onTextChanged: {
-                                    FileExplorer.searchQuery = text;
+                                    root.pane.searchQuery = text;
                                 }
 
                                 Keys.onPressed: event => {
@@ -551,7 +696,7 @@ MouseArea {
                                         // all (confirmed live: it silently
                                         // selected the field's own, empty text
                                         // instead of the grid).
-                                        FileExplorer.selectedPaths = FileExplorer.entries.slice();
+                                        root.pane.selectedPaths = root.pane.entries.slice();
                                         event.accepted = true;
                                         return;
                                     } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_C) {
@@ -563,11 +708,11 @@ MouseArea {
                                         // Ctrl+C never fired at all - confirmed
                                         // live: clipboardPaths stayed empty and
                                         // a following paste did nothing.
-                                        FileExplorer.copySelectionToClipboard();
+                                        FileExplorer.copySelectionToClipboard(root.pane);
                                         event.accepted = true;
                                         return;
                                     } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_X) {
-                                        FileExplorer.cutSelectionToClipboard();
+                                        FileExplorer.cutSelectionToClipboard(root.pane);
                                         event.accepted = true;
                                         return;
                                     } else if (event.key === Qt.Key_Delete) {
@@ -580,7 +725,7 @@ MouseArea {
                                         // `text.length !== 0` not being true,
                                         // which is fragile to keep re-deriving
                                         // per key.
-                                        FileExplorer.deleteSelection();
+                                        root.pane.deleteSelection();
                                         event.accepted = true;
                                         return;
                                     } else if (event.key === Qt.Key_F2) {
@@ -605,13 +750,6 @@ MouseArea {
                             }
                         }
 
-                        ToolbarPairedFab {
-                            iconText: "close"
-                            onClicked: root.closeRequested();
-                            StyledToolTip {
-                                text: Translation.tr("Close file explorer")
-                            }
-                        }
                     }
                 }
             }
