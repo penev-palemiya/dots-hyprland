@@ -59,14 +59,17 @@ ListView {
                         icon: "folder_open",
                         onTriggered: () => root.navigateToDirectory(folderButton.segmentPath)
                     },
+                    { separator: true },
                     {
                         text: Translation.tr("Copy path"),
                         icon: "content_copy",
+                        shortcut: "Ctrl+C",
                         onTriggered: () => Quickshell.clipboardText = folderButton.segmentPath
                     },
                     {
                         text: Translation.tr("Paste into this folder"),
                         icon: "content_paste",
+                        shortcut: "Ctrl+V",
                         enabled: FileExplorer.clipboardPaths.length > 0,
                         onTriggered: () => root.pasteIntoRequested(folderButton.segmentPath)
                     },

@@ -484,22 +484,28 @@ MouseArea {
                                     {
                                         text: Translation.tr("Rename"),
                                         icon: "edit",
+                                        shortcut: "F2",
                                         enabled: !multiple,
                                         onTriggered: () => grid.beginRenameCurrent()
                                     },
+                                    { separator: true },
                                     {
                                         text: Translation.tr("Copy"),
                                         icon: "content_copy",
+                                        shortcut: "Ctrl+C",
                                         onTriggered: () => FileExplorer.copySelectionToClipboard(root.pane)
                                     },
                                     {
                                         text: Translation.tr("Cut"),
                                         icon: "content_cut",
+                                        shortcut: "Ctrl+X",
                                         onTriggered: () => FileExplorer.cutSelectionToClipboard(root.pane)
                                     },
+                                    { separator: true },
                                     {
                                         text: Translation.tr("Delete"),
                                         icon: "delete",
+                                        shortcut: "Del",
                                         onTriggered: () => root.pane.deleteSelection()
                                     },
                                 ];
@@ -562,12 +568,14 @@ MouseArea {
                                     {
                                         text: Translation.tr("Paste"),
                                         icon: "content_paste",
+                                        shortcut: "Ctrl+V",
                                         enabled: FileExplorer.clipboardPaths.length > 0,
                                         onTriggered: () => FileExplorer.pasteClipboard(root.pane)
                                     },
                                     {
                                         text: Translation.tr("Select all"),
                                         icon: "select_all",
+                                        shortcut: "Ctrl+A",
                                         onTriggered: () => root.pane.selectedPaths = root.pane.entries.slice()
                                     },
                                 ];
