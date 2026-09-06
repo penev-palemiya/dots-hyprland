@@ -12,9 +12,9 @@ import Quickshell.Io
 // Fork of WallpaperSelectorContent.qml. Same grid-browsing shell (address
 // bar, quick-access sidebar, keyboard navigation, filter field); the
 // wallpaper-only pieces (thumbnail generation, "select this as wallpaper",
-// dark/light toggle) are gone. `activated()` opens directories and, for
-// files, currently just prints the path - see FileExplorer.qml's doc comment
-// for what's not implemented yet.
+// dark/light toggle) are gone. `activated()` opens directories, and opens
+// files with `gio open` - see FileExplorer.qml's doc comment for what else
+// is not implemented yet (multi-select, copy/move/delete/rename).
 //
 // Hosted in a normal ApplicationWindow (FileExplorerWindow.qml), not a
 // layer-shell overlay - so closing means emitting closeRequested() for the
@@ -30,6 +30,17 @@ MouseArea {
     signal closeRequested()
 
     function handleFilePasting(event) {
+        // The explorer's own copy/cut clipboard (FileExplorer.clipboardPaths)
+        // takes priority over Cliphist's "paste a path to navigate there"
+        // trick below: after Ctrl+C/Ctrl+X on a selection, Ctrl+V pasting
+        // files is the only sane reading of the keystroke. Falling through to
+        // "navigate to this path instead" would silently discard a pending
+        // file operation the user very deliberately just queued.
+        if (FileExplorer.clipboardPaths.length > 0) {
+            FileExplorer.pasteClipboard();
+            event.accepted = true;
+            return;
+        }
         const currentClipboardEntry = Cliphist.entries[0];
         if (/^\d+\tfile:\/\/\S+/.test(currentClipboardEntry)) {
             const url = StringUtils.cleanCliphistEntry(currentClipboardEntry);
@@ -46,9 +57,7 @@ MouseArea {
             FileExplorer.setDirectory(fileModelData.filePath);
             filterField.text = "";
         } else {
-            // No file-open action yet - this is still just the browsing half
-            // of the explorer (see FileExplorer.qml's doc comment).
-            console.log("[FileExplorer] Selected file:", fileModelData.filePath);
+            FileExplorer.openFile(fileModelData.filePath);
         }
     }
 
@@ -74,16 +83,31 @@ MouseArea {
             FileExplorer.navigateForward();
             event.accepted = true;
         } else if (event.key === Qt.Key_Left) {
-            grid.moveSelection(-1);
+            grid.moveSelection(-1, event.modifiers & Qt.ShiftModifier);
             event.accepted = true;
         } else if (event.key === Qt.Key_Right) {
-            grid.moveSelection(1);
+            grid.moveSelection(1, event.modifiers & Qt.ShiftModifier);
             event.accepted = true;
         } else if (event.key === Qt.Key_Up) {
-            grid.moveSelection(-grid.columns);
+            grid.moveSelection(-grid.columns, event.modifiers & Qt.ShiftModifier);
             event.accepted = true;
         } else if (event.key === Qt.Key_Down) {
-            grid.moveSelection(grid.columns);
+            grid.moveSelection(grid.columns, event.modifiers & Qt.ShiftModifier);
+            event.accepted = true;
+        } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_A) {
+            FileExplorer.selectedPaths = FileExplorer.entries.slice();
+            event.accepted = true;
+        } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_C) {
+            FileExplorer.copySelectionToClipboard();
+            event.accepted = true;
+        } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_X) {
+            FileExplorer.cutSelectionToClipboard();
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Delete) {
+            FileExplorer.deleteSelection();
+            event.accepted = true;
+        } else if (event.key === Qt.Key_F2) {
+            grid.beginRenameCurrent();
             event.accepted = true;
         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             grid.activateCurrent();
@@ -267,9 +291,25 @@ MouseArea {
                         bottomMargin: extraOptions.implicitHeight
                         ScrollBar.vertical: StyledScrollBar {}
 
-                        function moveSelection(delta) {
+                        // Despite the name (kept from WallpaperSelectorContent,
+                        // where there was only ever one selectable thing),
+                        // this moves the keyboard CURSOR - currentIndex. It
+                        // also drives FileExplorer's selection model so arrow
+                        // navigation behaves like every other file manager:
+                        // the cursor and the selection are the same thing
+                        // until Shift/Ctrl says otherwise. shiftHeld extends
+                        // the range from the existing anchor instead of
+                        // collapsing to a single new selection.
+                        function moveSelection(delta, shiftHeld = false) {
                             currentIndex = Math.max(0, Math.min(grid.model.count - 1, currentIndex + delta));
                             positionViewAtIndex(currentIndex, GridView.Contain);
+                            const path = grid.model.get(currentIndex, "filePath");
+                            if (!path) return;
+                            if (shiftHeld) {
+                                FileExplorer.selectRange(currentIndex);
+                            } else {
+                                FileExplorer.selectOnly(path, currentIndex);
+                            }
                         }
 
                         function activateCurrent() {
@@ -277,19 +317,97 @@ MouseArea {
                             root.activateEntry(fileModelData);
                         }
 
+                        // The path currently being renamed inline, or "" if
+                        // none. A path rather than an index: the grid re-sorts
+                        // and re-filters as files change, so an index held
+                        // across that would end up pointing at a different
+                        // row than the one the user started renaming.
+                        property string renamingPath: ""
+
+                        function beginRenameCurrent() {
+                            const path = grid.model.get(currentIndex, "filePath");
+                            if (path) grid.renamingPath = path;
+                        }
+
+                        function commitRename(oldPath, newName) {
+                            grid.renamingPath = "";
+                            if (newName.length === 0) return;
+                            if (newName === FileUtils.fileNameForPath(oldPath)) return;
+                            FileExplorer.renameEntry(oldPath, newName);
+                        }
+
+                        function cancelRename() {
+                            grid.renamingPath = "";
+                        }
+
+                        // x/y/w/h are in rubberBandArea's coordinate space -
+                        // i.e. the GridView's own visible viewport, NOT its
+                        // scrolled content. Converted to content space by
+                        // adding contentY (GridView doesn't scroll
+                        // horizontally here, so contentX is left out) before
+                        // comparing against each cell's row/column geometry,
+                        // which IS in content space.
+                        function selectWithinRubberBand(x, y, w, h) {
+                            const top = y + grid.contentY;
+                            const bottom = top + h;
+                            const left = x;
+                            const right = x + w;
+                            const selected = [];
+                            for (let i = 0; i < grid.count; i++) {
+                                const row = Math.floor(i / grid.columns);
+                                const col = i % grid.columns;
+                                const cellLeft = col * grid.cellWidth;
+                                const cellTop = row * grid.cellHeight;
+                                const intersects = cellLeft < right && cellLeft + grid.cellWidth > left
+                                    && cellTop < bottom && cellTop + grid.cellHeight > top;
+                                if (intersects) {
+                                    const path = grid.model.get(i, "filePath");
+                                    if (path) selected.push(path);
+                                }
+                            }
+                            FileExplorer.selectedPaths = selected;
+                        }
+
                         model: FileExplorer.folderModel
                         onModelChanged: currentIndex = 0
                         delegate: FileExplorerDirectoryItem {
+                            id: delegateRoot
                             required property var modelData
                             required property int index
                             fileModelData: modelData
+                            // Bound to selectedPaths, not just to a locally
+                            // toggled bool: FileExplorer.selectedPaths is the
+                            // one selection model both this grid and any
+                            // future context menu / operations act on.
+                            property bool isSelected: FileExplorer.selectedPaths.indexOf(fileModelData.filePath) !== -1
                             width: grid.cellWidth
                             height: grid.cellHeight
-                            colBackground: (index === grid?.currentIndex || containsMouse) ? Appearance.colors.colPrimary : ColorUtils.transparentize(Appearance.colors.colPrimaryContainer)
-                            colText: (index === grid.currentIndex || containsMouse) ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer0
+                            // Selected takes precedence over hover/keyboard-
+                            // cursor - a selected item stays visibly selected
+                            // while the mouse merely passes over a neighbour.
+                            colBackground: isSelected ? Appearance.colors.colPrimary
+                                : (index === grid?.currentIndex || containsMouse) ? Appearance.colors.colSecondaryContainer
+                                : ColorUtils.transparentize(Appearance.colors.colPrimaryContainer)
+                            colText: isSelected ? Appearance.colors.colOnPrimary
+                                : (index === grid.currentIndex || containsMouse) ? Appearance.colors.colOnSecondaryContainer
+                                : Appearance.colors.colOnLayer0
+                            renaming: grid.renamingPath === fileModelData.filePath
+                            onRenameCommitted: newName => grid.commitRename(fileModelData.filePath, newName)
+                            onRenameCancelled: grid.cancelRename()
 
                             onEntered: {
                                 grid.currentIndex = index;
+                            }
+
+                            onSelectRequested: modifiers => {
+                                grid.currentIndex = index;
+                                if (modifiers & Qt.ShiftModifier) {
+                                    FileExplorer.selectRange(index);
+                                } else if (modifiers & Qt.ControlModifier) {
+                                    FileExplorer.toggleSelection(fileModelData.filePath, index);
+                                } else {
+                                    FileExplorer.selectOnly(fileModelData.filePath, index);
+                                }
                             }
 
                             onActivated: {
@@ -304,6 +422,92 @@ MouseArea {
                                 height: gridDisplayRegion.height
                                 radius: Appearance.rounding.normal
                             }
+                        }
+                    }
+
+                    // Rubber-band multi-select: press-drag over empty grid
+                    // space marquees every entry the rectangle touches, same
+                    // as Nautilus/Explorer/most icon views.
+                    //
+                    // A separate MouseArea layered ON TOP of the GridView,
+                    // not logic inside it - GridView is a Flickable, and a
+                    // press-drag starting on its own empty space would
+                    // otherwise be consumed as a flick/scroll gesture rather
+                    // than reaching here at all.
+                    //
+                    // It only ever fires for a press that starts on genuinely
+                    // empty space (grid.itemAt returns null there - checked
+                    // BEFORE accepting the press): a press that lands on a
+                    // delegate is explicitly declined (mouse.accepted =
+                    // false) so it falls through to that delegate's own
+                    // MouseArea underneath, leaving click/Ctrl+click/
+                    // Shift+click/double-click on an item completely
+                    // unaffected by this being layered above them.
+                    MouseArea {
+                        id: rubberBandArea
+                        anchors.fill: parent
+                        z: 1
+                        preventStealing: true
+                        property real originX: 0
+                        property real originY: 0
+                        property bool dragging: false
+
+                        onPressed: mouse => {
+                            if (mouse.button !== Qt.LeftButton || grid.itemAt(mouse.x, mouse.y)) {
+                                mouse.accepted = false;
+                                return;
+                            }
+                            rubberBandArea.originX = mouse.x;
+                            rubberBandArea.originY = mouse.y;
+                            rubberBandArea.dragging = false;
+                            // GridView is a Flickable underneath this - left
+                            // disabled while merely pressed (a plain click on
+                            // empty space, handled in onReleased, should not
+                            // fight interactive scrolling), and turned off
+                            // only once movement confirms a drag is actually
+                            // happening.
+                        }
+
+                        onPositionChanged: mouse => {
+                            if (!(mouse.buttons & Qt.LeftButton)) return;
+                            if (!rubberBandArea.dragging) {
+                                // Small threshold before committing to a drag,
+                                // so a slightly-imprecise click doesn't start
+                                // a one-pixel marquee and clear the selection
+                                // a plain click would have meant to keep.
+                                const dx = mouse.x - rubberBandArea.originX;
+                                const dy = mouse.y - rubberBandArea.originY;
+                                if (dx * dx + dy * dy < 16) return;
+                                rubberBandArea.dragging = true;
+                                grid.interactive = false;
+                            }
+                            rubberBand.x = Math.min(rubberBandArea.originX, mouse.x);
+                            rubberBand.y = Math.min(rubberBandArea.originY, mouse.y);
+                            rubberBand.width = Math.abs(mouse.x - rubberBandArea.originX);
+                            rubberBand.height = Math.abs(mouse.y - rubberBandArea.originY);
+                            grid.selectWithinRubberBand(rubberBand.x, rubberBand.y, rubberBand.width, rubberBand.height);
+                        }
+
+                        onReleased: {
+                            if (!rubberBandArea.dragging) {
+                                // A plain click on empty space: clear the
+                                // selection, matching every other file
+                                // manager's "click nothing to deselect
+                                // everything" behaviour.
+                                FileExplorer.clearSelection();
+                            }
+                            rubberBandArea.dragging = false;
+                            grid.interactive = true;
+                            rubberBand.width = 0;
+                            rubberBand.height = 0;
+                        }
+
+                        Rectangle {
+                            id: rubberBand
+                            visible: width > 0 && height > 0
+                            color: ColorUtils.transparentize(Appearance.colors.colPrimary, 0.7)
+                            border.width: 1
+                            border.color: Appearance.colors.colPrimary
                         }
                     }
 
@@ -332,6 +536,56 @@ MouseArea {
                                 Keys.onPressed: event => {
                                     if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_V) { // Intercept Ctrl+V to handle "paste to go to" in pickers
                                         root.handleFilePasting(event);
+                                        return;
+                                    } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_A) {
+                                        // Must be caught explicitly here, before
+                                        // falling through to `event.accepted =
+                                        // false` below: a TextField's own
+                                        // "select all text" shortcut fires as a
+                                        // native platform action on the control
+                                        // itself, not as something that waits
+                                        // for this handler's accepted flag - so
+                                        // without this branch, Ctrl+A never
+                                        // reached root.Keys.onPressed's
+                                        // "select every grid entry" handling at
+                                        // all (confirmed live: it silently
+                                        // selected the field's own, empty text
+                                        // instead of the grid).
+                                        FileExplorer.selectedPaths = FileExplorer.entries.slice();
+                                        event.accepted = true;
+                                        return;
+                                    } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_C) {
+                                        // Same reasoning as Ctrl+A above: a
+                                        // TextField answers Ctrl+C itself
+                                        // ("copy selected text") before this
+                                        // handler's accepted flag is ever
+                                        // consulted, so root.Keys.onPressed's
+                                        // Ctrl+C never fired at all - confirmed
+                                        // live: clipboardPaths stayed empty and
+                                        // a following paste did nothing.
+                                        FileExplorer.copySelectionToClipboard();
+                                        event.accepted = true;
+                                        return;
+                                    } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_X) {
+                                        FileExplorer.cutSelectionToClipboard();
+                                        event.accepted = true;
+                                        return;
+                                    } else if (event.key === Qt.Key_Delete) {
+                                        // Not natively consumed by TextField
+                                        // the way Ctrl+A/C/X are (Delete on
+                                        // empty/fully-selected text is a
+                                        // no-op there), but caught explicitly
+                                        // anyway for the same reason as F2
+                                        // below: falling through relies on
+                                        // `text.length !== 0` not being true,
+                                        // which is fragile to keep re-deriving
+                                        // per key.
+                                        FileExplorer.deleteSelection();
+                                        event.accepted = true;
+                                        return;
+                                    } else if (event.key === Qt.Key_F2) {
+                                        grid.beginRenameCurrent();
+                                        event.accepted = true;
                                         return;
                                     } else if (text.length !== 0) {
                                         // No filtering, just navigate grid
