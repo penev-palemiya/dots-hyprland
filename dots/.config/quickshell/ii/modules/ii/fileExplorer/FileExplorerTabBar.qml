@@ -1,7 +1,6 @@
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
-import qs.modules.common.models
 import QtQuick
 import QtQuick.Layouts
 
@@ -11,6 +10,12 @@ import QtQuick.Layouts
 // shrink at runtime. File explorer tabs open and close constantly and need
 // a close button per tab and a "+" to add one, neither of which fits
 // ToolbarTabBar's model.
+//
+// Each tab is its own pill: the active one filled with the secondary
+// container colour, inactive ones with the flat layer colour, per the
+// design reference. That's why there's no separate sliding indicator here -
+// the pill IS the selected state, and it animates via Behavior on color
+// rather than by moving a shared marker between tabs.
 Item {
     id: root
 
@@ -25,36 +30,57 @@ Item {
     // this bar weren't replacing it.
     signal windowCloseRequested()
 
-    implicitHeight: 36
+    implicitHeight: 40
 
     RowLayout {
         id: tabRow
-        anchors.fill: parent
-        spacing: 0
+        anchors {
+            fill: parent
+            leftMargin: 8
+            rightMargin: 8
+        }
+        spacing: 4
 
         Repeater {
             id: tabRepeater
             model: root.tabs
-            delegate: Item {
+            delegate: Rectangle {
                 id: tabDelegate
                 required property FileExplorerTab modelData
                 required property int index
                 readonly property bool current: index === root.currentIndex
 
-                Layout.fillHeight: true
-                Layout.preferredWidth: Math.min(200, Math.max(100, tabLabel.implicitWidth + 36))
+                Layout.preferredHeight: 30
+                Layout.alignment: Qt.AlignVCenter
+                Layout.preferredWidth: Math.min(200, tabContentRow.implicitWidth + 24)
                 // Without this, RowLayout is free to shrink tabs below their
                 // preferredWidth - all the way toward zero - once enough
                 // tabs are open that they no longer all fit, rather than
                 // scrolling or eliding gracefully. Confirmed live: with two
                 // tabs open, one narrowed to a sliver with no visible label
-                // at all. 64px keeps a tab's label readably elided rather
+                // at all. This keeps a tab's label readably elided rather
                 // than reducing it to just the close button.
-                Layout.minimumWidth: 64
+                Layout.minimumWidth: 72
+
+                radius: Appearance.rounding.full
+                // Inactive tabs use the same surface token as the address
+                // bar below rather than colLayer1: on this theme colLayer1
+                // sits ~7/255 from the window background (measured on
+                // screen), so inactive pills read as invisible instead of
+                // as the distinct plates the reference shows.
+                color: tabDelegate.current ? Appearance.colors.colSecondaryContainer : Appearance.colors.colSurfaceContainerHigh
+                Behavior on color {
+                    ColorAnimation {
+                        duration: Appearance.animation.elementMoveFast.duration
+                        easing.type: Appearance.animation.elementMoveFast.type
+                        easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
+                    }
+                }
 
                 MouseArea {
                     anchors.fill: parent
                     acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+                    cursorShape: Qt.PointingHandCursor
                     onClicked: mouse => {
                         if (mouse.button === Qt.MiddleButton) {
                             // Middle-click closes the tab - standard browser
@@ -68,37 +94,38 @@ Item {
                     }
 
                     RowLayout {
+                        id: tabContentRow
                         anchors {
                             fill: parent
-                            leftMargin: 8
-                            rightMargin: 2
+                            leftMargin: 12
+                            rightMargin: 6
                         }
-                        spacing: 2
+                        spacing: 4
 
                         StyledText {
                             id: tabLabel
                             Layout.fillWidth: true
                             elide: Text.ElideRight
                             text: tabDelegate.modelData.title
-                            color: tabDelegate.current ? Appearance.colors.colOnLayer0 : Appearance.colors.colOnLayer1
+                            color: tabDelegate.current ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
                         }
 
+                        // Always present, unlike the earlier design where it
+                        // only appeared once a second tab existed: the
+                        // reference shows a close affordance on every tab,
+                        // and closing the last one is handled by closeTab()
+                        // refusing rather than by hiding the control.
                         RippleButton {
-                            implicitWidth: 20
-                            implicitHeight: 20
+                            Layout.alignment: Qt.AlignVCenter
+                            implicitWidth: 18
+                            implicitHeight: 18
                             buttonRadius: height / 2
-                            // Only offered once there's more than one tab -
-                            // closing the last tab would leave the window
-                            // with nothing to show, which FileExplorerHost
-                            // doesn't have a defined behaviour for (it isn't
-                            // "close the window", since that's a distinct
-                            // action already bound elsewhere).
-                            visible: root.tabs.length > 1
                             onClicked: root.tabCloseRequested(tabDelegate.index)
+                            colBackground: "transparent"
                             contentItem: MaterialSymbol {
                                 text: "close"
-                                iconSize: Appearance.font.pixelSize.normal
-                                color: tabDelegate.current ? Appearance.colors.colOnLayer0 : Appearance.colors.colOnLayer1
+                                iconSize: Appearance.font.pixelSize.small
+                                color: tabDelegate.current ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
                             }
                         }
                     }
@@ -107,14 +134,16 @@ Item {
         }
 
         RippleButton {
-            implicitWidth: 32
-            implicitHeight: 32
+            Layout.alignment: Qt.AlignVCenter
+            implicitWidth: 26
+            implicitHeight: 26
             buttonRadius: height / 2
             onClicked: root.newTabRequested()
+            colBackground: Appearance.colors.colSurfaceContainerHigh
 
             contentItem: MaterialSymbol {
                 text: "add"
-                iconSize: Appearance.font.pixelSize.larger
+                iconSize: Appearance.font.pixelSize.normal
                 color: Appearance.colors.colOnLayer1
             }
             StyledToolTip {
@@ -125,10 +154,12 @@ Item {
         Item { Layout.fillWidth: true } // pushes tabs/add button to the left
 
         RippleButton {
-            implicitWidth: 32
-            implicitHeight: 32
+            Layout.alignment: Qt.AlignVCenter
+            implicitWidth: 30
+            implicitHeight: 30
             buttonRadius: height / 2
             onClicked: root.windowCloseRequested()
+            colBackground: "transparent"
             contentItem: MaterialSymbol {
                 text: "close"
                 iconSize: Appearance.font.pixelSize.larger
@@ -138,44 +169,5 @@ Item {
                 text: Translation.tr("Close")
             }
         }
-    }
-
-    // One shared underline for the active tab, not a per-tab background fill
-    // - matches the reference (a floating bar that slides/stretches between
-    // tabs on switch) rather than each tab drawing its own selected state.
-    // itemAt(), not tabRepeater.children: Repeater delegates are reparented
-    // onto the Repeater's own parent, not collected as the Repeater's own
-    // children, so indexing children here would silently misalign as soon
-    // as any non-delegate sibling (the "+"/close buttons) sits alongside it.
-    Rectangle {
-        id: activeTabIndicator
-        // tabRepeater.count is read here purely to make this binding
-        // re-evaluate once delegates actually exist - itemAt() has no
-        // change signal of its own, so without this the binding runs once
-        // while the Repeater is still empty (itemAt returns null, giving a
-        // stuck negative width) and never re-runs once tabs are created.
-        readonly property Item targetItem: tabRepeater.count > 0 ? tabRepeater.itemAt(root.currentIndex) : null
-        readonly property real targetX: targetItem ? targetItem.x : 0
-        readonly property real targetWidth: targetItem ? targetItem.width : 0
-
-        height: 2
-        radius: Appearance.rounding.full
-        color: Appearance.colors.colPrimary
-        anchors.bottom: root.bottom
-
-        AnimatedTabIndexPair {
-            id: leftBound
-            idx1Duration: 100
-            idx2Duration: 250
-            index: activeTabIndicator.targetX + 8
-        }
-        AnimatedTabIndexPair {
-            id: rightBound
-            idx1Duration: 100
-            idx2Duration: 250
-            index: activeTabIndicator.targetX + activeTabIndicator.targetWidth - 8
-        }
-        x: Math.min(leftBound.idx1, leftBound.idx2)
-        width: Math.max(0, Math.max(rightBound.idx1, rightBound.idx2) - x)
     }
 }

@@ -51,7 +51,11 @@ Rectangle {
     property real padding: 4
     implicitWidth: mainLayout.implicitWidth + padding * 2
     implicitHeight: mainLayout.implicitHeight + padding * 2
-    color: Appearance.colors.colLayer2
+    // colSurfaceContainerHigh rather than colLayer2: the design reference
+    // shows this bar as a clearly raised capsule against the window, and
+    // colLayer1/colLayer2 both land within ~7/255 of the window background
+    // on this theme (measured on screen), which reads as no capsule at all.
+    color: Appearance.colors.colSurfaceContainerHigh
 
     function focusBreadcrumb() {
         root.showBreadcrumb = false;
@@ -173,6 +177,24 @@ Rectangle {
             }
         }
 
+        // Order follows the design reference: split, then copy, then edit.
+        RippleButton {
+            id: splitButton
+            implicitWidth: 32
+            implicitHeight: 32
+            toggled: root.splitEnabled
+            downAction: () => root.splitToggleRequested()
+            contentItem: MaterialSymbol {
+                text: "splitscreen_right"
+                iconSize: Appearance.font.pixelSize.large
+                fill: root.splitEnabled ? 1 : 0
+                color: splitButton.toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer2
+            }
+            StyledToolTip {
+                text: root.splitEnabled ? Translation.tr("Turn off split view") : Translation.tr("Split view")
+            }
+        }
+
         RippleButton {
             id: copyPathButton
             implicitWidth: 32
@@ -202,23 +224,6 @@ Rectangle {
 
             StyledToolTip {
                 text: Translation.tr("Edit directory")
-            }
-        }
-
-        RippleButton {
-            id: splitButton
-            implicitWidth: 32
-            implicitHeight: 32
-            toggled: root.splitEnabled
-            downAction: () => root.splitToggleRequested()
-            contentItem: MaterialSymbol {
-                text: "vertical_split"
-                iconSize: Appearance.font.pixelSize.large
-                fill: root.splitEnabled ? 1 : 0
-                color: splitButton.toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer2
-            }
-            StyledToolTip {
-                text: root.splitEnabled ? Translation.tr("Turn off split view") : Translation.tr("Split view")
             }
         }
     }

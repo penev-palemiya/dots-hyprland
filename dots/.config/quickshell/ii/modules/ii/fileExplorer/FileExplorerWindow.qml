@@ -48,7 +48,13 @@ ApplicationWindow {
     }
 
     function closeTab(index) {
-        if (root.tabs.length <= 1) return; // Last tab: nothing to fall back to - see FileExplorerTabBar's own guard for why this isn't "close the window" instead.
+        // Last tab: nothing to fall back to, so the request is simply
+        // ignored. The tab bar shows a close button on every tab (per the
+        // design reference) rather than hiding it on the last one, so this
+        // is where "you can't close the only tab" is actually enforced.
+        // Not "close the window" either - that's the tab bar's own separate
+        // close button, a deliberately distinct action.
+        if (root.tabs.length <= 1) return;
         const tab = root.tabs[index];
         const next = root.tabs.slice();
         next.splice(index, 1);

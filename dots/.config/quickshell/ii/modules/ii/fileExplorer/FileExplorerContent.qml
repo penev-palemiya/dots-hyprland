@@ -194,7 +194,10 @@ MouseArea {
 
             FileExplorerAddressBar {
                 id: addressBar
-                Layout.margins: 4
+                Layout.leftMargin: 8
+                Layout.rightMargin: 8
+                Layout.topMargin: 4
+                Layout.bottomMargin: 4
                 Layout.fillWidth: true
                 Layout.fillHeight: false
                 directory: root.pane.effectiveDirectory
@@ -210,7 +213,10 @@ MouseArea {
                     FileExplorer.pasteClipboard(root.pane, path);
                 }
                 onSplitToggleRequested: root.splitToggleRequested()
-                radius: Appearance.rounding.normal
+                // A full capsule, matching the design reference where the
+                // whole bar reads as one pill holding the breadcrumb pills
+                // inside it, rather than a rounded-rectangle toolbar.
+                radius: Appearance.rounding.full
             }
 
             RowLayout {
