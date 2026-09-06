@@ -443,6 +443,14 @@ Singleton {
         property real wallpaperSelectorHeight: 690
         property real wallpaperSelectorItemMargins: 8
         property real wallpaperSelectorItemPadding: 6
+        // Own tokens rather than reusing wallpaperSelector's: the file
+        // explorer is a separate, independently evolving fork of it, and
+        // sharing tokens would mean a size tweak on one accidentally
+        // resizing the other.
+        property real fileExplorerWidth: 1200
+        property real fileExplorerHeight: 690
+        property real fileExplorerItemMargins: 8
+        property real fileExplorerItemPadding: 6
     }
 
     syntaxHighlightingTheme: root.m3colors.darkmode ? "Monokai" : "ayu Light"

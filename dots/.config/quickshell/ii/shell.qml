@@ -10,6 +10,7 @@ import "modules/common"
 import "services"
 import "panelFamilies"
 import qs.modules.settings
+import qs.modules.ii.fileExplorer
 
 import QtQuick
 import QtQuick.Window
@@ -24,6 +25,7 @@ ShellRoot {
     // Stuff for every panel family
     ReloadPopup {}
     SettingsHost {}
+    FileExplorerHost {}
 
     Component.onCompleted: {
         MaterialThemeLoader.reapplyTheme()
