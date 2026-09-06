@@ -23,7 +23,7 @@ ApplicationWindow {
 
     title: {
         const tab = tabs[currentTabIndex];
-        return tab ? `${tab.currentFolderName()} - File Explorer` : "File Explorer";
+        return tab ? `${tab.title} - File Explorer` : "File Explorer";
     }
     minimumWidth: 700
     minimumHeight: 480
@@ -103,10 +103,7 @@ ApplicationWindow {
             onTabSelected: index => root.currentTabIndex = index
             onTabCloseRequested: index => root.closeTab(index)
             onNewTabRequested: root.addTab()
-            onSplitToggleRequested: {
-                const tab = root.tabs[root.currentTabIndex];
-                if (tab) tab.toggleSplit();
-            }
+            onWindowCloseRequested: root.closeRequested()
         }
 
         Item {

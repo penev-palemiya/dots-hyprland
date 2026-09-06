@@ -34,16 +34,20 @@ Item {
             SplitView.fillWidth: true
             SplitView.minimumWidth: 300
             pane: root.tab.paneA
+            splitEnabled: root.tab.splitEnabled
             onCloseRequested: root.closeRequested()
             onPointerActive: root.tab.activePaneIndex = 0
+            onSplitToggleRequested: root.tab.toggleSplit()
         }
 
         FileExplorerContent {
             SplitView.fillWidth: true
             SplitView.minimumWidth: 300
             pane: root.tab.paneB
+            splitEnabled: root.tab.splitEnabled
             onCloseRequested: root.closeRequested()
             onPointerActive: root.tab.activePaneIndex = 1
+            onSplitToggleRequested: root.tab.toggleSplit()
         }
     }
 
@@ -57,6 +61,8 @@ Item {
         anchors.fill: parent
         visible: !root.tab.splitEnabled
         pane: root.tab.paneA
+        splitEnabled: root.tab.splitEnabled
         onCloseRequested: root.closeRequested()
+        onSplitToggleRequested: root.tab.toggleSplit()
     }
 }

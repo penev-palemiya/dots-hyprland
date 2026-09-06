@@ -37,10 +37,18 @@ MouseArea {
     // view. See FileExplorerPane.qml for why this had to move out of the
     // old services/FileExplorer.qml Singleton.
     required property FileExplorerPane pane
+    // Whether this pane's owning tab currently has split view on - purely
+    // for the address bar's split button to reflect/toggle; the actual
+    // split state lives on FileExplorerTab, not here (see splitToggleRequested).
+    property bool splitEnabled: false
     property int columns: 4
     property real previewCellAspectRatio: 4 / 3
 
     signal closeRequested()
+    // Bubbles up to FileExplorerSplitView -> FileExplorerTab.toggleSplit():
+    // the address bar's split button controls the whole tab's split state,
+    // not just this one pane, so this content can't flip it locally.
+    signal splitToggleRequested()
     // Fired on any pointer activity over this pane - used by
     // FileExplorerSplitView to track which side of a split is "active"
     // (gets keyboard shortcuts, determines the window title). A HoverHandler
@@ -179,133 +187,140 @@ MouseArea {
         implicitWidth: gridColumnLayout.implicitWidth
         implicitHeight: gridColumnLayout.implicitHeight
 
-        RowLayout {
+        ColumnLayout {
             id: mainLayout
             anchors.fill: parent
-            spacing: -4
+            spacing: 0
 
-            Rectangle {
-                Layout.fillHeight: true
+            FileExplorerAddressBar {
+                id: addressBar
                 Layout.margins: 4
-                implicitWidth: quickDirColumnLayout.implicitWidth
-                implicitHeight: quickDirColumnLayout.implicitHeight
-                color: Appearance.colors.colLayer1
-                radius: Appearance.rounding.normal
-
-                ColumnLayout {
-                    id: quickDirColumnLayout
-                    anchors.fill: parent
-                    spacing: 0
-
-                    StyledText {
-                        Layout.margins: 12
-                        font {
-                            pixelSize: Appearance.font.pixelSize.normal
-                            weight: Font.Medium
-                        }
-                        text: Translation.tr("Files")
-                    }
-                    ListView {
-                        // Quick dirs
-                        Layout.fillHeight: true
-                        Layout.margins: 4
-                        implicitWidth: 140
-                        clip: true
-                        model: [
-                            {
-                                icon: "home",
-                                name: "Home",
-                                path: Directories.home
-                            },
-                            {
-                                icon: "docs",
-                                name: "Documents",
-                                path: Directories.documents
-                            },
-                            {
-                                icon: "download",
-                                name: "Downloads",
-                                path: Directories.downloads
-                            },
-                            {
-                                icon: "image",
-                                name: "Pictures",
-                                path: Directories.pictures
-                            },
-                            {
-                                icon: "movie",
-                                name: "Videos",
-                                path: Directories.videos
-                            },
-                            {
-                                icon: "library_music",
-                                name: "Music",
-                                path: Directories.music
-                            }]
-                        delegate: RippleButton {
-                            id: quickDirButton
-                            required property var modelData
-                            anchors {
-                                left: parent.left
-                                right: parent.right
-                            }
-                            onClicked: root.pane.setDirectory(quickDirButton.modelData.path)
-                            toggled: root.pane.directory === Qt.resolvedUrl(modelData.path)
-                            colBackgroundToggled: Appearance.colors.colSecondaryContainer
-                            colBackgroundToggledHover: Appearance.colors.colSecondaryContainerHover
-                            colRippleToggled: Appearance.colors.colSecondaryContainerActive
-                            buttonRadius: height / 2
-                            implicitHeight: 38
-
-                            contentItem: RowLayout {
-                                MaterialSymbol {
-                                    color: quickDirButton.toggled ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
-                                    iconSize: Appearance.font.pixelSize.larger
-                                    text: quickDirButton.modelData.icon
-                                    fill: quickDirButton.toggled ? 1 : 0
-                                }
-                                StyledText {
-                                    Layout.fillWidth: true
-                                    horizontalAlignment: Text.AlignLeft
-                                    color: quickDirButton.toggled ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
-                                    text: quickDirButton.modelData.name
-                                }
-                            }
-                        }
-                    }
+                Layout.fillWidth: true
+                Layout.fillHeight: false
+                directory: root.pane.effectiveDirectory
+                canGoBack: root.pane.folderModel.currentFolderHistoryIndex > 0
+                canGoForward: root.pane.folderModel.currentFolderHistoryIndex < root.pane.folderModel.folderHistory.length - 1
+                splitEnabled: root.splitEnabled
+                onNavigateToDirectory: path => {
+                    root.pane.setDirectory(path.length == 0 ? "/" : path);
                 }
+                onNavigateBack: root.pane.navigateBack()
+                onNavigateForward: root.pane.navigateForward()
+                onPasteIntoRequested: path => {
+                    FileExplorer.pasteClipboard(root.pane, path);
+                }
+                onSplitToggleRequested: root.splitToggleRequested()
+                radius: Appearance.rounding.normal
             }
 
-            ColumnLayout {
-                id: gridColumnLayout
+            RowLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                spacing: -4
 
-                FileExplorerAddressBar {
-                    id: addressBar
+                Rectangle {
+                    Layout.fillHeight: true
                     Layout.margins: 4
-                    Layout.fillWidth: true
-                    Layout.fillHeight: false
-                    directory: root.pane.effectiveDirectory
-                    canGoBack: root.pane.folderModel.currentFolderHistoryIndex > 0
-                    canGoForward: root.pane.folderModel.currentFolderHistoryIndex < root.pane.folderModel.folderHistory.length - 1
-                    onNavigateToDirectory: path => {
-                        root.pane.setDirectory(path.length == 0 ? "/" : path);
-                    }
-                    onNavigateBack: root.pane.navigateBack()
-                    onNavigateForward: root.pane.navigateForward()
-                    onPasteIntoRequested: path => {
-                        FileExplorer.pasteClipboard(root.pane, path);
-                    }
+                    implicitWidth: quickDirColumnLayout.implicitWidth
+                    implicitHeight: quickDirColumnLayout.implicitHeight
+                    color: Appearance.colors.colLayer1
                     radius: Appearance.rounding.normal
+
+                    ColumnLayout {
+                        id: quickDirColumnLayout
+                        anchors.fill: parent
+                        spacing: 0
+
+                        StyledText {
+                            Layout.margins: 12
+                            font {
+                                pixelSize: Appearance.font.pixelSize.normal
+                                weight: Font.Medium
+                            }
+                            text: Translation.tr("Files")
+                        }
+                        ListView {
+                            // Quick dirs
+                            Layout.fillHeight: true
+                            Layout.margins: 4
+                            implicitWidth: 140
+                            clip: true
+                            model: [
+                                {
+                                    icon: "home",
+                                    name: "Home",
+                                    path: Directories.home
+                                },
+                                {
+                                    icon: "docs",
+                                    name: "Documents",
+                                    path: Directories.documents
+                                },
+                                {
+                                    icon: "download",
+                                    name: "Downloads",
+                                    path: Directories.downloads
+                                },
+                                {
+                                    icon: "image",
+                                    name: "Pictures",
+                                    path: Directories.pictures
+                                },
+                                {
+                                    icon: "movie",
+                                    name: "Videos",
+                                    path: Directories.videos
+                                },
+                                {
+                                    icon: "library_music",
+                                    name: "Music",
+                                    path: Directories.music
+                                }]
+                            delegate: RippleButton {
+                                id: quickDirButton
+                                required property var modelData
+                                anchors {
+                                    left: parent.left
+                                    right: parent.right
+                                }
+                                onClicked: root.pane.setDirectory(quickDirButton.modelData.path)
+                                toggled: root.pane.directory === Qt.resolvedUrl(modelData.path)
+                                colBackgroundToggled: Appearance.colors.colSecondaryContainer
+                                colBackgroundToggledHover: Appearance.colors.colSecondaryContainerHover
+                                colRippleToggled: Appearance.colors.colSecondaryContainerActive
+                                buttonRadius: height / 2
+                                implicitHeight: 38
+
+                                contentItem: RowLayout {
+                                    MaterialSymbol {
+                                        color: quickDirButton.toggled ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
+                                        iconSize: Appearance.font.pixelSize.larger
+                                        text: quickDirButton.modelData.icon
+                                        fill: quickDirButton.toggled ? 1 : 0
+                                    }
+                                    StyledText {
+                                        Layout.fillWidth: true
+                                        horizontalAlignment: Text.AlignLeft
+                                        color: quickDirButton.toggled ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
+                                        text: quickDirButton.modelData.name
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
-                Item {
-                    id: gridDisplayRegion
+                ColumnLayout {
+                    id: gridColumnLayout
                     Layout.fillWidth: true
                     Layout.fillHeight: true
 
-                    GridView {
+                    Item {
+                        id: gridDisplayRegion
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+
+                        GridView {
                         id: grid
                         visible: root.pane.folderModel.count > 0
 
@@ -763,8 +778,10 @@ MouseArea {
             }
         }
     }
+    }
 
     function focusSearch() {
         filterField.forceActiveFocus();
     }
 }
+

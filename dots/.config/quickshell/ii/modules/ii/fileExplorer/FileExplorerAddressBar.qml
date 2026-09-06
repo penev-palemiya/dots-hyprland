@@ -38,8 +38,13 @@ Rectangle {
     signal navigateBack()
     signal navigateForward()
     signal pasteIntoRequested(string path)
+    signal splitToggleRequested()
     property bool canGoBack: false
     property bool canGoForward: false
+    // Reflects the current tab's split state, not this pane's own -
+    // split is a per-tab toggle (see FileExplorerTab.splitEnabled), so
+    // this button controls and mirrors the tab, not just this bar's pane.
+    property bool splitEnabled: false
 
     z: 10
 
@@ -197,6 +202,23 @@ Rectangle {
 
             StyledToolTip {
                 text: Translation.tr("Edit directory")
+            }
+        }
+
+        RippleButton {
+            id: splitButton
+            implicitWidth: 32
+            implicitHeight: 32
+            toggled: root.splitEnabled
+            downAction: () => root.splitToggleRequested()
+            contentItem: MaterialSymbol {
+                text: "vertical_split"
+                iconSize: Appearance.font.pixelSize.large
+                fill: root.splitEnabled ? 1 : 0
+                color: splitButton.toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer2
+            }
+            StyledToolTip {
+                text: root.splitEnabled ? Translation.tr("Turn off split view") : Translation.tr("Split view")
             }
         }
     }

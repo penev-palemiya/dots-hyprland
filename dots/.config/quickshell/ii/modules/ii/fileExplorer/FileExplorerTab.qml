@@ -17,7 +17,6 @@ import QtQuick
 Item {
     id: root
 
-    property string title: Translation.tr("New Tab")
     // Which pane is "active" for actions that need exactly one target - the
     // address bar, keyboard shortcuts, the window title. Always 0 when
     // splitEnabled is false (there is only ever pane 0 then).
@@ -25,6 +24,11 @@ Item {
     property bool splitEnabled: false
 
     readonly property FileExplorerPane activePane: splitEnabled && activePaneIndex === 1 ? paneB : paneA
+    // Tracks the active pane's own directory rather than being set once at
+    // tab creation - a tab's label should always read as "where am I", the
+    // same way a browser tab's title follows navigation instead of freezing
+    // on the page it was opened with.
+    readonly property string title: root.activePane ? root.currentFolderName() : ""
 
     // paneB only exists as a second view once split is turned on; before
     // that it's still instantiated (Loader active bindings would be more
