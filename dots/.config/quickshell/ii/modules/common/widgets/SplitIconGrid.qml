@@ -115,6 +115,7 @@ Item {
         hMerged: root.topMerged
         windowIndex: root.cornerWindow[0]
         windowData: root.windows[windowIndex]
+        contentLeader: root.count > 0
     }
     Corner {
         corner: "TR"
@@ -126,6 +127,7 @@ Item {
         hMerged: root.topMerged
         windowIndex: root.cornerWindow[1]
         windowData: root.windows[windowIndex]
+        contentLeader: root.count > 0 && root.cornerWindow.indexOf(root.cornerWindow[1]) === 1
     }
     Corner {
         corner: "BL"
@@ -137,6 +139,7 @@ Item {
         hMerged: root.bottomMerged
         windowIndex: root.cornerWindow[2]
         windowData: root.windows[windowIndex]
+        contentLeader: root.count > 0 && root.cornerWindow.indexOf(root.cornerWindow[2]) === 2
     }
     Corner {
         corner: "BR"
@@ -148,6 +151,7 @@ Item {
         hMerged: root.bottomMerged
         windowIndex: root.cornerWindow[3]
         windowData: root.windows[windowIndex]
+        contentLeader: root.count > 0 && root.cornerWindow.indexOf(root.cornerWindow[3]) === 3
     }
 
     /**
@@ -173,10 +177,46 @@ Item {
         required property bool vMerged
         required property bool hMerged
         required property int windowIndex
+        required property bool contentLeader
         property var windowData
         readonly property bool isLeft: corner === "TL" || corner === "BL"
 
-        readonly property string iconSource: Quickshell.iconPath(AppSearch.guessIcon(windowData?.class), "image-missing")
+        // Merged corners overlap geometrically, but only the first corner for
+        // each distinct window needs to render that window. Keeping all four
+        // Colorizer/MultiEffect pipelines alive made the common one-window
+        // case render the same texture four times and leaked render resources
+        // whenever the icon source changed on window open/close.
+        property bool contentActive: false
+        readonly property bool hasWindow: windowData !== undefined && windowData !== null
+        readonly property string iconSource: contentActive && hasWindow
+            ? Quickshell.iconPath(AppSearch.guessIcon(windowData.class), "image-missing")
+            : ""
+
+        function syncContentActive() {
+            if (wedge.contentLeader && wedge.hasWindow) {
+                contentRetireTimer.stop();
+                wedge.contentActive = true;
+            } else if (!wedge.hasWindow) {
+                // A closed window must release its effect resources now. The
+                // short grace period below is only for a valid duplicate that
+                // is being merged away during a reverse count animation.
+                contentRetireTimer.stop();
+                wedge.contentActive = false;
+            } else if (wedge.contentActive) {
+                contentRetireTimer.restart();
+            }
+        }
+
+        onContentLeaderChanged: syncContentActive()
+        onWindowDataChanged: syncContentActive()
+        Component.onCompleted: syncContentActive()
+
+        Timer {
+            id: contentRetireTimer
+            interval: Appearance.animation.elementMoveFast.duration
+            repeat: false
+            onTriggered: wedge.contentActive = false
+        }
 
         // hMerged: full width, x=0 - overlaps the horizontal neighbour
         // exactly. Split: half width, pinned to this corner's own side.
@@ -247,7 +287,7 @@ Item {
         Item {
             id: wedgeMaskHost
             visible: false
-            layer.enabled: true
+            layer.enabled: wedge.contentActive
             x: -wedge.x
             y: -wedge.y
             width: wedge.diameter
@@ -279,6 +319,7 @@ Item {
 
         Loader { // Matches the "put the MultiEffect in a Loader" workaround
                  // the single-icon path already relies on to render at all.
+            active: wedge.contentActive
             x: -wedge.x
             y: -wedge.y
             width: wedge.diameter

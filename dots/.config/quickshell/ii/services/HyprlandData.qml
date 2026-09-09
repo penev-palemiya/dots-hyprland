@@ -47,18 +47,34 @@ Singleton {
     // Internals
 
     function updateWindowList() {
+        if (getClients.running) {
+            queueSource("windows");
+            return;
+        }
         getClients.running = true;
     }
 
     function updateLayers() {
+        if (getLayers.running) {
+            queueSource("layers");
+            return;
+        }
         getLayers.running = true;
     }
 
     function updateMonitors() {
+        if (getMonitors.running) {
+            queueSource("monitors");
+            return;
+        }
         getMonitors.running = true;
     }
 
     function updateWorkspaces() {
+        if (getWorkspaces.running || getActiveWorkspace.running) {
+            queueSource("workspaces");
+            return;
+        }
         getWorkspaces.running = true;
         getActiveWorkspace.running = true;
     }
@@ -105,10 +121,25 @@ Singleton {
     property int debounceInterval: 50
     property var pendingSources: ({})
 
+    function queueSource(source) {
+        const next = Object.assign({}, root.pendingSources);
+        next[source] = true;
+        root.pendingSources = next;
+    }
+
+    function schedulePendingFlush() {
+        if (Object.keys(root.pendingSources).length > 0 && !debounceTimer.running)
+            debounceTimer.start();
+    }
+
     function markDirty(sources) {
         for (var i = 0; i < sources.length; ++i)
-            root.pendingSources[sources[i]] = true;
-        debounceTimer.restart();
+            root.queueSource(sources[i]);
+
+        // Bounded coalescing: the first event starts a 50ms window and later
+        // events join it without moving the deadline. restart() allowed a
+        // continuous title/event stream to postpone updates indefinitely.
+        root.schedulePendingFlush();
     }
 
     // Maps each Hyprland event to the source(s) it can actually change.
@@ -123,7 +154,8 @@ Singleton {
         windowtitle: ["windows"], windowtitlev2: ["windows"],
         activewindow: ["windows"], activewindowv2: ["windows"],
         changefloatingmode: ["windows"], fullscreen: ["windows"],
-        pin: ["windows"], minimize: ["windows"], urgent: ["windows"],
+        pin: ["windows"], minimize: ["windows"], minimized: ["windows"], urgent: ["windows"],
+        kill: ["windows"],
         togglegroup: ["windows"], moveintogroup: ["windows"],
         moveintogroupv2: ["windows"], moveoutofgroup: ["windows"],
         ignoregrouplock: ["windows"], lockgroups: ["windows"],
@@ -133,8 +165,9 @@ Singleton {
         createworkspace: ["workspaces"], createworkspacev2: ["workspaces"],
         destroyworkspace: ["workspaces"], destroyworkspacev2: ["workspaces"],
         moveworkspace: ["workspaces", "windows"], moveworkspacev2: ["workspaces", "windows"],
-        renameworkspace: ["workspaces"], activespecial: ["workspaces"],
-        focusedmon: ["workspaces"],
+        renameworkspace: ["workspaces"],
+        activespecial: ["workspaces"], activespecialv2: ["workspaces"],
+        focusedmon: ["workspaces"], focusedmonv2: ["workspaces"],
         // Monitor topology changes: workspaces are reassigned across monitors
         // when one appears or disappears, so refresh both.
         monitoradded: ["monitors", "workspaces"], monitoraddedv2: ["monitors", "workspaces"],
@@ -171,6 +204,7 @@ Singleton {
     Process {
         id: getClients
         command: ["hyprctl", "clients", "-j"]
+        onRunningChanged: if (!running) root.schedulePendingFlush()
         stdout: StdioCollector {
             id: clientsCollector
             onStreamFinished: {
@@ -189,6 +223,7 @@ Singleton {
     Process {
         id: getMonitors
         command: ["hyprctl", "monitors", "-j"]
+        onRunningChanged: if (!running) root.schedulePendingFlush()
         stdout: StdioCollector {
             id: monitorsCollector
             onStreamFinished: {
@@ -200,6 +235,7 @@ Singleton {
     Process {
         id: getLayers
         command: ["hyprctl", "layers", "-j"]
+        onRunningChanged: if (!running) root.schedulePendingFlush()
         stdout: StdioCollector {
             id: layersCollector
             onStreamFinished: {
@@ -211,6 +247,7 @@ Singleton {
     Process {
         id: getWorkspaces
         command: ["hyprctl", "workspaces", "-j"]
+        onRunningChanged: if (!running) root.schedulePendingFlush()
         stdout: StdioCollector {
             id: workspacesCollector
             onStreamFinished: {
@@ -231,6 +268,7 @@ Singleton {
     Process {
         id: getActiveWorkspace
         command: ["hyprctl", "activeworkspace", "-j"]
+        onRunningChanged: if (!running) root.schedulePendingFlush()
         stdout: StdioCollector {
             id: activeWorkspaceCollector
             onStreamFinished: {
