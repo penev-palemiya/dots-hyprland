@@ -13,6 +13,7 @@ import Quickshell.Hyprland
 
 RippleButton {
     id: root
+    signal closeRequested
     property LauncherSearchResult entry
     property string query
     property bool entryShown: entry?.shown ?? true
@@ -21,13 +22,13 @@ RippleButton {
     property var iconType: entry?.iconType
     property string iconName: entry?.iconName ?? ""
     property var itemExecute: entry?.execute
-    property var fontType: switch(entry?.fontType) {
+    property string fontFamily: switch(entry?.fontType) {
         case LauncherSearchResult.FontType.Monospace:
-            return "monospace"
+            return Appearance.font.family.monospace
         case LauncherSearchResult.FontType.Normal:
-            return "main"
+            return Appearance.font.family.main
         default:
-            return "main"
+            return Appearance.font.family.main
     }
     property string itemClickActionName: entry?.verb ?? "Open"
     property string bigText: entry?.iconType === LauncherSearchResult.IconType.Text ? entry?.iconName ?? "" : ""
@@ -57,7 +58,7 @@ RippleButton {
     // Note that this highlighting is independent from the search
     // It's close, but does not accurately represent how the fuzzy algorithm works
     function highlightContent(content, query) {
-        if (!query || query.length === 0 || content == query || fontType === "monospace")
+        if (!query || query.length === 0 || content == query || entry?.fontType === LauncherSearchResult.FontType.Monospace)
             return StringUtils.escapeHtml(content);
 
         let contentLower = content.toLowerCase();
@@ -104,7 +105,7 @@ RippleButton {
     }
 
     onClicked: {
-        GlobalStates.overviewOpen = false
+        root.closeRequested()
         root.itemExecute()
     }
     Keys.onPressed: (event) => {
@@ -222,7 +223,7 @@ RippleButton {
                     id: nameText
                     textFormat: Text.StyledText // RichText also works, but StyledText ensures elide work
                     font.pixelSize: Appearance.font.pixelSize.small
-                    font.family: Appearance.font.family[root.fontType]
+                    font.family: root.fontFamily
                     color: root.colForeground
                     horizontalAlignment: Text.AlignLeft
                     elide: Text.ElideRight
@@ -272,9 +273,9 @@ RippleButton {
 
                     contentItem: Item {
                         id: actionContentItem
-                        anchors.centerIn: parent
                         Loader {
-                            anchors.centerIn: parent
+                            x: (actionContentItem.width - width) / 2
+                            y: (actionContentItem.height - height) / 2
                             active: actionButton.iconType === LauncherSearchResult.IconType.Material || actionButton.iconName === ""
                             sourceComponent: MaterialSymbol {
                                 text: actionButton.iconName || "video_settings"
@@ -283,7 +284,8 @@ RippleButton {
                             }
                         }
                         Loader {
-                            anchors.centerIn: parent
+                            x: (actionContentItem.width - width) / 2
+                            y: (actionContentItem.height - height) / 2
                             active: actionButton.iconType === LauncherSearchResult.IconType.System && actionButton.iconName !== ""
                             sourceComponent: IconImage {
                                 source: Quickshell.iconPath(actionButton.iconName)

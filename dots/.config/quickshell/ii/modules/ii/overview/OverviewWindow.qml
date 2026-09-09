@@ -16,31 +16,34 @@ Item { // Window
     property var windowData
     property var monitorData
     property var scale
-    property bool restrictToWorkspace: true
     property real widthRatio: {
+        if (!widgetMonitor || !monitorData)
+            return 1;
         const widgetWidth = widgetMonitor.transform & 1 ? widgetMonitor.height : widgetMonitor.width;
         const monitorWidth = monitorData.transform & 1 ? monitorData.height : monitorData.width;
         return (widgetWidth * monitorData.scale) / (monitorWidth * widgetMonitor.scale);
     }
     property real heightRatio: {
+        if (!widgetMonitor || !monitorData)
+            return 1;
         const widgetHeight = widgetMonitor.transform & 1 ? widgetMonitor.width : widgetMonitor.height;
         const monitorHeight = monitorData.transform & 1 ? monitorData.width : monitorData.height;
         return (widgetHeight * monitorData.scale) / (monitorHeight * widgetMonitor.scale);
     }
     property real initX: {
-        return Math.max((windowData?.at[0] - (monitorData?.x ?? 0) - monitorData?.reserved[0]) * widthRatio * root.scale, 0) + xOffset;
+        return Math.max(((windowData?.at?.[0] ?? 0) - (monitorData?.x ?? 0) - (monitorData?.reserved?.[0] ?? 0)) * widthRatio * root.scale, 0) + xOffset;
     }
 
     property real initY: {
-        return Math.max((windowData?.at[1] - (monitorData?.y ?? 0) - monitorData?.reserved[1]) * heightRatio * root.scale, 0) + yOffset;
+        return Math.max(((windowData?.at?.[1] ?? 0) - (monitorData?.y ?? 0) - (monitorData?.reserved?.[1] ?? 0)) * heightRatio * root.scale, 0) + yOffset;
     }
     property real xOffset: 0
     property real yOffset: 0
     property var widgetMonitor
-    property int widgetMonitorId: widgetMonitor.id
+    property int widgetMonitorId: widgetMonitor?.id ?? -1
 
-    property var targetWindowWidth: windowData?.size[0] * scale * widthRatio
-    property var targetWindowHeight: windowData?.size[1] * scale * heightRatio
+    property real targetWindowWidth: (windowData?.size?.[0] ?? 0) * scale * widthRatio
+    property real targetWindowHeight: (windowData?.size?.[1] ?? 0) * scale * heightRatio
     property bool hovered: false
     property bool pressed: false
 
@@ -53,55 +56,28 @@ Item { // Window
     property bool compactMode: Appearance.font.pixelSize.smaller * 4 > targetWindowHeight || Appearance.font.pixelSize.smaller * 4 > targetWindowWidth
 
     property bool indicateXWayland: windowData?.xwayland ?? false
+    required property bool captureActive
 
-    // Position in the repeater, used only to stagger this window's snapshot
-    // capture away from its siblings' - see captureTimer.
-    property int captureIndex: 0
-
-    // Keeps capture sessions alive for a short while after the overview closes,
-    // so a reopen finds them already running instead of paying setup cost in
-    // its own animation frames. Deliberately NOT permanent: staying warm
-    // forever would reintroduce exactly the always-on capture load this is
-    // meant to avoid. The window is only ever closed-and-reopened quickly by a
-    // user toggling Super; after that the sessions are torn down normally.
-    property bool warm: false
-
-    Timer {
-        id: warmDownTimer
-        interval: 5000
-        onTriggered: root.warm = false
-    }
-
-    Connections {
-        target: GlobalStates
-        function onOverviewOpenChanged() {
-            if (GlobalStates.overviewOpen) {
-                root.warm = true;
-                warmDownTimer.stop();
-            } else {
-                warmDownTimer.restart();
-            }
-        }
+    function capturePreview() {
+        if (root.captureActive && root.toplevel)
+            windowPreview.captureFrame();
     }
 
     x: initX
     y: initY
     width: targetWindowWidth
     height: targetWindowHeight
-    opacity: windowData.monitor == widgetMonitorId ? 1 : 0.4
+    opacity: windowData?.monitor == widgetMonitorId ? 1 : 0.4
 
     property real topLeftRadius
     property real topRightRadius
     property real bottomLeftRadius
     property real bottomRightRadius
 
-    // Gated rather than unconditional, matching IslandOverlay/StyledPopup which
-    // both only enable their layer when it's actually doing something. Each
-    // enabled layer here costs two FBOs (the content, plus the mask Rectangle
-    // rendered separately) and a shader pass to combine them, per window, per
-    // frame - worth paying for rounded preview corners while the overview is on
-    // screen, pure waste while it's closed and nothing is visible.
-    layer.enabled: GlobalStates.overviewOpen || root.warm
+    // Each delegate needs this layer for the rounded preview mask. The parent
+    // Loader destroys every delegate after the exit animation, releasing its
+    // FBOs and shader resources while the overview is closed.
+    layer.enabled: true
     layer.effect: OpacityMask {
         maskSource: Rectangle {
             width: root.width
@@ -154,9 +130,7 @@ Item { // Window
     ScreencopyView {
         id: windowPreview
         anchors.fill: parent
-        // Sessions are kept alive slightly past close (see root.warm) so a
-        // quick reopen doesn't pay setup cost again.
-        captureSource: (GlobalStates.overviewOpen || root.warm) ? root.toplevel : null
+        captureSource: root.captureActive ? root.toplevel : null
 
         // Snapshots, not video. `live: true` re-captured every window every
         // frame for as long as the overview was open - measured at 25% GPU on
@@ -172,51 +146,6 @@ Item { // Window
         // the capture itself in this Quickshell version. Removed rather than
         // left in place looking like it does something.
         live: false
-
-        // One capture per open, staggered.
-        //
-        // Firing every window's captureFrame() together via Qt.callLater put
-        // all of them in a single event-loop tick, and screencopy is
-        // synchronous enough that this stalled the main thread outright:
-        // instrumenting motionProgress showed a 418ms gap between two
-        // consecutive animation frames (vs a steady 16-35ms otherwise), which
-        // is precisely the visible "glitch". Spreading them over separate
-        // ticks, each offset by index, keeps any single frame cheap.
-        //
-        // The delay also puts the captures *before* the animation gets going
-        // rather than inside it - warm() has already attached captureSource by
-        // then, so by the time the overlay is actually visible the images are
-        // there.
-        // The frame lands in one go, with no transition of its own: before it
-        // arrives the preview paints nothing, after it the window's full
-        // contents are simply there. Captured frame-by-frame at slowMo 20,
-        // that showed up as isolated RMSE spikes of 3043 and 3190 against
-        // neighbours of 500-900 - each one a preview popping into existence
-        // part-way through the entry animation, on no curve at all. Staggering
-        // the captures (below) is what keeps any single frame cheap, but it
-        // also spreads those pops across the whole entry.
-        //
-        // Fading each preview in over its own short ramp turns the pop into a
-        // transition. It is an effects property, so it gets the flat curve
-        // (motion.md), and it is deliberately short - the point is to take the
-        // hard edge off the arrival, not to add another slow motion competing
-        // with the container's.
-        Timer {
-            id: captureTimer
-            interval: 8 * (root.captureIndex + 1)
-            repeat: false
-            onTriggered: windowPreview.captureFrame()
-        }
-
-        Connections {
-            target: GlobalStates
-            function onOverviewOpenChanged() {
-                if (GlobalStates.overviewOpen)
-                    captureTimer.restart();
-            }
-        }
-
-        Component.onCompleted: if (GlobalStates.overviewOpen) captureTimer.restart()
 
         // Color overlay for interactions
         Rectangle {

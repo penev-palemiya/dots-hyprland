@@ -11,6 +11,8 @@ import qs.modules.common.functions
 RowLayout {
     id: root
     spacing: 6
+    required property bool overviewOpen
+    signal closeRequested
     property bool animateWidth: false
     property alias searchInput: searchInput
     property string searchingText
@@ -67,7 +69,7 @@ RowLayout {
         Layout.topMargin: 4
         Layout.bottomMargin: 4
         implicitHeight: 40
-        focus: GlobalStates.overviewOpen
+        focus: root.overviewOpen
         font.pixelSize: Appearance.font.pixelSize.small
         placeholderText: Translation.tr("Search, calculate or run")
         implicitWidth: root.searchingText == "" ? Appearance.sizes.searchWidthCollapsed : Appearance.sizes.searchWidth
@@ -116,7 +118,7 @@ RowLayout {
         Layout.topMargin: 4
         Layout.bottomMargin: 4
         onClicked: {
-            GlobalStates.overviewOpen = false;
+            root.closeRequested();
             Quickshell.execDetached(["qs", "-p", Quickshell.shellPath(""), "ipc", "call", "region", "search"]);
         }
         text: "image_search"

@@ -14,6 +14,8 @@ import qs.modules.common.functions
 
 Item { // Wrapper
     id: root
+    required property bool overviewOpen
+    signal closeRequested
 
     readonly property string xdgConfigHome: Directories.config
     readonly property int typingDebounceInterval: 200
@@ -200,7 +202,7 @@ Item { // Wrapper
 
         Behavior on implicitHeight {
             id: searchHeightBehavior
-            enabled: GlobalStates.overviewOpen && root.showResults
+            enabled: root.overviewOpen && root.showResults
             animation: Appearance.animation.elementMove.numberAnimation.createObject(this)
         }
 
@@ -224,6 +226,8 @@ Item { // Wrapper
 
             SearchBar {
                 id: searchBar
+                overviewOpen: root.overviewOpen
+                onCloseRequested: root.closeRequested()
                 // Gives the grid-navigation handler first refusal on this
                 // field's key events - see searchNavHandler above.
                 navigationHandler: searchNavHandler
@@ -275,7 +279,7 @@ Item { // Wrapper
                     id: debounceTimer
                     interval: root.typingDebounceInterval
                     onTriggered: {
-                        resultModel.values = LauncherSearch.results ?? [];
+                        resultModel.values = (LauncherSearch.results ?? []).slice(0, root.typingResultLimit);
                     }
                 }
 
@@ -300,6 +304,7 @@ Item { // Wrapper
                     anchors.left: parent?.left
                     anchors.right: parent?.right
                     entry: modelData
+                    onCloseRequested: root.closeRequested()
                     query: StringUtils.cleanOnePrefix(root.searchingText, [Config.options.search.prefix.action, Config.options.search.prefix.app, Config.options.search.prefix.clipboard, Config.options.search.prefix.emojis, Config.options.search.prefix.math, Config.options.search.prefix.shellCommand, Config.options.search.prefix.webSearch])
 
                     Keys.onPressed: event => {
