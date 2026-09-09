@@ -55,42 +55,23 @@ LazyLoader {
 
     signal dismissRequested()
 
-    // Kept mounted through the exit animation.
-    property bool exiting: false
-
-    // Built once, then kept. Rebuilding meant every single open had to
-    // construct the whole content tree AND bring up a fresh Wayland
-    // layer-shell surface before the open animation could start — the work
-    // landed exactly in the frames the popup was supposed to be animating
-    // through, which is what made opening feel like it stuttered. Once built,
-    // a reopen is just the animation. Staying mounted is cheap here: while
-    // hidden the surface paints nothing (the background's height is 0) and its
-    // input region collapses to `closedMask`, and these popups own no timers
-    // or processes of their own — they only read services that tick anyway.
-    property bool built: false
-    active: root.shown || root.exiting || root.built
-
-    // ...and built before it is ever asked for, so even the first open is
-    // smooth. Deliberately delayed rather than done at startup: the point is
-    // to use idle time once the shell has settled, not to add this work to
-    // everything competing during boot.
-    property Timer preloadTimer: Timer {
-        interval: 4000
-        running: !root.built
-        repeat: false
-        onTriggered: root.built = true
+    property SurfaceLifecycle lifecycle: SurfaceLifecycle {
+        id: lifecycle
+        enterDuration: Appearance.animation.elementMove.duration
+        exitDuration: Appearance.animation.elementMoveSmall.duration
+        enterCurve: Appearance.animation.elementMove.bezierCurve
+        exitCurve: Appearance.animation.elementMoveSmall.bezierCurve
     }
 
-    onShownChanged: {
-        if (root.shown)
-            root.built = true;
-        else if (root.active)
-            root.exiting = true;
-    }
+    active: root.lifecycle.mounted
+    onShownChanged: root.lifecycle.setOpen(root.shown)
+    Component.onCompleted: root.lifecycle.setOpen(root.shown)
 
-    // 0 while closed, 1 once the content has fully arrived. Driven from inside
-    // the component; content reads it through the two helpers below.
-    property real revealPhase: 0
+    readonly property real revealPhase: {
+        if (root.lifecycle.phase === SurfaceLifecycle.Phase.Closing)
+            return Math.max(0, Math.min(1, (root.lifecycle.progress - 0.6) / 0.4));
+        return Math.max(0, Math.min(1, (root.lifecycle.progress - 0.2) / 0.8));
+    }
 
     // Each section gets its own slice of the reveal: the last one starts at
     // sectionMaxStart and every earlier one is spaced evenly before it, each
@@ -145,7 +126,8 @@ LazyLoader {
             height: 0
         }
 
-        mask: root.shown ? openMask : closedMask
+        visible: root.lifecycle.surfaceVisible
+        mask: root.lifecycle.acceptsInput ? openMask : closedMask
 
         exclusionMode: ExclusionMode.Ignore
         exclusiveZone: 0
@@ -162,31 +144,28 @@ LazyLoader {
         WlrLayershell.layer: WlrLayer.Overlay
 
         Component.onCompleted: {
-            if (root.shown)
+            if (root.lifecycle.acceptsInput)
                 GlobalFocusGrab.addDismissable(popupWindow);
         }
 
         Component.onDestruction: GlobalFocusGrab.removeDismissable(popupWindow)
 
-        // Fires once the exit animation has finished, unmounting the window.
-        Timer {
-            id: exitTimer
-
-            interval: Appearance.animation.elementMoveSmall.duration + 40
-            onTriggered: root.exiting = false
-        }
-
         Connections {
-            target: root
+            target: root.lifecycle
 
-            function onShownChanged() {
-                if (root.shown) {
-                    exitTimer.stop();
-                    GlobalFocusGrab.addDismissable(popupWindow);
-                } else {
-                    GlobalFocusGrab.removeDismissable(popupWindow);
-                    exitTimer.restart();
-                }
+            function onOpeningStarted() {
+                Qt.callLater(() => {
+                    if (root.lifecycle.acceptsInput)
+                        GlobalFocusGrab.addDismissable(popupWindow);
+                });
+            }
+
+            function onClosingStarted() {
+                GlobalFocusGrab.removeDismissable(popupWindow);
+            }
+
+            function onFullyClosed() {
+                GlobalFocusGrab.removeDismissable(popupWindow);
             }
         }
 
@@ -203,11 +182,10 @@ LazyLoader {
             id: popupSurface
 
             readonly property real margin: 10
-            property bool mounted: false
             // 0 = collapsed against the bar edge, 1 = fully open. Overshoots
             // past 1 on the way in — the shape is real, so that reads as a
             // settle rather than being clipped away.
-            property real motionProgress: root.shown && mounted ? 1 : 0
+            property real motionProgress: root.lifecycle.progress
 
             anchors {
                 fill: parent
@@ -218,54 +196,6 @@ LazyLoader {
             }
             implicitWidth: root.contentItem.implicitWidth + margin * 2
             implicitHeight: root.contentItem.implicitHeight + margin * 2
-
-            Component.onCompleted: mounted = true
-
-            // Spatial: enter on the slower, bouncier "hero" token, exit on the
-            // faster one (docs/design/motion.md §"Enter vs exit is
-            // asymmetric"). One static animation whose own properties vary —
-            // reassigning Behavior.animation per direction silently keeps
-            // whichever was assigned first.
-            Behavior on motionProgress {
-                NumberAnimation {
-                    duration: root.shown ? Appearance.animation.elementMove.duration : Appearance.animation.elementMoveSmall.duration
-                    easing.type: Easing.BezierSpline
-                    easing.bezierCurve: root.shown ? Appearance.animation.elementMove.bezierCurve : Appearance.animation.elementMoveSmall.bezierCurve
-                }
-            }
-
-            // Content reveal. Enters after a beat so the shape leads, leaves
-            // immediately so the collapse isn't waiting on it.
-            SequentialAnimation {
-                id: revealAnimation
-
-                running: false
-
-                PauseAnimation {
-                    duration: root.shown ? 110 : 0
-                }
-
-                NumberAnimation {
-                    target: root
-                    property: "revealPhase"
-                    to: root.shown ? 1 : 0
-                    duration: root.shown ? 420 : Appearance.animation.elementMoveFast.duration
-                    easing.type: Easing.BezierSpline
-                    easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
-                }
-            }
-
-            Component.onDestruction: root.revealPhase = 0
-
-            onMountedChanged: if (mounted) revealAnimation.restart()
-
-            Connections {
-                target: root
-
-                function onShownChanged() {
-                    revealAnimation.restart();
-                }
-            }
 
             StyledRectangularShadow {
                 target: popupBackground

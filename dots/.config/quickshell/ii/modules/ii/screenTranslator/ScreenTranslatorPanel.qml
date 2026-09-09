@@ -15,14 +15,16 @@ PanelWindow {
 
     // Interface
     signal dismiss
+    required property bool lifecycleVisible
+    required property bool acceptsInput
 
     // Window props
-    visible: false
+    visible: root.screenshotReady && root.lifecycleVisible
     // color: Appearance.colors.colLayer0
     color: "black"
     WlrLayershell.namespace: "quickshell:regionSelector"
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    WlrLayershell.keyboardFocus: root.acceptsInput ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
     anchors {
         left: true
@@ -49,7 +51,6 @@ PanelWindow {
         screenshotDir: root.screenshotDir
         screenshotPath: root.screenshotPath
         onExited: (_, __) => {
-            root.visible = true;
             root.performTranslation();
         }
     }
@@ -62,6 +63,7 @@ PanelWindow {
     MouseArea {
         anchors.fill: parent
         clip: true
+        enabled: root.acceptsInput
 
         property real lastX: 0
         property real lastY: 0
@@ -147,7 +149,7 @@ PanelWindow {
 
         Toolbar {
             id: toolbar
-            focus: root.visible
+            focus: root.acceptsInput
             Keys.onPressed: event => { // Esc to close
                 if (event.key === Qt.Key_Escape) {
                     root.dismiss();

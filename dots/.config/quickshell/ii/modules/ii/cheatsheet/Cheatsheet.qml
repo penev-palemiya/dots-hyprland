@@ -24,13 +24,21 @@ Scope { // Scope
         },
     ]
 
+    SurfaceLifecycle {
+        id: lifecycle
+        enterDuration: Appearance.animation.elementMove.duration
+        exitDuration: Appearance.animation.elementMoveSmall.duration
+        enterCurve: Appearance.animation.elementMove.bezierCurve
+        exitCurve: Appearance.animation.elementMoveSmall.bezierCurve
+    }
+
     Loader {
         id: cheatsheetLoader
-        active: false
+        active: lifecycle.mounted
 
         sourceComponent: PanelWindow { // Window
             id: cheatsheetRoot
-            visible: cheatsheetLoader.active
+            visible: lifecycle.surfaceVisible
 
             anchors {
                 top: true
@@ -40,7 +48,7 @@ Scope { // Scope
             }
 
             function hide() {
-                cheatsheetLoader.active = false;
+                lifecycle.close();
             }
             exclusiveZone: 0
             implicitWidth: cheatsheetBackground.width + Appearance.sizes.elevationMargin * 2
@@ -51,14 +59,27 @@ Scope { // Scope
             color: "transparent"
 
             mask: Region {
-                item: cheatsheetBackground
+                item: lifecycle.acceptsInput ? cheatsheetBackground : null
             }
 
             Component.onCompleted: {
-                GlobalFocusGrab.addDismissable(cheatsheetRoot);
+                if (lifecycle.acceptsInput)
+                    GlobalFocusGrab.addDismissable(cheatsheetRoot);
             }
             Component.onDestruction: {
                 GlobalFocusGrab.removeDismissable(cheatsheetRoot);
+            }
+            Connections {
+                target: lifecycle
+                function onOpeningStarted() {
+                    Qt.callLater(() => {
+                        if (lifecycle.acceptsInput)
+                            GlobalFocusGrab.addDismissable(cheatsheetRoot);
+                    });
+                }
+                function onClosingStarted() {
+                    GlobalFocusGrab.removeDismissable(cheatsheetRoot);
+                }
             }
             Connections {
                 target: GlobalFocusGrab
@@ -81,6 +102,9 @@ Scope { // Scope
                 property real padding: 20
                 implicitWidth: cheatsheetColumnLayout.implicitWidth + padding * 2
                 implicitHeight: cheatsheetColumnLayout.implicitHeight + padding * 2
+                transformOrigin: Item.Center
+                scale: 0.96 + 0.04 * lifecycle.progress
+                opacity: Math.max(0, Math.min(1, lifecycle.progress))
 
                 Keys.onPressed: event => { // Esc to close
                     if (event.key === Qt.Key_Escape) {
@@ -105,7 +129,7 @@ Scope { // Scope
 
                 RippleButton { // Close button
                     id: closeButton
-                    focus: cheatsheetRoot.visible
+                    focus: lifecycle.acceptsInput
                     implicitWidth: 40
                     implicitHeight: 40
                     buttonRadius: Appearance.rounding.full
@@ -121,7 +145,8 @@ Scope { // Scope
                     }
 
                     contentItem: MaterialSymbol {
-                        anchors.centerIn: parent
+                        x: (closeButton.width - width) / 2
+                        y: (closeButton.height - height) / 2
                         horizontalAlignment: Text.AlignHCenter
                         font.pixelSize: Appearance.font.pixelSize.title
                         text: "close"
@@ -182,15 +207,15 @@ Scope { // Scope
         target: "cheatsheet"
 
         function toggle(): void {
-            cheatsheetLoader.active = !cheatsheetLoader.active;
+            lifecycle.toggle();
         }
 
         function close(): void {
-            cheatsheetLoader.active = false;
+            lifecycle.close();
         }
 
         function open(): void {
-            cheatsheetLoader.active = true;
+            lifecycle.open();
         }
     }
 
@@ -199,7 +224,7 @@ Scope { // Scope
         description: "Toggles cheatsheet on press"
 
         onPressed: {
-            cheatsheetLoader.active = !cheatsheetLoader.active;
+            lifecycle.toggle();
         }
     }
 
@@ -208,7 +233,7 @@ Scope { // Scope
         description: "Opens cheatsheet on press"
 
         onPressed: {
-            cheatsheetLoader.active = true;
+            lifecycle.open();
         }
     }
 
@@ -217,7 +242,7 @@ Scope { // Scope
         description: "Closes cheatsheet on press"
 
         onPressed: {
-            cheatsheetLoader.active = false;
+            lifecycle.close();
         }
     }
 }

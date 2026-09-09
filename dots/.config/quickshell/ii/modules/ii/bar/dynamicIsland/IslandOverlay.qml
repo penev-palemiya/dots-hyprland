@@ -52,11 +52,24 @@ LazyLoader {
     property real visibleHeight: 0
     signal dismissRequested()
 
-    active: true
+    property SurfaceLifecycle lifecycle: SurfaceLifecycle {
+        id: lifecycle
+        keepMounted: true
+        keepSurfaceMapped: true
+        enterDuration: Appearance.animation.elementMove.duration
+        exitDuration: Appearance.animation.elementMoveSmall.duration
+        enterCurve: Appearance.animation.elementMove.bezierCurve
+        exitCurve: Appearance.animation.elementMoveSmall.bezierCurve
+    }
+
+    active: root.lifecycle.mounted
+    onShownChanged: root.lifecycle.setOpen(root.shown)
+    Component.onCompleted: root.lifecycle.setOpen(root.shown)
 
     component: PanelWindow {
         id: overlayWindow
         color: "transparent"
+        visible: root.lifecycle.surfaceVisible
 
         screen: root.targetScreen
 
@@ -86,7 +99,7 @@ LazyLoader {
         implicitHeight: contentLoader.implicitHeight + overlayBackground.contentPadding * 2
 
         mask: Region {
-            item: overlayBackground
+            item: root.lifecycle.acceptsInput ? overlayBackground : null
         }
 
         exclusionMode: ExclusionMode.Ignore
@@ -101,19 +114,19 @@ LazyLoader {
         WlrLayershell.layer: WlrLayer.Overlay
 
         Component.onCompleted: {
-            if (root.shown)
+            if (root.lifecycle.acceptsInput)
                 GlobalFocusGrab.addDismissable(overlayWindow);
         }
         Component.onDestruction: {
             GlobalFocusGrab.removeDismissable(overlayWindow);
         }
         Connections {
-            target: root
-            function onShownChanged() {
-                if (root.shown)
-                    GlobalFocusGrab.addDismissable(overlayWindow);
-                else
-                    GlobalFocusGrab.removeDismissable(overlayWindow);
+            target: root.lifecycle
+            function onOpeningStarted() {
+                GlobalFocusGrab.addDismissable(overlayWindow);
+            }
+            function onClosingStarted() {
+                GlobalFocusGrab.removeDismissable(overlayWindow);
             }
         }
         Connections {
@@ -136,7 +149,7 @@ LazyLoader {
                 left: parent.left
                 right: parent.right
             }
-            height: root.shown ? contentLoader.implicitHeight + contentPadding * 2 : 0
+            height: (contentLoader.implicitHeight + contentPadding * 2) * root.lifecycle.progress
             onHeightChanged: root.visibleHeight = height
             // Flattened in DynamicIsland from "pill over bar background" into
             // the single color this separate surface must paint to match the
@@ -175,26 +188,6 @@ LazyLoader {
                 }
             }
 
-            // Height is a spatial property (MD3 Expressive: size/position use
-            // a bouncy spatial spring, not the flat "effects" curve used for
-            // opacity/color) — asymmetric on purpose: expanding is the slower,
-            // bouncier "default spatial" (500ms, this is the hero moment),
-            // collapsing is the snappier "fast spatial" (350ms, exits need
-            // less attention than the next thing the user's about to do).
-            // A Behavior's `animation` can only be assigned once — swapping
-            // in a whole new Animation object per direction (as this used to
-            // do via `.createObject(...)` in a ternary) triggers "Cannot
-            // change the animation assigned to a Behavior" and silently
-            // keeps whichever one was assigned first. Keep one static
-            // NumberAnimation and vary its own duration/curve instead.
-            Behavior on height {
-                NumberAnimation {
-                    duration: root.shown ? Appearance.animation.elementMove.duration : Appearance.animation.elementMoveSmall.duration
-                    easing.type: Appearance.animation.elementMove.type
-                    easing.bezierCurve: root.shown ? Appearance.animation.elementMove.bezierCurve : Appearance.animation.elementMoveSmall.bezierCurve
-                }
-            }
-
             Loader {
                 // Pinned to the panel's FINAL height rather than its animating
                 // one: this backdrop crops the wallpaper via sourceClipRect,
@@ -221,29 +214,10 @@ LazyLoader {
                 id: contentLoader
                 anchors.fill: parent
                 anchors.margins: overlayBackground.contentPadding
-                opacity: root.shown ? 1 : 0
+                opacity: root.lifecycle.phase === SurfaceLifecycle.Phase.Closing
+                    ? Math.max(0, Math.min(1, (root.lifecycle.progress - 0.6) / 0.4))
+                    : Math.max(0, Math.min(1, (root.lifecycle.progress - 0.2) / 0.8))
                 sourceComponent: root.sourceComponent
-
-                // Opacity is an effects property — no overshoot. Container-
-                // transform choreography: the shape grows first, content
-                // fades in slightly after (small delay) so it doesn't just
-                // pop while the pill is still small; on the way out, content
-                // fades away immediately (no delay) so the shrink isn't
-                // waiting on it. Same "assign once" constraint as above —
-                // one static SequentialAnimation, only the PauseAnimation's
-                // duration varies.
-                Behavior on opacity {
-                    SequentialAnimation {
-                        PauseAnimation {
-                            duration: root.shown ? 120 : 0
-                        }
-                        NumberAnimation {
-                            duration: Appearance.animation.elementMoveFast.duration
-                            easing.type: Appearance.animation.elementMoveFast.type
-                            easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
-                        }
-                    }
-                }
             }
         }
     }

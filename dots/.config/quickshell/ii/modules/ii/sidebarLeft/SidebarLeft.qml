@@ -15,6 +15,22 @@ Scope { // Scope
     property Component contentComponent: SidebarLeftContent {}
     property Item sidebarContent
 
+    SurfaceLifecycle {
+        id: lifecycle
+        keepMounted: true
+        enterDuration: Appearance.animation.elementMove.duration
+        exitDuration: Appearance.animation.elementMoveSmall.duration
+        enterCurve: Appearance.animation.elementMove.bezierCurve
+        exitCurve: Appearance.animation.elementMoveSmall.bezierCurve
+    }
+
+    Connections {
+        target: GlobalStates
+        function onSidebarLeftOpenChanged() {
+            lifecycle.setOpen(GlobalStates.sidebarLeftOpen);
+        }
+    }
+
     function toggleDetach() {
         root.detach = !root.detach;
     }
@@ -59,6 +75,7 @@ Scope { // Scope
     }
 
     Component.onCompleted: {
+        lifecycle.setOpen(GlobalStates.sidebarLeftOpen);
         root.sidebarContent = contentComponent.createObject(null, {
             "scopeRoot": root,
         });
@@ -86,7 +103,7 @@ Scope { // Scope
         
         sourceComponent: PanelWindow { // Window
             id: panelWindow
-            visible: GlobalStates.sidebarLeftOpen
+            visible: lifecycle.surfaceVisible
             
             property bool extend: false
             property real sidebarWidth: panelWindow.extend ? Appearance.sizes.sidebarWidthExtended : Appearance.sizes.sidebarWidth
@@ -101,7 +118,7 @@ Scope { // Scope
             implicitWidth: Appearance.sizes.sidebarWidthExtended + Appearance.sizes.elevationMargin
             WlrLayershell.namespace: "quickshell:sidebarLeft"
             // Hyprland 0.49: OnDemand is Exclusive, Exclusive just breaks click-outside-to-close
-            WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+            WlrLayershell.keyboardFocus: lifecycle.acceptsInput ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
             color: "transparent"
 
             anchors {
@@ -111,16 +128,19 @@ Scope { // Scope
             }
 
             mask: Region {
-                item: sidebarLeftBackground
+                item: lifecycle.acceptsInput ? sidebarLeftBackground : null
             }
 
-            onVisibleChanged: {
-                if (visible) {
+            Connections {
+                target: lifecycle
+                function onOpeningStarted() {
                     GlobalFocusGrab.addDismissable(panelWindow);
-                } else {
+                }
+                function onClosingStarted() {
                     GlobalFocusGrab.removeDismissable(panelWindow);
                 }
             }
+            Component.onDestruction: GlobalFocusGrab.removeDismissable(panelWindow)
             Connections {
                 target: GlobalFocusGrab
                 function onDismissed() {
@@ -145,6 +165,9 @@ Scope { // Scope
                 border.width: 1
                 border.color: Appearance.colors.colLayer0Border
                 radius: Appearance.rounding.screenRounding - Appearance.sizes.hyprlandGapsOut + 1
+                transform: Translate {
+                    x: -sidebarLeftBackground.width * (1 - lifecycle.progress)
+                }
 
                 Behavior on width {
                     animation: Appearance.animation.elementMove.numberAnimation.createObject(this)

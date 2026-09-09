@@ -24,6 +24,23 @@ Scope {
     property real popupRounding: Appearance.rounding.screenRounding - Appearance.sizes.hyprlandGapsOut + 1
     property list<real> visualizerPoints: []
 
+    SurfaceLifecycle {
+        id: lifecycle
+        enterDuration: Appearance.animation.elementMove.duration
+        exitDuration: Appearance.animation.elementMoveSmall.duration
+        enterCurve: Appearance.animation.elementMove.bezierCurve
+        exitCurve: Appearance.animation.elementMoveSmall.bezierCurve
+    }
+
+    Connections {
+        target: GlobalStates
+        function onMediaControlsOpenChanged() {
+            lifecycle.setOpen(GlobalStates.mediaControlsOpen);
+        }
+    }
+
+    Component.onCompleted: lifecycle.setOpen(GlobalStates.mediaControlsOpen)
+
     function filterDuplicatePlayers(players) {
         let filtered = [];
         let used = new Set();
@@ -55,7 +72,7 @@ Scope {
 
     Process {
         id: cavaProc
-        running: mediaControlsLoader.active
+        running: lifecycle.acceptsInput
         onRunningChanged: {
             if (!cavaProc.running) {
                 root.visualizerPoints = [];
@@ -73,16 +90,11 @@ Scope {
 
     Loader {
         id: mediaControlsLoader
-        active: GlobalStates.mediaControlsOpen
-        onActiveChanged: {
-            if (!mediaControlsLoader.active && root.realPlayers.length === 0) {
-                GlobalStates.mediaControlsOpen = false;
-            }
-        }
+        active: lifecycle.mounted
 
         sourceComponent: PanelWindow {
             id: panelWindow
-            visible: true
+            visible: lifecycle.surfaceVisible
 
             exclusionMode: ExclusionMode.Ignore
             exclusiveZone: 0
@@ -105,14 +117,27 @@ Scope {
             }
 
             mask: Region {
-                item: playerColumnLayout
+                item: lifecycle.acceptsInput ? playerColumnLayout : null
             }
 
             Component.onCompleted: {
-                GlobalFocusGrab.addDismissable(panelWindow);
+                if (lifecycle.acceptsInput)
+                    GlobalFocusGrab.addDismissable(panelWindow);
             }
             Component.onDestruction: {
                 GlobalFocusGrab.removeDismissable(panelWindow);
+            }
+            Connections {
+                target: lifecycle
+                function onOpeningStarted() {
+                    Qt.callLater(() => {
+                        if (lifecycle.acceptsInput)
+                            GlobalFocusGrab.addDismissable(panelWindow);
+                    });
+                }
+                function onClosingStarted() {
+                    GlobalFocusGrab.removeDismissable(panelWindow);
+                }
             }
             Connections {
                 target: GlobalFocusGrab
@@ -125,6 +150,10 @@ Scope {
                 id: playerColumnLayout
                 anchors.fill: parent
                 spacing: -Appearance.sizes.elevationMargin // Shadow overlap okay
+                transform: Translate {
+                    x: -playerColumnLayout.width * (1 - lifecycle.progress)
+                }
+                opacity: Math.max(0, Math.min(1, lifecycle.progress))
 
                 Repeater {
                     model: ScriptModel {
@@ -192,17 +221,17 @@ Scope {
         target: "mediaControls"
 
         function toggle(): void {
-            mediaControlsLoader.active = !mediaControlsLoader.active;
-            if (mediaControlsLoader.active)
+            GlobalStates.mediaControlsOpen = !GlobalStates.mediaControlsOpen;
+            if (GlobalStates.mediaControlsOpen)
                 Notifications.timeoutAll();
         }
 
         function close(): void {
-            mediaControlsLoader.active = false;
+            GlobalStates.mediaControlsOpen = false;
         }
 
         function open(): void {
-            mediaControlsLoader.active = true;
+            GlobalStates.mediaControlsOpen = true;
             Notifications.timeoutAll();
         }
     }

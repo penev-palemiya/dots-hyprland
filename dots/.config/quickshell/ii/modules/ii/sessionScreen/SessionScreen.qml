@@ -15,13 +15,27 @@ Scope {
     id: root
     property var focusedScreen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name)
 
+    SurfaceLifecycle {
+        id: lifecycle
+        enterDuration: Appearance.animation.elementMove.duration
+        exitDuration: Appearance.animation.elementMoveSmall.duration
+        enterCurve: Appearance.animation.elementMove.bezierCurve
+        exitCurve: Appearance.animation.elementMoveSmall.bezierCurve
+        onOpeningStarted: SessionWarnings.refresh()
+    }
+
+    Connections {
+        target: GlobalStates
+        function onSessionOpenChanged() {
+            lifecycle.setOpen(GlobalStates.sessionOpen);
+        }
+    }
+
+    Component.onCompleted: lifecycle.setOpen(GlobalStates.sessionOpen)
+
     Loader {
         id: sessionLoader
-        active: GlobalStates.sessionOpen
-        onActiveChanged: {
-            if (sessionLoader.active)
-                SessionWarnings.refresh();
-        }
+        active: lifecycle.mounted
 
         Connections {
             target: GlobalStates
@@ -34,7 +48,7 @@ Scope {
 
         sourceComponent: PanelWindow { // Session menu
             id: sessionRoot
-            visible: sessionLoader.active
+            visible: lifecycle.surfaceVisible
             property string subtitle
 
             function hide() {
@@ -44,7 +58,7 @@ Scope {
             exclusionMode: ExclusionMode.Ignore
             WlrLayershell.namespace: "quickshell:session"
             WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+            WlrLayershell.keyboardFocus: lifecycle.acceptsInput ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
             color: ColorUtils.transparentize(Appearance.m3colors.m3background, Appearance.m3colors.darkmode ? 0.05 : 0.12)
 
             anchors {
@@ -59,6 +73,7 @@ Scope {
             MouseArea {
                 id: sessionMouseArea
                 anchors.fill: parent
+                enabled: lifecycle.acceptsInput
                 onClicked: {
                     sessionRoot.hide();
                 }
@@ -68,6 +83,9 @@ Scope {
                 id: contentColumn
                 anchors.centerIn: parent
                 spacing: 15
+                transformOrigin: Item.Center
+                scale: 0.96 + 0.04 * lifecycle.progress
+                opacity: Math.max(0, Math.min(1, lifecycle.progress))
 
                 Keys.onPressed: event => {
                     if (event.key === Qt.Key_Escape) {
@@ -106,7 +124,7 @@ Scope {
 
                     SessionActionButton {
                         id: sessionLock
-                        focus: sessionRoot.visible
+                        focus: lifecycle.acceptsInput
                         buttonIcon: "lock"
                         buttonText: Translation.tr("Lock")
                         onClicked: {

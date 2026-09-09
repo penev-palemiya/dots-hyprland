@@ -13,19 +13,37 @@ import Quickshell.Hyprland
 Scope {
     id: root
 
+    SurfaceLifecycle {
+        id: lifecycle
+        enterDuration: Appearance.animation.elementMove.duration
+        exitDuration: Appearance.animation.elementMoveSmall.duration
+        enterCurve: Appearance.animation.elementMove.bezierCurve
+        exitCurve: Appearance.animation.elementMoveSmall.bezierCurve
+    }
+
+    Connections {
+        target: GlobalStates
+        function onWallpaperSelectorOpenChanged() {
+            lifecycle.setOpen(GlobalStates.wallpaperSelectorOpen);
+        }
+    }
+
+    Component.onCompleted: lifecycle.setOpen(GlobalStates.wallpaperSelectorOpen)
+
     Loader {
         id: wallpaperSelectorLoader
-        active: GlobalStates.wallpaperSelectorOpen
+        active: lifecycle.mounted
 
         sourceComponent: PanelWindow {
             id: panelWindow
+            visible: lifecycle.surfaceVisible
             readonly property HyprlandMonitor monitor: Hyprland.monitorFor(panelWindow.screen)
             property bool monitorIsFocused: (Hyprland.focusedMonitor?.id == monitor?.id)
 
             exclusionMode: ExclusionMode.Ignore
             WlrLayershell.namespace: "quickshell:wallpaperSelector"
             WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+            WlrLayershell.keyboardFocus: lifecycle.acceptsInput ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
             color: "transparent"
 
             anchors.top: true
@@ -34,17 +52,30 @@ Scope {
             }
 
             mask: Region {
-                item: content
+                item: lifecycle.acceptsInput ? content : null
             }
 
             implicitHeight: Appearance.sizes.wallpaperSelectorHeight
             implicitWidth: Appearance.sizes.wallpaperSelectorWidth
 
             Component.onCompleted: {
-                GlobalFocusGrab.addDismissable(panelWindow);
+                if (lifecycle.acceptsInput)
+                    GlobalFocusGrab.addDismissable(panelWindow);
             }
             Component.onDestruction: {
                 GlobalFocusGrab.removeDismissable(panelWindow);
+            }
+            Connections {
+                target: lifecycle
+                function onOpeningStarted() {
+                    Qt.callLater(() => {
+                        if (lifecycle.acceptsInput)
+                            GlobalFocusGrab.addDismissable(panelWindow);
+                    });
+                }
+                function onClosingStarted() {
+                    GlobalFocusGrab.removeDismissable(panelWindow);
+                }
             }
             Connections {
                 target: GlobalFocusGrab
@@ -58,6 +89,9 @@ Scope {
                 anchors {
                     fill: parent
                 }
+                transformOrigin: Item.Top
+                scale: 0.96 + 0.04 * lifecycle.progress
+                opacity: Math.max(0, Math.min(1, lifecycle.progress))
             }
         }
     }

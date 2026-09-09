@@ -11,9 +11,27 @@ Scope {
     id: root
     property int sidebarWidth: Appearance.sizes.sidebarWidth
 
+    SurfaceLifecycle {
+        id: lifecycle
+        keepMounted: Config?.options.sidebar.keepRightSidebarLoaded ?? false
+        enterDuration: Appearance.animation.elementMove.duration
+        exitDuration: Appearance.animation.elementMoveSmall.duration
+        enterCurve: Appearance.animation.elementMove.bezierCurve
+        exitCurve: Appearance.animation.elementMoveSmall.bezierCurve
+    }
+
+    Connections {
+        target: GlobalStates
+        function onSidebarRightOpenChanged() {
+            lifecycle.setOpen(GlobalStates.sidebarRightOpen);
+        }
+    }
+
+    Component.onCompleted: lifecycle.setOpen(GlobalStates.sidebarRightOpen)
+
     PanelWindow {
         id: panelWindow
-        visible: GlobalStates.sidebarRightOpen
+        visible: lifecycle.surfaceVisible
 
         function hide() {
             GlobalStates.sidebarRightOpen = false;
@@ -22,7 +40,7 @@ Scope {
         exclusiveZone: 0
         implicitWidth: sidebarWidth
         WlrLayershell.namespace: "quickshell:sidebarRight"
-        WlrLayershell.keyboardFocus: GlobalStates.sidebarRightOpen ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+        WlrLayershell.keyboardFocus: lifecycle.acceptsInput ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
         color: "transparent"
 
         anchors {
@@ -31,13 +49,16 @@ Scope {
             bottom: true
         }
 
-        onVisibleChanged: {
-            if (visible) {
+        Connections {
+            target: lifecycle
+            function onOpeningStarted() {
                 GlobalFocusGrab.addDismissable(panelWindow);
-            } else {
+            }
+            function onClosingStarted() {
                 GlobalFocusGrab.removeDismissable(panelWindow);
             }
         }
+        Component.onDestruction: GlobalFocusGrab.removeDismissable(panelWindow)
         Connections {
             target: GlobalFocusGrab
             function onDismissed() {
@@ -47,7 +68,7 @@ Scope {
 
         Loader {
             id: sidebarContentLoader
-            active: GlobalStates.sidebarRightOpen || Config?.options.sidebar.keepRightSidebarLoaded
+            active: lifecycle.mounted
             anchors {
                 fill: parent
                 margins: Appearance.sizes.hyprlandGapsOut
@@ -56,7 +77,10 @@ Scope {
             width: sidebarWidth - Appearance.sizes.hyprlandGapsOut - Appearance.sizes.elevationMargin
             height: parent.height - Appearance.sizes.hyprlandGapsOut * 2
 
-            focus: GlobalStates.sidebarRightOpen
+            focus: lifecycle.acceptsInput
+            transform: Translate {
+                x: sidebarContentLoader.width * (1 - lifecycle.progress)
+            }
             Keys.onPressed: event => {
                 if (event.key === Qt.Key_Escape) {
                     panelWindow.hide();

@@ -17,7 +17,7 @@ Scope {
     id: overviewScope
     property bool dontAutoCancelSearch: false
 
-    OverviewController {
+    SurfaceLifecycle {
         id: overviewController
         enterDuration: Appearance.animation.elementMoveLarge.duration
         exitDuration: Appearance.animation.elementMoveExit.duration
@@ -169,7 +169,7 @@ Scope {
                     y: -overviewLoader.height * (1 - overviewController.progress)
                 }
                 // Destroy previews and their graphics resources after exit.
-                active: overviewController.contentNeeded && (Config?.options.overview.enable ?? true)
+                active: overviewController.mounted && (Config?.options.overview.enable ?? true)
                 sourceComponent: OverviewWidget {
                     screen: panelWindow.screen
                     captureActive: overviewController.requestedOpen
