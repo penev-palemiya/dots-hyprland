@@ -123,8 +123,6 @@ Popup {
             anchors.fill: parent
             color: Appearance.m3colors.m3surfaceContainer
             radius: Appearance.rounding.normal
-            border.width: 1
-            border.color: Appearance.m3colors.m3outlineVariant
         }
     }
 

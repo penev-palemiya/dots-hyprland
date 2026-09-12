@@ -82,8 +82,6 @@ Scope {
                     anchors.fill: parent
                     radius: Appearance.rounding.normal
                     color: Appearance.colors.colSurfaceContainerHigh
-                    border.width: 1
-                    border.color: Appearance.colors.colOutlineVariant
 
                     ColumnLayout {
                         id: identifyColumn
@@ -126,8 +124,6 @@ Scope {
                     anchors.fill: parent
                     radius: Appearance.rounding.normal
                     color: Appearance.colors.colSurfaceContainerHigh
-                    border.width: 1
-                    border.color: Appearance.colors.colOutlineVariant
 
                     ColumnLayout {
                         id: confirmationColumn

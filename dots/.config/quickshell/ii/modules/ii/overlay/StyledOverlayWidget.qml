@@ -201,8 +201,6 @@ AbstractOverlayWidget {
         }
         color: ColorUtils.transparentize(Appearance.colors.colLayer1Base, (root.fancyBorders && GlobalStates.overlayOpen) ? 0 : 1)
         radius: root.radius
-        border.color: ColorUtils.transparentize(Appearance.colors.colOutlineVariant, GlobalStates.overlayOpen ? 0 : 1)
-        border.width: 1
 
         layer.enabled: GlobalStates.overlayOpen
         layer.effect: OpacityMask {

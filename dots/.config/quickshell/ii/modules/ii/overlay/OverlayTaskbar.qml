@@ -19,8 +19,6 @@ Rectangle {
     implicitHeight: contentRow.implicitHeight + (padding * 2)
     color: Appearance.m3colors.m3surfaceContainer
     radius: Appearance.rounding.large
-    border.color: Appearance.colors.colOutlineVariant
-    border.width: 1
 
     Behavior on opacity {
         animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
