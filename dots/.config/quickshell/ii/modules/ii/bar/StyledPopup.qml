@@ -58,9 +58,9 @@ LazyLoader {
     property SurfaceLifecycle lifecycle: SurfaceLifecycle {
         id: lifecycle
         enterDuration: Appearance.animation.elementMove.duration
-        exitDuration: Appearance.animation.elementMoveSmall.duration
+        exitDuration: Appearance.animation.elementMoveExit.duration
         enterCurve: Appearance.animation.elementMove.bezierCurve
-        exitCurve: Appearance.animation.elementMoveSmall.bezierCurve
+        exitCurve: Appearance.animation.elementMoveExit.bezierCurve
     }
 
     active: root.lifecycle.mounted
@@ -199,7 +199,7 @@ LazyLoader {
 
             StyledRectangularShadow {
                 target: popupBackground
-                opacity: popupSurface.motionProgress
+                opacity: Math.max(0, Math.min(1, popupSurface.motionProgress))
                 visible: opacity > 0
             }
 
@@ -209,7 +209,7 @@ LazyLoader {
                 // The growing edge is the one away from the bar, so the popup
                 // unfolds out of it instead of sliding as a whole.
                 width: popupSurface.implicitWidth
-                height: popupSurface.implicitHeight * popupSurface.motionProgress
+                height: Math.max(0, popupSurface.implicitHeight * popupSurface.motionProgress)
 
                 anchors.top: popupWindow.anchors.top ? parent.top : undefined
                 anchors.bottom: popupWindow.anchors.bottom ? parent.bottom : undefined
@@ -230,7 +230,7 @@ LazyLoader {
                     maskSource: Rectangle {
                         width: popupBackground.width
                         height: popupBackground.height
-                        radius: Math.min(popupBackground.radius, width / 2, height / 2)
+                        radius: Math.max(0, Math.min(popupBackground.radius, width / 2, height / 2))
                     }
                 }
 

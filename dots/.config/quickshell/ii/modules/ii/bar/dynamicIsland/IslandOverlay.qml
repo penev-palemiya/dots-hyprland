@@ -57,9 +57,9 @@ LazyLoader {
         keepMounted: true
         keepSurfaceMapped: true
         enterDuration: Appearance.animation.elementMove.duration
-        exitDuration: Appearance.animation.elementMoveSmall.duration
+        exitDuration: Appearance.animation.elementMoveExit.duration
         enterCurve: Appearance.animation.elementMove.bezierCurve
-        exitCurve: Appearance.animation.elementMoveSmall.bezierCurve
+        exitCurve: Appearance.animation.elementMoveExit.bezierCurve
     }
 
     active: root.lifecycle.mounted
@@ -149,14 +149,14 @@ LazyLoader {
                 left: parent.left
                 right: parent.right
             }
-            height: (contentLoader.implicitHeight + contentPadding * 2) * root.lifecycle.progress
+            height: Math.max(0, (contentLoader.implicitHeight + contentPadding * 2) * root.lifecycle.progress)
             onHeightChanged: root.visibleHeight = height
             // Flattened in DynamicIsland from "pill over bar background" into
             // the single color this separate surface must paint to match the
             // inline pill visually.
             color: !Config.options.appearance.transparency.enable ? root.surfaceColor
                 : Config.options.appearance.transparency.compositorBlur
-                    ? Appearance.colors.colGlassTint
+                    ? (Config.options.bar.showBackground ? ColorUtils.compositeOver(Appearance.colors.colGlassTint, Appearance.colors.colLayer0) : Appearance.colors.colGlassTint)
                     : "transparent"
             // Flat against the pill above (see class comment) — only the
             // bottom corners round, matching the pill's own shape while merged.

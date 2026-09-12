@@ -12,7 +12,8 @@ QtObject {
 
     property bool requestedOpen: false
     property int phase: SurfaceLifecycle.Phase.Closed
-    property real progress: 0
+    property real rawProgress: 0
+    readonly property real progress: Math.max(0, root.rawProgress)
     property bool mounted: false
     property bool keepMounted: false
     property bool keepSurfaceMapped: false
@@ -22,6 +23,7 @@ QtObject {
     property int exitDuration: 0
     property list<real> enterCurve: [0, 0, 1, 1]
     property list<real> exitCurve: [0, 0, 1, 1]
+    property bool deferOpening: true
 
     readonly property bool surfaceVisible: root.mounted
         && (root.keepSurfaceMapped || root.phase !== SurfaceLifecycle.Phase.Closed)
@@ -62,20 +64,23 @@ QtObject {
             root.generation++;
             root.phase = SurfaceLifecycle.Phase.Opening;
             root.openingStarted();
-            Qt.callLater(root.startOpening);
+            if (root.deferOpening)
+                Qt.callLater(root.startOpening);
+            else
+                root.startOpening();
             return;
         }
 
-        if (root.phase === SurfaceLifecycle.Phase.Closed || root.progress <= 0) {
+        if (root.phase === SurfaceLifecycle.Phase.Closed || root.rawProgress <= 0) {
             root.finishClosed();
             return;
         }
 
         root.phase = SurfaceLifecycle.Phase.Closing;
         root.closingStarted();
-        transition.from = root.progress;
+        transition.from = root.rawProgress;
         transition.to = 0;
-        transition.duration = Math.max(1, root.exitDuration * Math.max(0, root.progress));
+        transition.duration = Math.max(1, root.exitDuration * Math.max(0, root.rawProgress));
         transition.easing.bezierCurve = root.exitCurve;
         transition.start();
     }
@@ -83,16 +88,16 @@ QtObject {
     function startOpening() {
         if (!root.requestedOpen)
             return;
-        transition.from = root.progress;
+        transition.from = root.rawProgress;
         transition.to = 1;
-        transition.duration = Math.max(1, root.enterDuration * Math.max(0, 1 - root.progress));
+        transition.duration = Math.max(1, root.enterDuration * Math.max(0, 1 - root.rawProgress));
         transition.easing.bezierCurve = root.enterCurve;
         transition.start();
     }
 
     function finishClosed() {
         transition.stop();
-        root.progress = 0;
+        root.rawProgress = 0;
         root.phase = SurfaceLifecycle.Phase.Closed;
         if (!root.keepMounted)
             root.mounted = false;
@@ -113,14 +118,14 @@ QtObject {
 
     property NumberAnimation transition: NumberAnimation {
         target: root
-        property: "progress"
+        property: "rawProgress"
         easing.type: Easing.BezierSpline
         onFinished: {
-            if (root.requestedOpen && root.progress >= 0.999) {
-                root.progress = 1;
+            if (root.requestedOpen && root.rawProgress >= 0.999) {
+                root.rawProgress = 1;
                 root.phase = SurfaceLifecycle.Phase.Opened;
                 root.fullyOpened();
-            } else if (!root.requestedOpen && root.progress <= 0.001) {
+            } else if (!root.requestedOpen && root.rawProgress <= 0.001) {
                 root.finishClosed();
             }
         }

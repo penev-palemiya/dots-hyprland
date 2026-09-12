@@ -74,9 +74,9 @@ Item {
     // wallpaper Image to 0x0 and meant the island never showed any wallpaper
     // at all, on either surface. Falling back to the attached property keeps
     // this usable if it is ever instantiated outside the bar.
-    property var barScreen: root.QsWindow?.window?.screen ?? null
-    property real screenWidth: root.barScreen?.width ?? 0
-    property real screenHeight: root.barScreen?.height ?? 0
+    property var barScreen: (root.QsWindow && root.QsWindow.window && root.QsWindow.window.screen) ? root.QsWindow.window.screen : null
+    property real screenWidth: root.barScreen ? root.barScreen.width : 0
+    property real screenHeight: root.barScreen ? root.barScreen.height : 0
     property real pillScreenX: 0
     property real pillScreenY: 0
     property real pillScreenWidth: 0
@@ -163,13 +163,13 @@ Item {
     onOverlayOpenChanged: {
         if (root.overlayOpen)
             demoteTimer.stop();
-        else if ((root.primaryActivity?.primaryDuration ?? 0) > 0 && root.activePrimaryId !== "media")
+        else if ((root.primaryActivity ? root.primaryActivity.primaryDuration : 0) > 0 && root.activePrimaryId !== "media")
             demoteTimer.restart();
     }
 
     Timer {
         id: demoteTimer
-        interval: root.primaryActivity?.primaryDuration ?? 0
+        interval: root.primaryActivity ? root.primaryActivity.primaryDuration : 0
         onTriggered: {
             const demoted = root.primaryActivity;
             root.activePrimaryId = "media";
@@ -201,7 +201,7 @@ Item {
         }
     }
 
-    readonly property bool hasExpandedContent: !!root.primaryActivity?.expandedContent
+    readonly property bool hasExpandedContent: Boolean(root.primaryActivity && root.primaryActivity.expandedContent)
     readonly property bool overlayOpen: root.pinned && root.hasExpandedContent
     // Whether the pill's bottom edge should flatten flat against the overlay
     // below it. Use IslandOverlay's actual animated height so the pill rounds
@@ -252,6 +252,9 @@ Item {
         Behavior on bottomRightRadius {
             enabled: !root.overlayOpen
             animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(pillBackground)
+        }
+        Behavior on color {
+            animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(pillBackground)
         }
 
         Loader {
@@ -334,7 +337,7 @@ Item {
         screenHeight: root.screenHeight
         surfaceColor: root.expandedSurfaceColor
         shown: root.overlayOpen
-        sourceComponent: root.primaryActivity?.expandedContent ?? null
+        sourceComponent: (root.primaryActivity && root.primaryActivity.expandedContent) ? root.primaryActivity.expandedContent : null
         onDismissRequested: root.pinned = false
     }
 }

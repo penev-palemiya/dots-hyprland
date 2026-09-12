@@ -149,41 +149,46 @@ Scope { // Scope
             }
 
             // Content
-            StyledRectangularShadow {
-                target: sidebarLeftBackground
-                radius: sidebarLeftBackground.radius
-            }
-            Rectangle {
-                id: sidebarLeftBackground
+            Item {
+                id: sidebarLeftContainer
                 anchors.top: parent.top
                 anchors.left: parent.left
                 anchors.topMargin: Appearance.sizes.hyprlandGapsOut
                 anchors.leftMargin: Appearance.sizes.hyprlandGapsOut
                 width: panelWindow.sidebarWidth - Appearance.sizes.hyprlandGapsOut - Appearance.sizes.elevationMargin
                 height: parent.height - Appearance.sizes.hyprlandGapsOut * 2
-                color: Appearance.colors.colLayer0
-                radius: Appearance.rounding.screenRounding - Appearance.sizes.hyprlandGapsOut + 1
                 transform: Translate {
-                    x: -sidebarLeftBackground.width * (1 - lifecycle.progress)
+                    x: -sidebarLeftContainer.width * (1 - lifecycle.progress)
                 }
 
                 Behavior on width {
                     animation: Appearance.animation.elementMove.numberAnimation.createObject(this)
                 }
 
-                Keys.onPressed: (event) => {
-                    if (event.key === Qt.Key_Escape) {
-                        panelWindow.hide();
-                    }
-                    if (event.modifiers === Qt.ControlModifier) {
-                        if (event.key === Qt.Key_O) {
-                            panelWindow.extend = !panelWindow.extend;
-                        } else if (event.key === Qt.Key_D) {
-                            root.toggleDetach();
-                        } else if (event.key === Qt.Key_P) {
-                            root.togglePin();
+                StyledRectangularShadow {
+                    target: sidebarLeftBackground
+                    radius: sidebarLeftBackground.radius
+                }
+                Rectangle {
+                    id: sidebarLeftBackground
+                    anchors.fill: parent
+                    color: Appearance.colors.colLayer0
+                    radius: Appearance.rounding.screenRounding - Appearance.sizes.hyprlandGapsOut + 1
+
+                    Keys.onPressed: (event) => {
+                        if (event.key === Qt.Key_Escape) {
+                            panelWindow.hide();
                         }
-                        event.accepted = true;
+                        if (event.modifiers === Qt.ControlModifier) {
+                            if (event.key === Qt.Key_O) {
+                                panelWindow.extend = !panelWindow.extend;
+                            } else if (event.key === Qt.Key_D) {
+                                root.toggleDetach();
+                            } else if (event.key === Qt.Key_P) {
+                                root.togglePin();
+                            }
+                            event.accepted = true;
+                        }
                     }
                 }
             }
@@ -224,15 +229,15 @@ Scope { // Scope
     IpcHandler {
         target: "sidebarLeft"
 
-        function toggle(): void {
+        function toggle() {
             GlobalStates.sidebarLeftOpen = !GlobalStates.sidebarLeftOpen
         }
 
-        function close(): void {
+        function close() {
             GlobalStates.sidebarLeftOpen = false
         }
 
-        function open(): void {
+        function open() {
             GlobalStates.sidebarLeftOpen = true
         }
     }

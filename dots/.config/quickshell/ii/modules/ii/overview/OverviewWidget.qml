@@ -145,22 +145,37 @@ Item {
     Rectangle { // Background
         id: overviewBackground
         property real padding: 10
-        anchors.fill: parent
-        anchors.margins: Appearance.sizes.elevationMargin
+        anchors {
+            top: parent.top
+            topMargin: Appearance.sizes.elevationMargin
+            horizontalCenter: parent.horizontalCenter
+        }
 
         implicitWidth: workspaceColumnLayout.implicitWidth + padding * 2
         implicitHeight: workspaceColumnLayout.implicitHeight + padding * 2
+        width: implicitWidth
+        height: implicitHeight
         radius: root.largeWorkspaceRadius + padding
         color: Appearance.colors.colBackgroundSurfaceContainer
+        clip: true
 
-        Grid { // Workspaces
-            id: workspaceColumnLayout
+        Item {
+            id: contentHost
+            anchors {
+                top: parent.top
+                horizontalCenter: parent.horizontalCenter
+            }
+            width: overviewBackground.implicitWidth
+            height: overviewBackground.implicitHeight
 
-            z: root.workspaceZ
-            anchors.centerIn: parent
-            columns: Config.options.overview.columns
-            rows: Config.options.overview.rows
-            spacing: workspaceSpacing
+            Grid { // Workspaces
+                id: workspaceColumnLayout
+
+                z: root.workspaceZ
+                anchors.centerIn: parent
+                columns: Config.options.overview.columns
+                rows: Config.options.overview.rows
+                spacing: workspaceSpacing
 
             Repeater { // Workspace repeater
                 model: root.workspacesShown
@@ -229,11 +244,11 @@ Item {
             }
         }
 
-        Item { // Windows & focused workspace indicator
-            id: windowSpace
-            anchors.centerIn: parent
-            implicitWidth: workspaceColumnLayout.implicitWidth
-            implicitHeight: workspaceColumnLayout.implicitHeight
+            Item { // Windows & focused workspace indicator
+                id: windowSpace
+                anchors.centerIn: parent
+                implicitWidth: workspaceColumnLayout.implicitWidth
+                implicitHeight: workspaceColumnLayout.implicitHeight
 
             Repeater { // Window repeater
                 id: windowRepeater
@@ -434,6 +449,7 @@ Item {
                 Behavior on bottomRightRadius {
                     animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
                 }
+            }
             }
         }
     }

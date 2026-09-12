@@ -16,21 +16,80 @@ import Quickshell.Hyprland
 Scope {
     id: overviewScope
     property bool dontAutoCancelSearch: false
+    readonly property int flyDuration: 300
+    readonly property int staggerDelay: 90
+
+    property real searchMotion: overviewController.requestedOpen ? 1 : 0
+    property real searchOpacity: overviewController.requestedOpen ? 1 : 0
+    property real gridMotion: overviewController.requestedOpen ? 1 : 0
+    property real gridOpacity: overviewController.requestedOpen ? 1 : 0
+
+    Behavior on searchMotion {
+        SequentialAnimation {
+            PauseAnimation {
+                duration: overviewController.requestedOpen ? overviewScope.staggerDelay : 0
+            }
+            NumberAnimation {
+                duration: overviewScope.flyDuration
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Appearance.animationCurves.expressiveFastSpatial
+            }
+        }
+    }
+
+    Behavior on searchOpacity {
+        SequentialAnimation {
+            PauseAnimation {
+                duration: overviewController.requestedOpen ? overviewScope.staggerDelay : 0
+            }
+            NumberAnimation {
+                duration: overviewScope.flyDuration
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
+            }
+        }
+    }
+
+    Behavior on gridMotion {
+        SequentialAnimation {
+            PauseAnimation {
+                duration: overviewController.requestedOpen ? 0 : overviewScope.staggerDelay
+            }
+            NumberAnimation {
+                duration: overviewScope.flyDuration
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Appearance.animationCurves.expressiveFastSpatial
+            }
+        }
+    }
+
+    Behavior on gridOpacity {
+        SequentialAnimation {
+            PauseAnimation {
+                duration: overviewController.requestedOpen ? 0 : overviewScope.staggerDelay
+            }
+            NumberAnimation {
+                duration: overviewScope.flyDuration
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
+            }
+        }
+    }
 
     SurfaceLifecycle {
         id: overviewController
-        enterDuration: Appearance.animation.elementMoveLarge.duration
-        exitDuration: Appearance.animation.elementMoveExit.duration
-        enterCurve: Appearance.animation.elementMoveLarge.bezierCurve
-        exitCurve: Appearance.animationCurves.emphasizedDecel
-        onFullyClosed: searchWidget.workspaceGrid = null
+        enterDuration: overviewScope.staggerDelay + overviewScope.flyDuration
+        exitDuration: overviewScope.staggerDelay + overviewScope.flyDuration
+        enterCurve: Appearance.animationCurves.expressiveFastSpatial
+        exitCurve: Appearance.animationCurves.expressiveFastSpatial
+        deferOpening: false
     }
 
     PanelWindow {
         id: panelWindow
         property string searchingText: ""
         readonly property HyprlandMonitor monitor: Hyprland.monitorFor(panelWindow.screen)
-        property bool monitorIsFocused: (Hyprland.focusedMonitor?.id == monitor?.id)
+        property bool monitorIsFocused: (Hyprland.focusedMonitor && monitor) ? (Hyprland.focusedMonitor.id == monitor.id) : false
 
         visible: overviewController.surfaceVisible
 
@@ -61,7 +120,8 @@ Scope {
                     HyprlandData.updateWindowList();
                 overviewController.setOpen(GlobalStates.overviewOpen);
                 if (!GlobalStates.overviewOpen) {
-                    searchWidget.workspaceGrid?.clearSelection();
+                    if (searchWidget.workspaceGrid)
+                        searchWidget.workspaceGrid.clearSelection();
                     searchWidget.disableExpandAnimation();
                     overviewScope.dontAutoCancelSearch = false;
                     GlobalFocusGrab.dismiss();
@@ -81,13 +141,10 @@ Scope {
             }
         }
 
-        // Fixed to the fully-open content size regardless of motionProgress -
-        // this is the layer-shell surface's own geometry, and animating it
-        // directly would resize the actual Wayland surface every frame
-        // instead of just transforming what's painted inside it. The visual
-        // grow/shrink comes entirely from motionScale on columnLayout below.
-        implicitWidth: columnLayout.implicitWidth
-        implicitHeight: columnLayout.implicitHeight
+        // Keep the Wayland surface at its final geometry. Only the QML shape
+        // below grows, avoiding a layer-shell reconfiguration on every frame.
+        implicitWidth: Math.max(searchWidget.implicitWidth, overviewLoader.implicitWidth)
+        implicitHeight: searchWidget.implicitHeight + columnLayout.spacing + overviewLoader.implicitHeight
 
         function setSearchingText(text) {
             searchWidget.setSearchingText(text);
@@ -100,33 +157,8 @@ Scope {
             anchors {
                 horizontalCenter: parent.horizontalCenter
                 top: parent.top
-                // The column itself no longer moves - it is a layout box.
-                // Each child carries its own offset so the two blocks can
-                // enter on staggered timing (see gridProgress above); moving
-                // the container as well would drag them back into lockstep.
             }
             spacing: -8
-
-            // Alpha is never animated on this surface.
-            //
-            // Forced by the compositor, not a style choice. Hyprland's blur is
-            // binary: a layer is either blurred or it is not, and the
-            // `ignore_alpha` threshold in hyprland/rules.lua decides which by
-            // comparing against the pixel's alpha. A surface that fades from 0
-            // to 1 crosses that threshold mid-animation and the blur snaps on
-            // in a single frame - measured as the panel's empty area jumping
-            // from luma 0.1376 to 0.1084 between two consecutive frames.
-            // Dropping the threshold to 0 removes the snap but blurs the
-            // overlay at full strength from the first frame, so the backdrop
-            // stops arriving with the content at all.
-            //
-            // No threshold fixes this, because the compositor cannot ramp blur
-            // in step with a client-side fade. Keeping alpha pinned at 1
-            // sidesteps it: the blur stays in exactly one state throughout,
-            // and the motion is carried by geometry, which the compositor does
-            // not inspect.
-
-
 
             Keys.onPressed: event => {
                 if (event.key === Qt.Key_Escape) {
@@ -139,52 +171,57 @@ Scope {
                 anchors.horizontalCenter: parent.horizontalCenter
                 overviewOpen: overviewController.requestedOpen
                 onCloseRequested: GlobalStates.overviewOpen = false
-
-                // Leads the entry. Slides down from behind the top edge and
-                // settles - emphasized decelerate, per elementMoveEnter.
-                //
-                // The offset goes through a Translate, not through `y`: this
-                // is a child of a Column, which assigns `y` itself to lay its
-                // children out. Setting `y` here fought the layout and left
-                // the search field off-screen entirely.
-                transformOrigin: Item.Top
-                scale: 0.94 + 0.06 * overviewController.progress
+                opacity: overviewScope.searchOpacity
+                transformOrigin: Item.Center
+                scale: 0.85 + 0.15 * overviewScope.searchMotion
                 transform: Translate {
-                    y: -searchWidget.height * (1 - overviewController.progress)
+                    y: -16 * (1 - overviewScope.searchMotion)
                 }
                 Synchronizer on searchingText {
                     property alias source: panelWindow.searchingText
                 }
             }
 
-            Loader {
-                id: overviewLoader
+            Item {
+                id: gridReveal
                 anchors.horizontalCenter: parent.horizontalCenter
+                width: overviewLoader.implicitWidth
+                height: overviewLoader.implicitHeight
 
-                // Follows one stagger step behind, on the same curve. Same
-                // Translate reasoning as the search field above.
-                transformOrigin: Item.Top
-                scale: 0.94 + 0.06 * overviewController.progress
-                transform: Translate {
-                    y: -overviewLoader.height * (1 - overviewController.progress)
+                Loader {
+                    id: overviewLoader
+                    opacity: overviewScope.gridOpacity
+                    transformOrigin: Item.Center
+                    scale: 0.85 + 0.15 * overviewScope.gridMotion
+                    transform: Translate {
+                        y: -16 * (1 - overviewScope.gridMotion)
+                    }
+                    anchors {
+                        top: parent.top
+                        horizontalCenter: parent.horizontalCenter
+                    }
+                    // Keep the QML grid warm between invocations; recreating all
+                    // delegates during entry causes a visible frame stall. Capture
+                    // sources still detach after exit, releasing their buffers.
+                    active: !Config || !Config.options || !Config.options.overview || (Config.options.overview.enable !== false)
+                    sourceComponent: OverviewWidget {
+                        screen: panelWindow.screen
+                        // Keep snapshots for the entire mapped lifetime: prepare
+                        // them during entry and release them only after exit.
+                        captureActive: overviewController.mounted
+                        captureGeneration: overviewController.generation
+                        visible: (panelWindow.searchingText == "")
+                        onCloseRequested: GlobalStates.overviewOpen = false
+                        onWorkspaceActivated: workspace => Hyprland.dispatch(`hl.dsp.focus({ workspace = ${workspace} })`)
+                        onWindowActivated: address => Hyprland.dispatch(`hl.dsp.focus({window = "address:${address}"})`)
+                        onWindowCloseRequested: address => Hyprland.dispatch(`hl.dsp.window.close({window = "address:${address}"})`)
+                        onWindowMoveToWorkspaceRequested: (address, workspace) => Hyprland.dispatch(`hl.dsp.window.move({ workspace = ${workspace}, follow = false, window = "address:${address}" })`)
+                        onWindowMoveToPositionRequested: (address, x, y) => Hyprland.dispatch(`hl.dsp.window.move({ x = "${x}", y = "${y}", window = "address:${address}" })`)
+                    }
+                    // Hand the grid to the search field so an empty query can
+                    // steer it with the arrow keys.
+                    onLoaded: searchWidget.workspaceGrid = item
                 }
-                // Destroy previews and their graphics resources after exit.
-                active: overviewController.mounted && (Config?.options.overview.enable ?? true)
-                sourceComponent: OverviewWidget {
-                    screen: panelWindow.screen
-                    captureActive: overviewController.requestedOpen
-                    captureGeneration: overviewController.generation
-                    visible: (panelWindow.searchingText == "")
-                    onCloseRequested: GlobalStates.overviewOpen = false
-                    onWorkspaceActivated: workspace => Hyprland.dispatch(`hl.dsp.focus({ workspace = ${workspace} })`)
-                    onWindowActivated: address => Hyprland.dispatch(`hl.dsp.focus({window = "address:${address}"})`)
-                    onWindowCloseRequested: address => Hyprland.dispatch(`hl.dsp.window.close({window = "address:${address}"})`)
-                    onWindowMoveToWorkspaceRequested: (address, workspace) => Hyprland.dispatch(`hl.dsp.window.move({ workspace = ${workspace}, follow = false, window = "address:${address}" })`)
-                    onWindowMoveToPositionRequested: (address, x, y) => Hyprland.dispatch(`hl.dsp.window.move({ x = "${x}", y = "${y}", window = "address:${address}" })`)
-                }
-                // Hand the grid to the search field so an empty query can
-                // steer it with the arrow keys.
-                onLoaded: searchWidget.workspaceGrid = item
             }
         }
     }
